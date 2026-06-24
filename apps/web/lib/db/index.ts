@@ -7,6 +7,8 @@ import * as schema from "./schema"
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL,
   connectionTimeoutMillis: 5000,
+  // statement_timeout is sent to Postgres on connect — server kills any query > 8s
+  statement_timeout: 8000,
   max: 3,
 })
 

@@ -76,20 +76,24 @@ export default async function DashboardPage() {
 
   const uniqueNames = [...new Set(upcoming.map((b) => b.prepMasterName).filter(Boolean))]
   const availabilityMap: Record<string, DayAvailability[]> = {}
-  await Promise.all(
-    uniqueNames.map(async (name) => {
-      try {
-        const { getPrepMasters } = await import("@/lib/airtable")
-        const all = await getPrepMasters()
-        const pm = all.find((p) => p.name === name)
-        if (pm?.email) {
-          availabilityMap[name] = await getAvailabilityForEmail(pm.email)
+  // 8s hard cap — stale Neon TCP connections can hang indefinitely on this query
+  await Promise.race([
+    Promise.all(
+      uniqueNames.map(async (name) => {
+        try {
+          const { getPrepMasters } = await import("@/lib/airtable")
+          const all = await getPrepMasters()
+          const pm = all.find((p) => p.name === name)
+          if (pm?.email) {
+            availabilityMap[name] = await getAvailabilityForEmail(pm.email)
+          }
+        } catch {
+          // availability unavailable for this prep master
         }
-      } catch {
-        // availability unavailable for this prep master
-      }
-    }),
-  )
+      }),
+    ),
+    new Promise<void>((resolve) => setTimeout(resolve, 8000)),
+  ])
 
   return (
     <div className="flex flex-col gap-8">
