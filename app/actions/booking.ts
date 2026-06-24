@@ -202,10 +202,10 @@ export async function createBooking(input: {
       "Credits Remaining": newCredits,
     })
 
-    // If this booking used the last credit, mark the active plan as Inactive
+    // If this booking used the last credit, mark the active plan as Used
     if (newCredits === 0) {
       const activePlan = await getActivePlanForUser(user.id)
-      if (activePlan) await setPlanStatus(activePlan.id, "Inactive")
+      if (activePlan) await setPlanStatus(activePlan.id, "Used")
     }
 
     // Notify prep master by SMS — fire and forget so a Twilio error never blocks the booking

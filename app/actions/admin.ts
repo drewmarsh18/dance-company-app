@@ -1,9 +1,13 @@
 "use server"
 
+import { randomUUID } from "crypto"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
 import { isAdminEmail } from "@/lib/roles"
+import { db } from "@/lib/db"
+import { prepMasterInvite } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 import {
   adminGetAllMembers,
   adminGetAllBookings,
@@ -12,6 +16,7 @@ import {
   adminGetAllPlans,
   adminUpdateWorker,
   adminCreateMember,
+  adminCreateWorker,
   createMemberPlan,
   getActivePlanForUser,
   setPlanStatus,
@@ -86,6 +91,7 @@ export async function adminAssignPlan(
       planName: pkg.name,
       sessions: pkg.sessions,
       pricePaid: pkg.price,
+      expiryDays: pkg.expiryDays,
     })
 
     // Add the package's sessions as credits on the member record
@@ -144,6 +150,56 @@ export async function createMember(input: {
     return {
       ok: false,
       error: err instanceof Error ? err.message : "Failed to create member.",
+    }
+  }
+}
+
+export async function addPrepMaster(input: {
+  name: string
+  email: string
+  phone?: string
+  region?: string
+  hourlyRate?: number
+}): Promise<{ ok: true; worker: AdminWorker } | { ok: false; error: string }> {
+  try {
+    await assertAdmin()
+    if (!input.name.trim()) return { ok: false, error: "Name is required." }
+    const email = input.email.trim().toLowerCase()
+    if (!email) return { ok: false, error: "Email is required." }
+
+    // Create the Airtable Worker record
+    const worker = await adminCreateWorker({ ...input, email })
+
+    // Create or reactivate the DB invite so they can sign in as a Prep Master
+    const existing = await db
+      .select({ id: prepMasterInvite.id, status: prepMasterInvite.status })
+      .from(prepMasterInvite)
+      .where(eq(prepMasterInvite.email, email))
+      .limit(1)
+
+    if (existing[0]) {
+      if (existing[0].status === "revoked") {
+        await db
+          .update(prepMasterInvite)
+          .set({ status: "pending", name: input.name.trim() })
+          .where(eq(prepMasterInvite.id, existing[0].id))
+      }
+    } else {
+      await db.insert(prepMasterInvite).values({
+        id: randomUUID(),
+        email,
+        name: input.name.trim(),
+        invitedBy: "admin",
+        status: "pending",
+      })
+    }
+
+    revalidatePath("/admin")
+    return { ok: true, worker }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to add Prep Master.",
     }
   }
 }

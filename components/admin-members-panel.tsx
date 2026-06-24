@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { addComplimentaryCredits, adminAssignPlan, createMember } from "@/app/actions/admin"
 import type { AdminMember, AdminBooking, MemberPlan } from "@/lib/airtable"
+import { planDisplayStatus } from "@/lib/plan-utils"
 import type { DancePackage } from "@/lib/packages"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -147,7 +148,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
         const isOpen = expanded === member.id
         const history = memberBookings(member)
         const memberPlanList = memberPlans(member)
-        const activePlan = memberPlanList.find((p) => p.status === "Active")
+        const activePlan = memberPlanList.find((p) => planDisplayStatus(p) === "Active")
         const credits = creditsFor(member)
 
         return (
@@ -269,9 +270,9 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                             </div>
                             <Badge
                               variant="outline"
-                              className={`capitalize text-xs ${plan.status === "Active" ? "border-green-300 bg-green-100 text-green-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
+                              className={`capitalize text-xs ${planDisplayStatus(plan) === "Active" ? "border-green-300 bg-green-100 text-green-700" : planDisplayStatus(plan) === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
                             >
-                              {plan.status}
+                              {planDisplayStatus(plan)}
                             </Badge>
                           </li>
                         )

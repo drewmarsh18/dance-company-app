@@ -19,6 +19,7 @@ export default async function AdminLayout({
         user={{ name: user.name, email: user.email, image: user.image }}
         roleLabel="Admin"
         homeHref="/admin"
+        isAdmin
       />
       <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
       <Toaster position="top-center" />

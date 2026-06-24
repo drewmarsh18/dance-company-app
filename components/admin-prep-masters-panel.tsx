@@ -2,13 +2,15 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { updatePrepMaster } from "@/app/actions/admin"
+import { updatePrepMaster, addPrepMaster } from "@/app/actions/admin"
 import type { AdminWorker, AdminBooking } from "@/lib/airtable"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Users, DollarSign, Phone, Mail, MapPin, Home, CalendarDays, ChevronDown, ChevronUp } from "lucide-react"
+import { ArrowLeft, Users, DollarSign, Phone, Mail, MapPin, Home, CalendarDays, ChevronDown, ChevronUp, PlusCircle, X } from "lucide-react"
 import { BookingFilterBar, applyFilters, type SortDir } from "@/components/booking-filter-bar"
 
 type Props = {
@@ -19,12 +21,14 @@ type Props = {
 
 export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
   const [selected, setSelected] = useState<AdminWorker | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [localWorkers, setLocalWorkers] = useState<AdminWorker[]>(workers)
 
   const filtered = query.trim()
-    ? workers.filter((w) => w.name.toLowerCase().includes(query.toLowerCase()))
-    : workers
+    ? localWorkers.filter((w) => w.name.toLowerCase().includes(query.toLowerCase()))
+    : localWorkers
 
-  if (workers.length === 0) {
+  if (localWorkers.length === 0 && !showAddForm) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
@@ -51,8 +55,25 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      {filtered.length === 0 && (
-        <p className="py-6 text-center text-sm text-muted-foreground">No Prep Masters match &ldquo;{query}&rdquo;.</p>
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setShowAddForm((v) => !v)} variant={showAddForm ? "outline" : "default"}>
+          {showAddForm ? <><X className="mr-1.5 size-3.5" />Cancel</> : <><PlusCircle className="mr-1.5 size-3.5" />Add Prep Master</>}
+        </Button>
+      </div>
+
+      {showAddForm && (
+        <AddPrepMasterForm
+          onSuccess={(worker) => {
+            setLocalWorkers((prev) => [worker, ...prev])
+            setShowAddForm(false)
+          }}
+        />
+      )}
+
+      {filtered.length === 0 && !showAddForm && (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          {query ? <>No Prep Masters match &ldquo;{query}&rdquo;.</> : "No Prep Masters yet."}
+        </p>
       )}
       {filtered.map((worker) => {
         const sessionCount = bookings.filter(
@@ -352,5 +373,78 @@ function StatTile({ label, value, highlight }: { label: string; value: string; h
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={`mt-0.5 text-lg font-bold ${highlight ? "text-primary" : ""}`}>{value}</p>
     </div>
+  )
+}
+
+function AddPrepMasterForm({ onSuccess }: { onSuccess: (worker: AdminWorker) => void }) {
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [region, setRegion] = useState("")
+  const [hourlyRate, setHourlyRate] = useState("")
+  const [isPending, startTransition] = useTransition()
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    startTransition(async () => {
+      const result = await addPrepMaster({
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        region: region.trim(),
+        hourlyRate: parseFloat(hourlyRate) || 0,
+      })
+      if (result.ok) {
+        toast.success(`${name.trim()} has been added as a Prep Master.`)
+        onSuccess(result.worker)
+      } else {
+        toast.error(result.error)
+      }
+    })
+  }
+
+  return (
+    <Card className="border-primary/30 bg-primary/5">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <PlusCircle className="size-4 text-primary" />
+          Add new Prep Master
+        </CardTitle>
+        <CardDescription>
+          Creates a profile in Airtable and grants sign-in access. They&apos;ll see their portal when they log in with this email.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pm-name">Full name <span className="text-destructive">*</span></Label>
+              <Input id="pm-name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pm-email">Email <span className="text-destructive">*</span></Label>
+              <Input id="pm-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@example.com" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pm-phone">Phone</Label>
+              <Input id="pm-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 000-0000" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pm-region">Region</Label>
+              <Input id="pm-region" value={region} onChange={(e) => setRegion(e.target.value)} placeholder="e.g. Northeast, West…" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pm-rate">Pay rate per session ($)</Label>
+              <Input id="pm-rate" type="number" min="0" step="0.01" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} placeholder="0.00" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Adding…" : "Add Prep Master"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

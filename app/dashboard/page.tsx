@@ -3,6 +3,7 @@ import { headers } from "next/headers"
 import { isAirtableConfigured } from "@/lib/airtable"
 import { getOrCreateProfile, getMyPlans } from "@/app/actions/profile"
 import type { MemberPlan } from "@/lib/airtable"
+import { planDisplayStatus } from "@/lib/plan-utils"
 import { getMyBookings, type Booking } from "@/app/actions/booking"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { Button } from "@/components/ui/button"
@@ -136,9 +137,9 @@ export default async function DashboardPage() {
                     </span>
                     <Badge
                       variant="outline"
-                      className={`capitalize text-xs ${plan.status === "Active" ? "border-green-300 bg-green-100 text-green-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
+                      className={`capitalize text-xs ${planDisplayStatus(plan) === "Active" ? "border-green-300 bg-green-100 text-green-700" : planDisplayStatus(plan) === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
                     >
-                      {plan.status}
+                      {planDisplayStatus(plan)}
                     </Badge>
                   </div>
                 ))}

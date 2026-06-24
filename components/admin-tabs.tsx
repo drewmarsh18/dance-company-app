@@ -1,17 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import type { Invite } from "@/app/actions/invites"
 import type { AdminMember, AdminBooking, AdminWorker, MemberPlan } from "@/lib/airtable"
 import type { DancePackage } from "@/lib/packages"
-import { InviteManager } from "@/components/invite-manager"
 import { AdminMembersPanel } from "@/components/admin-members-panel"
 import { AdminPayrollPanel } from "@/components/admin-payroll-panel"
 import { AdminPrepMastersPanel } from "@/components/admin-prep-masters-panel"
+import { AdminOverviewPanel } from "@/components/admin-overview-panel"
 import { Search } from "lucide-react"
 
 const TABS = [
-  { id: "invites", label: "Invites" },
+  { id: "overview", label: "Overview" },
   { id: "members", label: "Members" },
   { id: "prep-masters", label: "Prep Masters" },
   { id: "payroll", label: "Payroll" },
@@ -28,7 +27,6 @@ const SEARCH_PLACEHOLDERS: Partial<Record<TabId, string>> = {
 }
 
 type Props = {
-  invites: Invite[]
   members: AdminMember[]
   bookings: AdminBooking[]
   workers: AdminWorker[]
@@ -36,8 +34,8 @@ type Props = {
   packages: DancePackage[]
 }
 
-export function AdminTabs({ invites, members, bookings, workers, plans, packages }: Props) {
-  const [active, setActive] = useState<TabId>("invites")
+export function AdminTabs({ members, bookings, workers, plans, packages }: Props) {
+  const [active, setActive] = useState<TabId>("overview")
   const [queries, setQueries] = useState<Partial<Record<TabId, string>>>({})
 
   const query = queries[active] ?? ""
@@ -76,15 +74,9 @@ export function AdminTabs({ invites, members, bookings, workers, plans, packages
         )}
       </div>
 
-      {active === "invites" && <InviteManager initialInvites={invites} />}
+      {active === "overview" && <AdminOverviewPanel members={members} bookings={bookings} workers={workers} />}
       {active === "members" && (
-        <AdminMembersPanel
-          members={members}
-          bookings={bookings}
-          plans={plans}
-          packages={packages}
-          query={query}
-        />
+        <AdminMembersPanel members={members} bookings={bookings} plans={plans} packages={packages} query={query} />
       )}
       {active === "prep-masters" && (
         <AdminPrepMastersPanel workers={workers} bookings={bookings} query={query} />

@@ -12,6 +12,8 @@ export type DancePackage = {
   price: number
   perSession: number
   savings: number
+  /** Days from purchase date before the plan expires. */
+  expiryDays: number
   features: string[]
   highlight?: boolean
 }
@@ -35,6 +37,7 @@ export const PACKAGES: DancePackage[] = [
     price: 495,
     perSession: 99,
     savings: 100,
+    expiryDays: 180,
     features: [
       "5 hourly private sessions",
       "Book with any prep master",
@@ -48,6 +51,7 @@ export const PACKAGES: DancePackage[] = [
     price: 990,
     perSession: 99,
     savings: 200,
+    expiryDays: 180,
     highlight: true,
     features: [
       "10 hourly private sessions",
@@ -62,6 +66,7 @@ export const PACKAGES: DancePackage[] = [
     price: 1485,
     perSession: 99,
     savings: 300,
+    expiryDays: 365,
     features: [
       "15 hourly private sessions",
       "Priority booking windows",
@@ -75,6 +80,7 @@ export const PACKAGES: DancePackage[] = [
     price: 1980,
     perSession: 99,
     savings: 400,
+    expiryDays: 365,
     features: [
       "20 hourly private sessions",
       "Priority booking windows",
@@ -88,6 +94,7 @@ export const PACKAGES: DancePackage[] = [
     price: 2475,
     perSession: 99,
     savings: 500,
+    expiryDays: 365,
     features: [
       "25 hourly private sessions",
       "Best per-session value",

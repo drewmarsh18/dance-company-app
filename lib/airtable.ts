@@ -71,6 +71,7 @@ export type PlanFields = {
   Sessions?: number
   "Price Paid"?: number
   "Purchased At"?: string
+  "Expires At"?: string
   Status?: string
 }
 
@@ -81,8 +82,10 @@ export type MemberPlan = {
   sessions: number
   pricePaid: number
   purchasedAt: string
+  expiresAt: string
   status: string
 }
+
 
 // --- Low-level fetch helpers -------------------------------------------------
 
@@ -329,6 +332,7 @@ export async function getPlansForUser(userId: string): Promise<MemberPlan[]> {
     sessions: r.fields.Sessions ?? 0,
     pricePaid: r.fields["Price Paid"] ?? 0,
     purchasedAt: r.fields["Purchased At"] ?? "",
+    expiresAt: r.fields["Expires At"] ?? "",
     status: r.fields.Status ?? "Active",
   }))
 }
@@ -345,6 +349,7 @@ export async function adminGetAllPlans(): Promise<MemberPlan[]> {
     sessions: r.fields.Sessions ?? 0,
     pricePaid: r.fields["Price Paid"] ?? 0,
     purchasedAt: r.fields["Purchased At"] ?? "",
+    expiresAt: r.fields["Expires At"] ?? "",
     status: r.fields.Status ?? "Active",
   }))
 }
@@ -363,7 +368,7 @@ export async function getActivePlanForUser(userId: string): Promise<{ id: string
 export async function getMostRecentInactivePlanForUser(userId: string): Promise<{ id: string } | null> {
   const safeId = userId.replace(/'/g, "\\'")
   const records = await list<PlanFields>(TABLES.plans, {
-    filterByFormula: `AND({User ID} = '${safeId}', {Status} = 'Inactive')`,
+    filterByFormula: `AND({User ID} = '${safeId}', {Status} = 'Used')`,
     sort: [{ field: "Purchased At", direction: "desc" }],
     maxRecords: 1,
     revalidate: 0,
@@ -381,14 +386,19 @@ export async function createMemberPlan(fields: {
   planName: string
   sessions: number
   pricePaid: number
+  expiryDays: number
 }): Promise<MemberPlan> {
+  const purchasedAt = new Date()
+  const expiresAt = new Date(purchasedAt)
+  expiresAt.setDate(expiresAt.getDate() + fields.expiryDays)
   const record = await create<PlanFields>(TABLES.plans, {
     "User ID": fields.userId,
     "Member Email": fields.memberEmail,
     "Plan Name": fields.planName,
     Sessions: fields.sessions,
     "Price Paid": fields.pricePaid,
-    "Purchased At": new Date().toISOString(),
+    "Purchased At": purchasedAt.toISOString(),
+    "Expires At": expiresAt.toISOString(),
     Status: "Active",
   })
   return {
@@ -398,6 +408,7 @@ export async function createMemberPlan(fields: {
     sessions: record.fields.Sessions ?? 0,
     pricePaid: record.fields["Price Paid"] ?? 0,
     purchasedAt: record.fields["Purchased At"] ?? "",
+    expiresAt: record.fields["Expires At"] ?? "",
     status: record.fields.Status ?? "Active",
   }
 }
@@ -477,6 +488,35 @@ export async function adminGetAllBookings(): Promise<AdminBooking[]> {
       notes: r.fields.Notes ?? "",
     }
   })
+}
+
+export async function adminCreateWorker(fields: {
+  name: string
+  email: string
+  phone?: string
+  region?: string
+  address?: string
+  hourlyRate?: number
+}): Promise<AdminWorker> {
+  const record = await create<WorkerFields>(TABLES.workers, {
+    "Full Name": fields.name,
+    Email: fields.email,
+    Phone: fields.phone ?? "",
+    Region: fields.region ?? "",
+    Address: fields.address ?? "",
+    "Hourly Rate": fields.hourlyRate ?? 0,
+    Active: true,
+  })
+  return {
+    id: record.id,
+    name: record.fields["Full Name"] ?? "",
+    email: record.fields.Email ?? "",
+    region: record.fields.Region ?? "",
+    phone: record.fields.Phone ?? "",
+    address: record.fields.Address ?? "",
+    hourlyRate: record.fields["Hourly Rate"] ?? 0,
+    active: record.fields.Active !== false,
+  }
 }
 
 export async function adminGetAllWorkers(): Promise<AdminWorker[]> {
