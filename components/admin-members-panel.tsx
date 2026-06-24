@@ -1,0 +1,422 @@
+"use client"
+
+import { useState, useTransition } from "react"
+import { toast } from "sonner"
+import { addComplimentaryCredits, adminAssignPlan, createMember } from "@/app/actions/admin"
+import type { AdminMember, AdminBooking, MemberPlan } from "@/lib/airtable"
+import type { DancePackage } from "@/lib/packages"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import {
+  ChevronDown,
+  ChevronUp,
+  PlusCircle,
+  User,
+  CalendarDays,
+  Ticket,
+  Package,
+  X,
+} from "lucide-react"
+import { Label } from "@/components/ui/label"
+
+type Props = {
+  members: AdminMember[]
+  bookings: AdminBooking[]
+  plans: MemberPlan[]
+  packages: DancePackage[]
+  query?: string
+}
+
+export function AdminMembersPanel({ members, bookings, plans, packages, query = "" }: Props) {
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [localMembers, setLocalMembers] = useState<AdminMember[]>(members)
+
+  const filtered = query.trim()
+    ? localMembers.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()) || m.email.toLowerCase().includes(query.toLowerCase()))
+    : localMembers
+  const [creditInputs, setCreditInputs] = useState<Record<string, string>>({})
+  const [selectedPackage, setSelectedPackage] = useState<Record<string, string>>({})
+  const [localCredits, setLocalCredits] = useState<Record<string, number>>({})
+  const [localPlans, setLocalPlans] = useState<MemberPlan[]>(plans)
+  const [isPending, startTransition] = useTransition()
+
+  function memberBookings(member: AdminMember) {
+    return bookings.filter(
+      (b) =>
+        b.userId === member.userId ||
+        b.clientEmail.toLowerCase() === member.email.toLowerCase(),
+    )
+  }
+
+  function memberPlans(member: AdminMember) {
+    return localPlans.filter((p) => p.userId === member.userId)
+  }
+
+  function creditsFor(member: AdminMember) {
+    return localCredits[member.id] ?? member.creditsRemaining
+  }
+
+  function handleAddCredits(member: AdminMember) {
+    const amount = parseInt(creditInputs[member.id] ?? "", 10)
+    if (!amount || amount < 1) {
+      toast.error("Enter a number of credits to add.")
+      return
+    }
+    startTransition(async () => {
+      const result = await addComplimentaryCredits(member.id, creditsFor(member), amount)
+      if (result.ok) {
+        setLocalCredits((prev) => ({ ...prev, [member.id]: creditsFor(member) + amount }))
+        setCreditInputs((prev) => ({ ...prev, [member.id]: "" }))
+        toast.success(`Added ${amount} credit${amount === 1 ? "" : "s"} to ${member.name || member.email}.`)
+      } else {
+        toast.error(result.error)
+      }
+    })
+  }
+
+  function handleAssignPlan(member: AdminMember) {
+    const packageId = selectedPackage[member.id]
+    if (!packageId) {
+      toast.error("Select a package first.")
+      return
+    }
+    const pkg = packages.find((p) => p.id === packageId)
+    if (!pkg) return
+
+    startTransition(async () => {
+      const result = await adminAssignPlan(
+        { id: member.id, userId: member.userId, email: member.email, creditsRemaining: creditsFor(member) },
+        packageId,
+      )
+      if (result.ok) {
+        setLocalPlans((prev) => [result.plan, ...prev])
+        setLocalCredits((prev) => ({ ...prev, [member.id]: creditsFor(member) + pkg.sessions }))
+        setSelectedPackage((prev) => ({ ...prev, [member.id]: "" }))
+        toast.success(`Assigned ${pkg.name} to ${member.name || member.email}.`)
+      } else {
+        toast.error(result.error)
+      }
+    })
+  }
+
+  if (members.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+          <User className="size-10 text-muted-foreground" />
+          <p className="font-medium">No members yet</p>
+          <p className="text-sm text-muted-foreground">Members will appear here once they sign up.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setShowAddForm((v) => !v)} variant={showAddForm ? "outline" : "default"}>
+          {showAddForm ? <><X className="mr-1.5 size-3.5" />Cancel</> : <><PlusCircle className="mr-1.5 size-3.5" />Add member</>}
+        </Button>
+      </div>
+
+      {showAddForm && (
+        <AddMemberForm
+          onSuccess={(member) => {
+            setLocalMembers((prev) => [member, ...prev])
+            setShowAddForm(false)
+          }}
+        />
+      )}
+
+      {filtered.length === 0 && !showAddForm && (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          {query ? <>No members match &ldquo;{query}&rdquo;.</> : "No members yet."}
+        </p>
+      )}
+      {filtered.map((member) => {
+        const isOpen = expanded === member.id
+        const history = memberBookings(member)
+        const memberPlanList = memberPlans(member)
+        const activePlan = memberPlanList.find((p) => p.status === "Active")
+        const credits = creditsFor(member)
+
+        return (
+          <Card key={member.id}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold">
+                    {(member.name || member.email)[0]?.toUpperCase() ?? "?"}
+                  </div>
+                  <div className="min-w-0">
+                    <CardTitle className="text-base">{member.name || "—"}</CardTitle>
+                    <CardDescription className="truncate">{member.email}</CardDescription>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {activePlan && (
+                    <Badge variant="default" className="gap-1 hidden sm:flex">
+                      <Package className="size-3" />
+                      {activePlan.planName}
+                    </Badge>
+                  )}
+                  <Badge variant="secondary" className="gap-1">
+                    <Ticket className="size-3" />
+                    {credits}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={isOpen ? "Collapse" : "Expand"}
+                    onClick={() => setExpanded(isOpen ? null : member.id)}
+                  >
+                    {isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+
+            {isOpen && (
+              <CardContent className="flex flex-col gap-5 pt-0">
+                <Separator />
+
+                {/* Profile info */}
+                {(member.phone || member.goals) && (
+                  <div className="grid gap-2 text-sm sm:grid-cols-2">
+                    {member.phone && (
+                      <div>
+                        <span className="text-muted-foreground">Phone </span>
+                        <span className="font-medium">{member.phone}</span>
+                      </div>
+                    )}
+                    {member.goals && (
+                      <div className="sm:col-span-2">
+                        <span className="text-muted-foreground">Goals </span>
+                        <span className="font-medium">{member.goals}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Assign a plan */}
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-medium flex items-center gap-1.5">
+                    <Package className="size-4 text-muted-foreground" />
+                    Assign a plan
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="flex h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={selectedPackage[member.id] ?? ""}
+                      onChange={(e) =>
+                        setSelectedPackage((prev) => ({ ...prev, [member.id]: e.target.value }))
+                      }
+                    >
+                      <option value="">Select package…</option>
+                      {packages.map((pkg) => (
+                        <option key={pkg.id} value={pkg.id}>
+                          {pkg.name} — {pkg.sessions} sessions (${pkg.price})
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      disabled={isPending || !selectedPackage[member.id]}
+                      onClick={() => handleAssignPlan(member)}
+                    >
+                      Assign
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Assigning a plan adds its sessions as credits to the member's account.
+  </p>
+                </div>
+
+                {/* Plan history */}
+                {memberPlanList.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm font-medium">Plan history ({memberPlanList.length})</p>
+                    <ul className="flex flex-col gap-1.5">
+                      {memberPlanList.map((plan) => {
+                        const date = plan.purchasedAt
+                          ? new Date(plan.purchasedAt).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })
+                          : null
+                        return (
+                          <li
+                            key={plan.id}
+                            className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+                          >
+                            <div>
+                              <span className="font-medium">{plan.planName}</span>
+                              <span className="ml-2 text-muted-foreground">
+                                {plan.sessions} sessions · ${plan.pricePaid}
+                                {date ? ` · ${date}` : ""}
+                              </span>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={`capitalize text-xs ${plan.status === "Active" ? "border-green-300 bg-green-100 text-green-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
+                            >
+                              {plan.status}
+                            </Badge>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Add complimentary credits */}
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-medium">Add complimentary credits</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      placeholder="# of credits"
+                      className="w-36"
+                      value={creditInputs[member.id] ?? ""}
+                      onChange={(e) =>
+                        setCreditInputs((prev) => ({ ...prev, [member.id]: e.target.value }))
+                      }
+                    />
+                    <Button size="sm" disabled={isPending} onClick={() => handleAddCredits(member)}>
+                      <PlusCircle className="mr-1.5 size-4" />
+                      Add credits
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Booking history */}
+                <div className="flex flex-col gap-2">
+                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                    <CalendarDays className="size-4 text-muted-foreground" />
+                    Booking history ({history.length})
+                  </p>
+                  {history.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No bookings yet.</p>
+                  ) : (
+                    <ul className="flex flex-col gap-1.5">
+                      {history.map((b) => {
+                        const statusVariant =
+                          b.status.toLowerCase() === "confirmed"
+                            ? "default"
+                            : b.status.toLowerCase() === "cancelled"
+                              ? "destructive"
+                              : "secondary"
+                        return (
+                          <li
+                            key={b.id}
+                            className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+                          >
+                            <div>
+                              <span className="font-medium">{b.prepMasterName || "Prep Master"}</span>
+                              <span className="ml-2 text-muted-foreground">
+                                {b.date}{b.time ? ` · ${b.time}` : ""}
+                              </span>
+                            </div>
+                            <Badge variant={statusVariant} className="capitalize">
+                              {b.status}
+                            </Badge>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )
+      })}
+    </div>
+  )
+}
+
+function AddMemberForm({ onSuccess }: { onSuccess: (member: AdminMember) => void }) {
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [goals, setGoals] = useState("")
+  const [credits, setCredits] = useState("0")
+  const [isPending, startTransition] = useTransition()
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    startTransition(async () => {
+      const result = await createMember({
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        goals: goals.trim(),
+        creditsRemaining: Math.max(0, parseInt(credits, 10) || 0),
+      })
+      if (result.ok) {
+        toast.success(`${name.trim() || email.trim()} has been added.`)
+        onSuccess(result.member)
+      } else {
+        toast.error(result.error)
+      }
+    })
+  }
+
+  return (
+    <Card className="border-primary/30 bg-primary/5">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <PlusCircle className="size-4 text-primary" />
+          Add new member
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Creates a member record in Airtable. They&apos;ll be linked to this record automatically when they sign in with the same email.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-member-name">Full name <span className="text-destructive">*</span></Label>
+              <Input id="new-member-name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-member-email">Email <span className="text-destructive">*</span></Label>
+              <Input id="new-member-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@example.com" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-member-phone">Phone</Label>
+              <Input id="new-member-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 000-0000" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-member-credits">Starting credits</Label>
+              <Input id="new-member-credits" type="number" min="0" value={credits} onChange={(e) => setCredits(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor="new-member-goals">Goals</Label>
+              <Input id="new-member-goals" value={goals} onChange={(e) => setGoals(e.target.value)} placeholder="e.g. Improve turns, prepare for auditions…" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Adding…" : "Add member"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
