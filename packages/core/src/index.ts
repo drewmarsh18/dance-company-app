@@ -1,9 +1,9 @@
-// Pricing data for College Dance Prep.
-//
-// IMPORTANT: Prices live ONLY in app code and the dancer-facing dashboard.
-// They are never written to Airtable, so prep masters (staff records in
-// Airtable) can never see what a dancer paid. When Stripe is connected, map
-// each `id` to a Stripe Price ID and create Checkout Sessions server-side.
+// Shared types, constants, and utilities for CDP web and mobile apps.
+// No server-only imports allowed here.
+
+// ---------------------------------------------------------------------------
+// Packages & pricing
+// ---------------------------------------------------------------------------
 
 export type DancePackage = {
   id: string
@@ -25,10 +25,8 @@ export type PerPrivate = {
   price: number
 }
 
-// Single hourly private rate, used to show per-package savings context.
 export const SINGLE_HOUR_PRICE = 119
 
-// Hourly private packages. Every hour in a package is $99 vs. $119 single.
 export const PACKAGES: DancePackage[] = [
   {
     id: "pack-5",
@@ -103,7 +101,6 @@ export const PACKAGES: DancePackage[] = [
   },
 ]
 
-// One-off private sessions.
 export const PER_PRIVATE: PerPrivate[] = [
   { id: "private-30", name: "30 Minute", minutes: 30, price: 65 },
   { id: "private-45", name: "45 Minute", minutes: 45, price: 89 },
@@ -112,4 +109,47 @@ export const PER_PRIVATE: PerPrivate[] = [
 
 export function formatPrice(amount: number) {
   return `$${amount.toLocaleString("en-US")}`
+}
+
+// ---------------------------------------------------------------------------
+// Shared data types (mirrors Airtable shapes, safe to use on client/mobile)
+// ---------------------------------------------------------------------------
+
+export type MemberPlan = {
+  id: string
+  userId: string
+  planName: string
+  sessions: number
+  pricePaid: number
+  purchasedAt: string
+  expiresAt: string
+  status: string
+}
+
+export type UserRole = "admin" | "prep_master" | "dancer"
+
+export type Booking = {
+  id: string
+  date: string
+  time: string
+  status: string
+  prepMasterName: string
+  notes: string
+}
+
+// ---------------------------------------------------------------------------
+// Plan utilities
+// ---------------------------------------------------------------------------
+
+export function planDisplayStatus(plan: MemberPlan): string {
+  if (plan.status === "Active" && plan.expiresAt && new Date(plan.expiresAt) < new Date()) {
+    return "Inactive"
+  }
+  return plan.status
+}
+
+export function planExpiryLabel(plan: MemberPlan): string {
+  if (!plan.expiresAt) return ""
+  const d = new Date(plan.expiresAt)
+  return `Expires ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
 }
