@@ -79,9 +79,13 @@ export type SessionUserWithRole = {
  * Returns null when there is no authenticated session.
  */
 export const getSessionUserWithRole = cache(async (): Promise<SessionUserWithRole | null> => {
+  const t0 = Date.now()
+  console.log("[roles] getSession start")
   const session = await auth.api.getSession({ headers: await headers() })
+  console.log("[roles] getSession done", Date.now() - t0 + "ms", session?.user?.email ?? "no user")
   if (!session?.user) return null
   const role = await resolveRole(session.user.email)
+  console.log("[roles] resolveRole done", Date.now() - t0 + "ms", "role=" + role)
   return {
     id: session.user.id,
     name: session.user.name,

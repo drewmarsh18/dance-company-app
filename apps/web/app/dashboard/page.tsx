@@ -15,8 +15,10 @@ import { getSessionUserWithRole } from "@/lib/roles"
 import type { DayAvailability } from "@/lib/availability"
 
 export default async function DashboardPage() {
+  const t0 = Date.now()
+  console.log("[page] start")
   const user = await getSessionUserWithRole()
-  const isAdminPreview = user?.role === "admin"
+  console.log("[page] got user", Date.now() - t0 + "ms")
   const firstName = user?.name?.split(" ")[0] ?? "Dancer"
 
   if (!isAirtableConfigured()) {
@@ -33,17 +35,21 @@ export default async function DashboardPage() {
   let plans: MemberPlan[] = []
   let error: string | null = null
 
+  const isAdminPreview = user?.role === "admin"
   if (!isAdminPreview) {
     try {
+      console.log("[page] fetching profile/bookings/plans")
       const [profile, myBookings, myPlans] = await Promise.all([
         getOrCreateProfile(),
         getMyBookings(),
         getMyPlans(),
       ])
+      console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
       credits = profile.creditsRemaining
       bookings = myBookings
       plans = myPlans
     } catch (err) {
+      console.log("[page] error in data fetch", Date.now() - t0 + "ms", err)
       error = err instanceof Error ? err.message : "Something went wrong."
     }
   }

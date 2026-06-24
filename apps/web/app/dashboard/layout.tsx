@@ -9,7 +9,10 @@ import { getUnreadCount } from "@/app/actions/notifications"
 import { ShieldCheck } from "lucide-react"
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
+  const t0 = Date.now()
+  console.log("[layout] start")
   const user = await getSessionUserWithRole()
+  console.log("[layout] got user role=" + user?.role, Date.now() - t0 + "ms")
   if (!user) redirect("/")
 
   const isAdmin = user.role === "admin"
@@ -17,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   if (!isAdmin && user.role !== "dancer") redirect(homePathForRole(user.role))
 
   const unreadCount = await getUnreadCount(user.id)
+  console.log("[layout] got unreadCount", Date.now() - t0 + "ms")
   const bell = <NotificationBell initialCount={unreadCount} />
 
   if (isAdmin) {
