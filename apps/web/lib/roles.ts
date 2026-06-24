@@ -56,8 +56,12 @@ export async function resolveRole(email: string): Promise<Role> {
   if (isAdminEmail(email)) return "admin"
   // Prep masters are recognized either by an admin invite OR by being present
   // in the Airtable Workers roster (the staff source of truth).
-  if (await isInvitedPrepMaster(email)) return "prep_master"
-  if (await isWorkerEmail(email)) return "prep_master"
+  // Run both checks in parallel to avoid sequential round trips.
+  const [invited, worker] = await Promise.all([
+    isInvitedPrepMaster(email),
+    isWorkerEmail(email),
+  ])
+  if (invited || worker) return "prep_master"
   return "dancer"
 }
 
