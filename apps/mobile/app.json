@@ -2,6 +2,7 @@
   "expo": {
     "name": "College Dance Prep",
     "slug": "cdp",
+    "scheme": "cdp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,6 +22,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-font"
+    ]
   }
 }
