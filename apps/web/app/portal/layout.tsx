@@ -3,12 +3,14 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { StaffHeader } from "@/components/staff-header"
 import { PortalNav } from "@/components/portal-nav"
+import { NotificationBell } from "@/components/notification-bell"
 import { Toaster } from "@/components/ui/sonner"
 import {
   getSessionUserWithRole,
   homePathForRole,
   markInviteAccepted,
 } from "@/lib/roles"
+import { getUnreadCount } from "@/app/actions/notifications"
 import { ShieldCheck } from "lucide-react"
 
 export default async function PortalLayout({ children }: { children: ReactNode }) {
@@ -17,20 +19,22 @@ export default async function PortalLayout({ children }: { children: ReactNode }
 
   const isAdmin = user.role === "admin"
 
-  // Only prep masters and admins (previewing) are allowed here
   if (!isAdmin && user.role !== "prep_master") redirect(homePathForRole(user.role))
 
   if (user.role === "prep_master") {
     await markInviteAccepted(user.email)
   }
 
+  const unreadCount = await getUnreadCount(user.id)
+
   return (
     <div className="min-h-screen">
       <StaffHeader
         user={{ name: user.name, email: user.email, image: user.image }}
         roleLabel={isAdmin ? "Admin" : "Prep Master"}
-        homeHref={isAdmin ? "/portal" : "/portal"}
+        homeHref="/portal"
         isAdmin={isAdmin}
+        notificationBell={<NotificationBell initialCount={unreadCount} />}
       />
       {isAdmin && (
         <div className="bg-primary/10 border-b border-primary/20 px-5 py-2">

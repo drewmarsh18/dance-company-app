@@ -16,6 +16,7 @@ import {
   type ClientFields,
 } from "@/lib/airtable"
 import { sendSms } from "@/lib/sms"
+import { createNotification } from "@/app/actions/notifications"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { isWithin24Hours } from "@/lib/utils"
@@ -37,7 +38,6 @@ export type Booking = {
 
 export async function getMyBookings(): Promise<Booking[]> {
   const user = await getSessionUser()
-  // Escape quotes in the user id for the Airtable formula.
   const safeId = user.id.replace(/'/g, "\\'")
   const records = await appBase.list<BookingFields>(TABLES.bookings, {
     filterByFormula: `{User ID} = '${safeId}'`,
@@ -60,6 +60,7 @@ async function findClientRecord(userId: string) {
   const records = await appBase.list<ClientFields>(TABLES.clients, {
     filterByFormula: `{User ID} = '${safeId}'`,
     maxRecords: 1,
+    revalidate: 0,
   })
   return records[0] ?? null
 }
@@ -99,6 +100,16 @@ export async function cancelBooking(
       }
     }
 
+    const dateLabel = booking.fields.Date ?? "your session"
+    const pmName = booking.fields["Prep Master Name"] ?? "your Prep Master"
+    createNotification({
+      userId: user.id,
+      type: "booking_cancelled",
+      title: "Booking cancelled",
+      body: `Your session with ${pmName} on ${dateLabel} has been cancelled.${!within24 ? "" : " No credit was refunded (within 24 hours)."}`,
+      bookingId,
+    }).catch(() => {})
+
     revalidatePath("/dashboard")
     return { ok: true, creditRefunded: !within24 }
   } catch (err) {
@@ -136,6 +147,15 @@ export async function rescheduleBooking(
       Time: newTime,
       Status: "Pending",
     })
+
+    createNotification({
+      userId: user.id,
+      type: "booking_updated",
+      title: "Booking rescheduled",
+      body: `Your session with ${prepMasterName} has been moved to ${newDate} at ${newTime}.`,
+      bookingId,
+    }).catch(() => {})
+
     revalidatePath("/dashboard")
     return { ok: true }
   } catch (err) {
@@ -207,6 +227,15 @@ export async function createBooking(input: {
       const activePlan = await getActivePlanForUser(user.id)
       if (activePlan) await setPlanStatus(activePlan.id, "Used")
     }
+
+    // In-app notification for the dancer
+    createNotification({
+      userId: user.id,
+      type: "booking_confirmed",
+      title: "Booking confirmed",
+      body: `Your session with ${input.prepMasterName} on ${input.date} at ${input.time} is confirmed.`,
+      bookingId: record.id,
+    }).catch(() => {})
 
     // Notify prep master by SMS — fire and forget so a Twilio error never blocks the booking
     getPrepMasterPhone(input.prepMasterId).then((phone) => {

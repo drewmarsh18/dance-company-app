@@ -40,22 +40,28 @@ async function findClientByEmail(email: string) {
 
 // Ensures the logged-in dancer exists in the Clients table; returns profile.
 // Checks User ID first, then falls back to email so admin-created records link on first sign-in.
-export async function getOrCreateProfile(): Promise<ClientProfile> {
+// Pass noCreate:true to skip record creation (e.g. admin previewing member view).
+export async function getOrCreateProfile({ noCreate = false }: { noCreate?: boolean } = {}): Promise<ClientProfile> {
   const user = await getSessionUser()
   let record = await findClientRecord(user.id)
 
   if (!record) {
-    // Pre-created by admin — link it
     const byEmail = await findClientByEmail(user.email ?? "")
-    if (byEmail && !byEmail.fields["User ID"]) {
-      record = await appBase.update<ClientFields>(TABLES.clients, byEmail.id, {
-        "User ID": user.id,
-        Name: byEmail.fields.Name || user.name,
-      })
+    if (byEmail) {
+      if (!byEmail.fields["User ID"]) {
+        // Pre-created by admin — stamp the User ID
+        record = await appBase.update<ClientFields>(TABLES.clients, byEmail.id, {
+          "User ID": user.id,
+          Name: byEmail.fields.Name || user.name,
+        })
+      } else if (byEmail.fields["User ID"] === user.id) {
+        // Already linked — use it directly
+        record = byEmail
+      }
     }
   }
 
-  if (!record) {
+  if (!record && !noCreate) {
     record = await appBase.create<ClientFields>(TABLES.clients, {
       Name: user.name,
       Email: user.email,
@@ -65,12 +71,12 @@ export async function getOrCreateProfile(): Promise<ClientProfile> {
   }
 
   return {
-    recordId: record.id,
-    name: record.fields.Name ?? user.name,
-    email: record.fields.Email ?? user.email,
-    phone: record.fields.Phone ?? "",
-    goals: record.fields.Goals ?? "",
-    creditsRemaining: record.fields["Credits Remaining"] ?? 0,
+    recordId: record?.id ?? "",
+    name: record?.fields.Name ?? user.name,
+    email: record?.fields.Email ?? user.email,
+    phone: record?.fields.Phone ?? "",
+    goals: record?.fields.Goals ?? "",
+    creditsRemaining: record?.fields["Credits Remaining"] ?? 0,
   }
 }
 

@@ -63,6 +63,7 @@ export async function addComplimentaryCredits(
     }
     await adminAddCredits(memberId, currentCredits, creditsToAdd)
     revalidatePath("/admin")
+    revalidatePath("/dashboard")
     return { ok: true }
   } catch (err) {
     return {

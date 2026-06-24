@@ -1,8 +1,10 @@
 import type { ReactNode } from "react"
 import { redirect } from "next/navigation"
 import { StaffHeader } from "@/components/staff-header"
+import { NotificationBell } from "@/components/notification-bell"
 import { Toaster } from "@/components/ui/sonner"
 import { getSessionUserWithRole, homePathForRole } from "@/lib/roles"
+import { getUnreadCount } from "@/app/actions/notifications"
 
 export default async function AdminLayout({
   children,
@@ -13,6 +15,8 @@ export default async function AdminLayout({
   if (!user) redirect("/")
   if (user.role !== "admin") redirect(homePathForRole(user.role))
 
+  const unreadCount = await getUnreadCount(user.id)
+
   return (
     <div className="min-h-screen">
       <StaffHeader
@@ -20,6 +24,7 @@ export default async function AdminLayout({
         roleLabel="Admin"
         homeHref="/admin"
         isAdmin
+        notificationBell={<NotificationBell initialCount={unreadCount} />}
       />
       <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
       <Toaster position="top-center" />

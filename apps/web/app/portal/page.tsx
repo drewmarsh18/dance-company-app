@@ -1,13 +1,13 @@
 import {
   getPrepMasterByEmail,
   isAirtableConfigured,
+  getBookingsForPrepMaster,
 } from "@/lib/airtable"
 import { getSessionUserWithRole } from "@/lib/roles"
 import { AirtableSetupNotice } from "@/components/airtable-setup-notice"
 import { AppointmentCard } from "@/components/appointment-card"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { getBookingsForPrepMaster } from "@/lib/airtable"
 
 function startOfToday() {
   const d = new Date()

@@ -7,7 +7,7 @@ import { TABLES, appBase, getPrepMasterByEmail, type BookingFields } from "@/lib
 
 async function assertPrepMaster() {
   const user = await getSessionUserWithRole()
-  if (!user || user.role !== "prep_master") throw new Error("Unauthorized")
+  if (!user || (user.role !== "prep_master" && user.role !== "admin")) throw new Error("Unauthorized")
   return user
 }
 

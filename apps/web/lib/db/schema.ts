@@ -5,6 +5,7 @@ import {
   boolean,
   integer,
   unique,
+  index,
 } from "drizzle-orm/pg-core"
 
 // --- Better Auth required tables -------------------------------------------
@@ -75,6 +76,25 @@ export const prepMasterInvite = pgTable("prep_master_invite", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   acceptedAt: timestamp("acceptedAt"),
 })
+
+// In-app notifications. Written by server actions on booking events.
+// Displayed in the bell dropdown on web; will also trigger push/email/SMS later.
+export const notification = pgTable(
+  "notification",
+  {
+    id: text("id").primaryKey(),
+    userId: text("userId").notNull(),          // recipient's auth user ID
+    type: text("type").notNull(),              // "booking_confirmed" | "booking_cancelled" | "booking_updated"
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    read: boolean("read").notNull().default(false),
+    bookingId: text("bookingId"),              // optional link back to the booking
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("notification_user_idx").on(t.userId),
+  }),
+)
 
 // A prep master's weekly recurring availability. One row per (email, weekday).
 // Keyed by the prep master's email, which is both their login email and their

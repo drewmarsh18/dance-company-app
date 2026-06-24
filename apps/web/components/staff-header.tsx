@@ -14,11 +14,13 @@ export function StaffHeader({
   roleLabel,
   homeHref,
   isAdmin = false,
+  notificationBell,
 }: {
   user: { name: string; email: string; image?: string | null }
   roleLabel: string
   homeHref: string
   isAdmin?: boolean
+  notificationBell?: React.ReactNode
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -69,6 +71,8 @@ export function StaffHeader({
             <p className="text-sm font-medium leading-none">{user.name}</p>
             <p className="text-xs text-muted-foreground">{user.email}</p>
           </div>
+
+          {notificationBell}
 
           {/* Avatar — clickable dropdown for admins */}
           <div className="relative" ref={dropdownRef}>

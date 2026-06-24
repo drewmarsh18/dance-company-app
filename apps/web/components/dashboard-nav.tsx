@@ -18,8 +18,10 @@ const links = [
 
 export function DashboardNav({
   user,
+  notificationBell,
 }: {
   user: { name: string; email: string; image?: string | null }
+  notificationBell?: React.ReactNode
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -68,6 +70,7 @@ export function DashboardNav({
         </nav>
 
         <div className="flex items-center gap-3">
+          {notificationBell}
           <Avatar className="size-9">
             {user.image ? <AvatarImage src={user.image} alt="" /> : null}
             <AvatarFallback>{initials || "?"}</AvatarFallback>

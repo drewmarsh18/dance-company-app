@@ -1,5 +1,4 @@
 import Link from "next/link"
-import { headers } from "next/headers"
 import { isAirtableConfigured } from "@/lib/airtable"
 import { getOrCreateProfile, getMyPlans } from "@/app/actions/profile"
 import type { MemberPlan } from "@/lib/airtable"
@@ -12,12 +11,13 @@ import { Badge } from "@/components/ui/badge"
 import { CalendarPlus, Ticket, CalendarClock, AlertTriangle, Package } from "lucide-react"
 import { AirtableSetupNotice } from "@/components/airtable-setup-notice"
 import { BookingRow } from "@/components/booking-row"
-import { auth } from "@/lib/auth"
+import { getSessionUserWithRole } from "@/lib/roles"
 import type { DayAvailability } from "@/lib/availability"
 
 export default async function DashboardPage() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  const firstName = session?.user.name?.split(" ")[0] ?? "Dancer"
+  const user = await getSessionUserWithRole()
+  const isAdminPreview = user?.role === "admin"
+  const firstName = user?.name?.split(" ")[0] ?? "Dancer"
 
   if (!isAirtableConfigured()) {
     return (
@@ -33,21 +33,22 @@ export default async function DashboardPage() {
   let plans: MemberPlan[] = []
   let error: string | null = null
 
-  try {
-    const [profile, myBookings, myPlans] = await Promise.all([
-      getOrCreateProfile(),
-      getMyBookings(),
-      getMyPlans(),
-    ])
-    credits = profile.creditsRemaining
-    bookings = myBookings
-    plans = myPlans
-  } catch (err) {
-    error = err instanceof Error ? err.message : "Something went wrong."
+  if (!isAdminPreview) {
+    try {
+      const [profile, myBookings, myPlans] = await Promise.all([
+        getOrCreateProfile(),
+        getMyBookings(),
+        getMyPlans(),
+      ])
+      credits = profile.creditsRemaining
+      bookings = myBookings
+      plans = myPlans
+    } catch (err) {
+      error = err instanceof Error ? err.message : "Something went wrong."
+    }
   }
 
   const todayMs = new Date(new Date().toDateString()).getTime()
-  // Parse YYYY-MM-DD as local midnight to avoid UTC offset shifting the day
   function bookingMs(date: string) {
     return new Date(`${date}T00:00:00`).getTime()
   }
@@ -67,7 +68,6 @@ export default async function DashboardPage() {
     .filter((b) => b.status.toLowerCase() === "cancelled")
     .sort((a, b) => bookingMs(b.date) - bookingMs(a.date))
 
-  // Fetch availability for each unique prep master in upcoming bookings
   const uniqueNames = [...new Set(upcoming.map((b) => b.prepMasterName).filter(Boolean))]
   const availabilityMap: Record<string, DayAvailability[]> = {}
   await Promise.all(
@@ -98,13 +98,6 @@ export default async function DashboardPage() {
                 We couldn&apos;t reach your Airtable backend.
               </p>
               <p className="mt-1 text-muted-foreground">{error}</p>
-              <p className="mt-2 text-muted-foreground">
-                Make sure your base has the tables{" "}
-                <code className="rounded bg-muted px-1">Workers</code>,{" "}
-                <code className="rounded bg-muted px-1">Members</code>, and{" "}
-                <code className="rounded bg-muted px-1">Bookings</code> with the
-                expected fields.
-              </p>
             </div>
           </CardContent>
         </Card>
@@ -125,7 +118,7 @@ export default async function DashboardPage() {
                 {credits > 0
                   ? "Ready to use on private sessions."
                   : "Purchase a package to start booking."}
-              </p>
+            </p>
             </div>
             {plans.length > 0 && (
               <div className="flex flex-col gap-1.5 border-t pt-3">
