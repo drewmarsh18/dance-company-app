@@ -112,15 +112,21 @@ async function airtableFetch(
       : revalidate !== undefined
         ? { next: { revalidate } }
         : {}
-  const res = await fetch(`${AIRTABLE_API_URL}/${BASE_ID}/${path}`, {
-    ...rest,
-    headers: {
-      Authorization: `Bearer ${API_KEY}`,
-      "Content-Type": "application/json",
-      ...(rest.headers ?? {}),
-    },
-    ...cacheOpt,
-  })
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Airtable request timed out after 8s")), 8000),
+  )
+  const res = await Promise.race([
+    fetch(`${AIRTABLE_API_URL}/${BASE_ID}/${path}`, {
+      ...rest,
+      headers: {
+        Authorization: `Bearer ${API_KEY}`,
+        "Content-Type": "application/json",
+        ...(rest.headers ?? {}),
+      },
+      ...cacheOpt,
+    }),
+    timeout,
+  ])
   if (!res.ok) {
     throw new Error(`Airtable request failed (${res.status}): ${await res.text()}`)
   }
