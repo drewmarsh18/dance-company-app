@@ -35,9 +35,8 @@ export function AuthForm() {
         const { error } = await authClient.signIn.email({ email, password })
         if (error) throw new Error(error.message ?? "Could not sign in")
       }
-      // Landing page ("/") redirects to the correct area based on role.
-      router.push("/")
-      router.refresh()
+      // Hard navigate so the server re-checks the session and redirects by role.
+      window.location.href = "/"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
       setLoading(false)
