@@ -1,5 +1,6 @@
 import "server-only"
 
+import { cache } from "react"
 import { headers } from "next/headers"
 import { and, eq } from "drizzle-orm"
 import { auth } from "@/lib/auth"
@@ -77,7 +78,7 @@ export type SessionUserWithRole = {
  * Fetches the current session user along with their resolved role.
  * Returns null when there is no authenticated session.
  */
-export async function getSessionUserWithRole(): Promise<SessionUserWithRole | null> {
+export const getSessionUserWithRole = cache(async (): Promise<SessionUserWithRole | null> => {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return null
   const role = await resolveRole(session.user.email)
@@ -88,7 +89,7 @@ export async function getSessionUserWithRole(): Promise<SessionUserWithRole | nu
     image: session.user.image,
     role,
   }
-}
+})
 
 /**
  * Marks a prep master's pending invite as accepted once they have signed in.
