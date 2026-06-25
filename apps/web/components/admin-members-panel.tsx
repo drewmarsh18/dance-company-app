@@ -87,7 +87,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
       const result = await addComplimentaryCredits(member.id, creditsFor(member), 1, label, member.compCredits)
       if (result.ok) {
         setLocalCredits((prev) => ({ ...prev, [member.id]: creditsFor(member) + 1 }))
-        toast.success(`Added complimentary ${label} credit to ${member.name || member.email}.`)
+        toast.success(`Added ${label} single session to ${member.name || member.email}.`)
       } else {
         toast.error(result.error)
       }
@@ -265,7 +265,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
   </p>
                 </div>
 
-                {/* Plan history + comp credits */}
+                {/* Plan history + single sessions */}
                 {(memberPlanList.length > 0 || member.compCredits.length > 0) && (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm font-medium">
@@ -280,7 +280,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                               year: "numeric",
                             })
                           : null
-                        const status = planDisplayStatus(plan)
+                        const planStatus = planDisplayStatus(plan)
                         return (
                           <li
                             key={plan.id}
@@ -290,15 +290,15 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                               <Package className="size-3.5 shrink-0 text-primary" />
                               <span className="font-medium">{plan.planName}</span>
                               <span className="text-muted-foreground">
-                                {plan.sessions} sessions · ${plan.pricePaid}
+                                {plan.sessions} credits · ${plan.pricePaid}
                                 {date ? ` · ${date}` : ""}
                               </span>
                             </div>
                             <Badge
                               variant="outline"
-                              className={`capitalize text-xs shrink-0 ${status === "Active" ? "border-green-300 bg-green-100 text-green-700" : status === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
+                              className={`capitalize text-xs shrink-0 ${planStatus === "Active" ? "border-green-300 bg-green-100 text-green-700" : planStatus === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
                             >
-                              {status}
+                              {planStatus}
                             </Badge>
                           </li>
                         )
@@ -310,8 +310,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                           "30 min": ["private-30"],
                         }
                         const matchTypes = labelToTypes[c.label] ?? []
-                        const memberBkgs = history
-                        const used = memberBkgs.some(
+                        const used = history.some(
                           (b) =>
                             b.status.toLowerCase() !== "cancelled" &&
                             b.sessionType !== null &&
@@ -321,14 +320,17 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                         const grantDate = new Date(c.grantedAt).toLocaleDateString("en-US", {
                           month: "short", day: "numeric", year: "numeric",
                         })
+                        const displayLabel = c.label === "60 min" ? "60-Min Single Session"
+                          : c.label === "45 min" ? "45-Min Single Session"
+                          : "30-Min Single Session"
                         return (
                           <li
                             key={`comp-${i}`}
-                            className="flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/30"
+                            className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
                           >
                             <div className="flex items-center gap-2 min-w-0">
-                              <Ticket className="size-3.5 shrink-0 text-amber-500" />
-                              <span className="font-medium">Complimentary {c.label}</span>
+                              <Ticket className="size-3.5 shrink-0 text-muted-foreground" />
+                              <span className="font-medium">{displayLabel}</span>
                               <span className="text-muted-foreground">· {grantDate}</span>
                             </div>
                             <Badge
@@ -344,9 +346,9 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                   </div>
                 )}
 
-                {/* Add complimentary credits */}
+                {/* Add single session */}
                 <div className="flex flex-col gap-2">
-                  <p className="text-sm font-medium">Add complimentary credit</p>
+                  <p className="text-sm font-medium">Add single session</p>
                   <div className="flex flex-wrap gap-2">
                     {(["60 min", "45 min", "30 min"] as const).map((label) => (
                       <Button

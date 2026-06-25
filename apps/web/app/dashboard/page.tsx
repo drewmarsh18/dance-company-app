@@ -143,12 +143,15 @@ export default async function DashboardPage() {
                   matchTypes.includes(b.sessionType) &&
                   new Date(b.date) >= new Date(c.grantedAt),
               )
+              const displayLabel = c.label === "60 min" ? "60-Min Single Session"
+                : c.label === "45 min" ? "45-Min Single Session"
+                : "30-Min Single Session"
               return (
                 <div key={i} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
                   <span className="flex items-center gap-2 font-medium">
-                    <Ticket className="size-3.5 shrink-0 text-amber-500" />
-                    Complimentary {c.label}
-                    <span className="font-normal text-muted-foreground">1 credit</span>
+                    <Ticket className="size-3.5 shrink-0 text-muted-foreground" />
+                    {displayLabel}
+                    <span className="font-normal text-muted-foreground">{used ? "0 of 1" : "1 of 1"} credits</span>
                   </span>
                   <Badge
                     variant="outline"
