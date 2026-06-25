@@ -36,22 +36,20 @@ export default async function DashboardPage() {
   let error: string | null = null
 
   const isAdminPreview = user?.role === "admin"
-  if (!isAdminPreview) {
-    try {
-      console.log("[page] fetching profile/bookings/plans")
-      const [profile, myBookings, myPlans] = await Promise.all([
-        getOrCreateProfile(),
-        getMyBookings(),
-        getMyPlans(),
-      ])
-      console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
-      credits = profile.creditsRemaining
-      bookings = myBookings
-      plans = myPlans
-    } catch (err) {
-      console.log("[page] error in data fetch", Date.now() - t0 + "ms", err)
-      error = err instanceof Error ? err.message : "Something went wrong."
-    }
+  try {
+    console.log("[page] fetching profile/bookings/plans")
+    const [profile, myBookings, myPlans] = await Promise.all([
+      getOrCreateProfile({ noCreate: isAdminPreview }),
+      isAdminPreview ? Promise.resolve([]) : getMyBookings(),
+      isAdminPreview ? Promise.resolve([]) : getMyPlans(),
+    ])
+    console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
+    credits = profile.creditsRemaining
+    bookings = myBookings as Booking[]
+    plans = myPlans as MemberPlan[]
+  } catch (err) {
+    console.log("[page] error in data fetch", Date.now() - t0 + "ms", err)
+    error = err instanceof Error ? err.message : "Something went wrong."
   }
 
   const todayMs = new Date(new Date().toDateString()).getTime()
