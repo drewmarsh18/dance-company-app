@@ -177,7 +177,7 @@ export async function createBooking(input: {
   date: string
   time: string
   notes?: string
-  sessionType?: import("@/lib/airtable").SessionType
+  sessionType?: import("@/lib/session-types").SessionType
 }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   try {
     const user = await getSessionUser()
