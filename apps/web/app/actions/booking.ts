@@ -38,6 +38,7 @@ export type Booking = {
   time: string
   status: string
   notes: string
+  sessionType: string | null
 }
 
 export async function getMyBookings(): Promise<Booking[]> {
@@ -59,6 +60,7 @@ export async function getBookingsForUserId(userId: string): Promise<Booking[]> {
     time: r.fields.Time ?? "",
     status: r.fields.Status ?? "Pending",
     notes: r.fields.Notes ?? "",
+    sessionType: (r.fields["Session Type"] as string) ?? null,
   }))
 }
 

@@ -265,10 +265,12 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
   </p>
                 </div>
 
-                {/* Plan history */}
-                {memberPlanList.length > 0 && (
+                {/* Plan history + comp credits */}
+                {(memberPlanList.length > 0 || member.compCredits.length > 0) && (
                   <div className="flex flex-col gap-2">
-                    <p className="text-sm font-medium">Plan history ({memberPlanList.length})</p>
+                    <p className="text-sm font-medium">
+                      Plan history ({memberPlanList.length + member.compCredits.length})
+                    </p>
                     <ul className="flex flex-col gap-1.5">
                       {memberPlanList.map((plan) => {
                         const date = plan.purchasedAt
@@ -278,23 +280,62 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                               year: "numeric",
                             })
                           : null
+                        const status = planDisplayStatus(plan)
                         return (
                           <li
                             key={plan.id}
                             className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
                           >
-                            <div>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Package className="size-3.5 shrink-0 text-primary" />
                               <span className="font-medium">{plan.planName}</span>
-                              <span className="ml-2 text-muted-foreground">
+                              <span className="text-muted-foreground">
                                 {plan.sessions} sessions · ${plan.pricePaid}
                                 {date ? ` · ${date}` : ""}
                               </span>
                             </div>
                             <Badge
                               variant="outline"
-                              className={`capitalize text-xs ${planDisplayStatus(plan) === "Active" ? "border-green-300 bg-green-100 text-green-700" : planDisplayStatus(plan) === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
+                              className={`capitalize text-xs shrink-0 ${status === "Active" ? "border-green-300 bg-green-100 text-green-700" : status === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
                             >
-                              {planDisplayStatus(plan)}
+                              {status}
+                            </Badge>
+                          </li>
+                        )
+                      })}
+                      {member.compCredits.map((c, i) => {
+                        const labelToTypes: Record<string, string[]> = {
+                          "60 min": ["private-60", "pack-hour"],
+                          "45 min": ["private-45"],
+                          "30 min": ["private-30"],
+                        }
+                        const matchTypes = labelToTypes[c.label] ?? []
+                        const memberBkgs = history
+                        const used = memberBkgs.some(
+                          (b) =>
+                            b.status.toLowerCase() !== "cancelled" &&
+                            b.sessionType !== null &&
+                            matchTypes.includes(b.sessionType) &&
+                            new Date(b.date) >= new Date(c.grantedAt),
+                        )
+                        const grantDate = new Date(c.grantedAt).toLocaleDateString("en-US", {
+                          month: "short", day: "numeric", year: "numeric",
+                        })
+                        return (
+                          <li
+                            key={`comp-${i}`}
+                            className="flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/30"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Ticket className="size-3.5 shrink-0 text-amber-500" />
+                              <span className="font-medium">Complimentary {c.label}</span>
+                              <span className="text-muted-foreground">· {grantDate}</span>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={`text-xs shrink-0 ${used ? "border-gray-200 bg-gray-100 text-gray-500" : "border-green-300 bg-green-100 text-green-700"}`}
+                            >
+                              {used ? "✓ Used" : "Available"}
                             </Badge>
                           </li>
                         )

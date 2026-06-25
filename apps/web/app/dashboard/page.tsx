@@ -107,45 +107,58 @@ export default async function DashboardPage() {
               Session credits
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div>
-              <p className="font-heading text-4xl font-bold">{credits}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {credits > 0
-                  ? "Ready to use on private sessions."
-                  : "Purchase a package to start booking."}
-              </p>
-              {compCredits.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {compCredits.map((c, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300"
-                    >
-                      Complimentary {c.label}
-                    </span>
-                  ))}
+          <CardContent className="flex flex-col gap-2">
+            {credits === 0 && compCredits.length === 0 && plans.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Purchase a package to start booking.</p>
+            ) : null}
+            {plans.map((plan) => {
+              const status = planDisplayStatus(plan)
+              return (
+                <div key={plan.id} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+                  <span className="flex items-center gap-2 font-medium">
+                    <Package className="size-3.5 shrink-0 text-primary" />
+                    {plan.planName}
+                    <span className="font-normal text-muted-foreground">{plan.sessions} credits</span>
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className={`capitalize text-xs ${status === "Active" ? "border-green-300 bg-green-100 text-green-700" : status === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
+                  >
+                    {status}
+                  </Badge>
                 </div>
-              )}
-            </div>
-            {plans.length > 0 && (
-              <div className="flex flex-col gap-1.5 border-t pt-3">
-                {plans.map((plan) => (
-                  <div key={plan.id} className="flex items-center justify-between gap-2 text-sm">
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <Package className="size-3.5 text-primary" />
-                      {plan.planName}
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className={`capitalize text-xs ${planDisplayStatus(plan) === "Active" ? "border-green-300 bg-green-100 text-green-700" : planDisplayStatus(plan) === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
-                    >
-                      {planDisplayStatus(plan)}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
+              )
+            })}
+            {compCredits.map((c, i) => {
+              const labelToType: Record<string, string[]> = {
+                "60 min": ["private-60", "pack-hour"],
+                "45 min": ["private-45"],
+                "30 min": ["private-30"],
+              }
+              const matchTypes = labelToType[c.label] ?? []
+              const used = bookings.some(
+                (b) =>
+                  b.status.toLowerCase() !== "cancelled" &&
+                  b.sessionType !== null &&
+                  matchTypes.includes(b.sessionType) &&
+                  new Date(b.date) >= new Date(c.grantedAt),
+              )
+              return (
+                <div key={i} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+                  <span className="flex items-center gap-2 font-medium">
+                    <Ticket className="size-3.5 shrink-0 text-amber-500" />
+                    Complimentary {c.label}
+                    <span className="font-normal text-muted-foreground">1 credit</span>
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className={`text-xs ${used ? "border-gray-200 bg-gray-100 text-gray-500" : "border-green-300 bg-green-100 text-green-700"}`}
+                  >
+                    {used ? "Used" : "Available"}
+                  </Badge>
+                </div>
+              )
+            })}
           </CardContent>
         </Card>
 
