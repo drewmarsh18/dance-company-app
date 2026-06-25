@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Users, DollarSign, Phone, Mail, MapPin, Home, CalendarDays, ChevronDown, ChevronUp, PlusCircle, X } from "lucide-react"
+import { ArrowLeft, Users, DollarSign, Phone, Mail, Home, CalendarDays, ChevronDown, ChevronUp, PlusCircle, X } from "lucide-react"
+import { getUniversityColor } from "@/lib/university-colors"
 import { BookingFilterBar, applyFilters, type SortDir } from "@/components/booking-filter-bar"
 
 type Props = {
@@ -89,10 +90,15 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <CardTitle className="text-base">{worker.name}</CardTitle>
-                  <CardDescription>
-                    {worker.email}
-                    {worker.region ? ` · ${worker.region}` : ""}
-                  </CardDescription>
+                  <CardDescription>{worker.email}</CardDescription>
+                  {worker.university ? (() => {
+                    const { bg, text } = getUniversityColor(worker.university)
+                    return (
+                      <span className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none" style={{ backgroundColor: bg, color: text }}>
+                        {worker.university}
+                      </span>
+                    )
+                  })() : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   <div className="text-right">
@@ -155,7 +161,7 @@ function PrepMasterProfile({
   const [name, setName] = useState(worker.name)
   const [email, setEmail] = useState(worker.email)
   const [phone, setPhone] = useState(worker.phone)
-  const [region, setRegion] = useState(worker.region)
+  const [university, setUniversity] = useState(worker.university)
   const [address, setAddress] = useState(worker.address)
   const [hourlyRate, setHourlyRate] = useState(String(worker.hourlyRate))
   const [active, setActive] = useState(worker.active)
@@ -174,14 +180,13 @@ function PrepMasterProfile({
         name: name.trim(),
         email: email.trim(),
         phone: phone.trim(),
-        region: region.trim(),
         address: address.trim(),
         hourlyRate: rate,
         active,
       })
       if (result.ok) {
         toast.success("Prep Master updated.")
-        onSaved({ ...worker, name: name.trim(), email: email.trim(), phone: phone.trim(), region: region.trim(), address: address.trim(), hourlyRate: rate, active })
+        onSaved({ ...worker, name: name.trim(), email: email.trim(), phone: phone.trim(), address: address.trim(), hourlyRate: rate, active })
       } else {
         toast.error(result.error)
       }
@@ -212,7 +217,6 @@ function PrepMasterProfile({
             <Field label="Full name" icon={<Users className="size-3.5" />} value={name} onChange={setName} />
             <Field label="Email" icon={<Mail className="size-3.5" />} value={email} onChange={setEmail} type="email" />
             <Field label="Phone" icon={<Phone className="size-3.5" />} value={phone} onChange={setPhone} type="tel" />
-            <Field label="Region" icon={<MapPin className="size-3.5" />} value={region} onChange={setRegion} />
             <Field label="Address" icon={<Home className="size-3.5" />} value={address} onChange={setAddress} />
             <div className="flex flex-col gap-1.5">
               <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -380,7 +384,6 @@ function AddPrepMasterForm({ onSuccess }: { onSuccess: (worker: AdminWorker) => 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
-  const [region, setRegion] = useState("")
   const [hourlyRate, setHourlyRate] = useState("")
   const [isPending, startTransition] = useTransition()
 
@@ -391,7 +394,6 @@ function AddPrepMasterForm({ onSuccess }: { onSuccess: (worker: AdminWorker) => 
         name: name.trim(),
         email: email.trim(),
         phone: phone.trim(),
-        region: region.trim(),
         hourlyRate: parseFloat(hourlyRate) || 0,
       })
       if (result.ok) {
@@ -428,10 +430,6 @@ function AddPrepMasterForm({ onSuccess }: { onSuccess: (worker: AdminWorker) => 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="pm-phone">Phone</Label>
               <Input id="pm-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 000-0000" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="pm-region">Region</Label>
-              <Input id="pm-region" value={region} onChange={(e) => setRegion(e.target.value)} placeholder="e.g. Northeast, West…" />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="pm-rate">Pay rate per session ($)</Label>

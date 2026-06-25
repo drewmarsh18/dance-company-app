@@ -439,6 +439,7 @@ export type AdminWorker = {
   name: string
   email: string
   region: string
+  university: string
   phone: string
   address: string
   hourlyRate: number
@@ -538,6 +539,7 @@ export async function adminGetAllWorkers(): Promise<AdminWorker[]> {
     name: r.fields["Full Name"] ?? "",
     email: r.fields.Email ?? "",
     region: r.fields.Region ?? "",
+    university: r.fields.University ?? "",
     phone: r.fields.Phone ?? "",
     address: r.fields.Address ?? "",
     hourlyRate: r.fields["Hourly Rate"] ?? 0,
