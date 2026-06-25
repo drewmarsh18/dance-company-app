@@ -46,7 +46,6 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
   const filtered = query.trim()
     ? localMembers.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()) || m.email.toLowerCase().includes(query.toLowerCase()))
     : localMembers
-  const [creditInputs, setCreditInputs] = useState<Record<string, string>>({})
   const [selectedPackage, setSelectedPackage] = useState<Record<string, string>>({})
   const [localCredits, setLocalCredits] = useState<Record<string, number>>({})
   const [localPlans, setLocalPlans] = useState<MemberPlan[]>(plans)
@@ -83,18 +82,12 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
     return "inactive"
   }
 
-  function handleAddCredits(member: AdminMember) {
-    const amount = parseInt(creditInputs[member.id] ?? "", 10)
-    if (!amount || amount < 1) {
-      toast.error("Enter a number of credits to add.")
-      return
-    }
+  function handleAddCredits(member: AdminMember, label: string) {
     startTransition(async () => {
-      const result = await addComplimentaryCredits(member.id, creditsFor(member), amount)
+      const result = await addComplimentaryCredits(member.id, creditsFor(member), 1)
       if (result.ok) {
-        setLocalCredits((prev) => ({ ...prev, [member.id]: creditsFor(member) + amount }))
-        setCreditInputs((prev) => ({ ...prev, [member.id]: "" }))
-        toast.success(`Added ${amount} credit${amount === 1 ? "" : "s"} to ${member.name || member.email}.`)
+        setLocalCredits((prev) => ({ ...prev, [member.id]: creditsFor(member) + 1 }))
+        toast.success(`Added complimentary ${label} credit to ${member.name || member.email}.`)
       } else {
         toast.error(result.error)
       }
@@ -312,23 +305,20 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
 
                 {/* Add complimentary credits */}
                 <div className="flex flex-col gap-2">
-                  <p className="text-sm font-medium">Add complimentary credits</p>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={1}
-                      max={100}
-                      placeholder="# of credits"
-                      className="w-36"
-                      value={creditInputs[member.id] ?? ""}
-                      onChange={(e) =>
-                        setCreditInputs((prev) => ({ ...prev, [member.id]: e.target.value }))
-                      }
-                    />
-                    <Button size="sm" disabled={isPending} onClick={() => handleAddCredits(member)}>
-                      <PlusCircle className="mr-1.5 size-4" />
-                      Add credits
-                    </Button>
+                  <p className="text-sm font-medium">Add complimentary credit</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(["60 min", "45 min", "30 min"] as const).map((label) => (
+                      <Button
+                        key={label}
+                        size="sm"
+                        variant="outline"
+                        disabled={isPending}
+                        onClick={() => handleAddCredits(member, label)}
+                      >
+                        <PlusCircle className="mr-1.5 size-4" />
+                        {label}
+                      </Button>
+                    ))}
                   </div>
                 </div>
 
@@ -361,7 +351,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                               </span>
                               {b.sessionType && (
                                 <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${b.sessionType === "pack-hour" ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"}`}>
-                                  {SESSION_TYPE_LABELS[b.sessionType]}
+                                  {SESSION_TYPE_LABELS[b.sessionType as import("@/lib/session-types").SessionType]}
                                 </span>
                               )}
                             </div>

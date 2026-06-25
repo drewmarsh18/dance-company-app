@@ -56,6 +56,7 @@ export type ClientFields = {
 
 export type { SessionType } from "@/lib/session-types"
 export { SESSION_TYPE_LABELS } from "@/lib/session-types"
+import type { SessionType } from "@/lib/session-types"
 
 export type BookingFields = {
   Name?: string
@@ -532,6 +533,7 @@ export async function adminCreateWorker(fields: {
     address: record.fields.Address ?? "",
     hourlyRate: record.fields["Hourly Rate"] ?? 0,
     active: record.fields.Active !== false,
+    university: record.fields.University ?? "",
   }
 }
 
