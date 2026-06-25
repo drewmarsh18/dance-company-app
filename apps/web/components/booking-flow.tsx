@@ -12,17 +12,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { Check, Loader2, Package, Ticket } from "lucide-react"
+import { Check, ChevronLeft, ChevronRight, Loader2, Package, Ticket } from "lucide-react"
 import type { MemberPlan, CompCredit } from "@/lib/airtable"
 import type { Booking } from "@/app/actions/booking"
 import type { SessionType } from "@/lib/session-types"
-
-type DayOption = {
-  iso: string
-  weekday: string
-  day: number
-  month: string
-}
 
 type CreditOption =
   | { kind: "plan"; plan: MemberPlan; sessionType: SessionType }
@@ -40,23 +33,25 @@ const SINGLE_LABEL_TO_TYPES: Record<string, string[]> = {
   "30 min": ["private-30"],
 }
 
-function buildAvailableDays(count: number, week: DayAvailability[]): DayOption[] {
-  const enabledDays = new Set(week.filter((w) => w.enabled).map((w) => w.dayOfWeek))
-  const days: DayOption[] = []
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  for (let i = 0; i < count; i++) {
-    const d = new Date(today)
-    d.setDate(today.getDate() + i)
-    if (!enabledDays.has(d.getDay())) continue
-    days.push({
-      iso: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
-      weekday: d.toLocaleDateString("en-US", { weekday: "short" }),
-      day: d.getDate(),
-      month: d.toLocaleDateString("en-US", { month: "short" }),
-    })
-  }
-  return days
+function toIso(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+// Returns the Sunday that starts the week containing `date`.
+function weekStart(date: Date): Date {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - d.getDay())
+  return d
+}
+
+// Builds the 7 calendar days for a week starting on `sunday`.
+function buildWeekDays(sunday: Date) {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(sunday)
+    d.setDate(sunday.getDate() + i)
+    return d
+  })
 }
 
 export function BookingFlow({
@@ -80,24 +75,22 @@ export function BookingFlow({
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const days = useMemo(() => buildAvailableDays(42, week), [week])
+
+  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
+  const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [notes, setNotes] = useState("")
   const [selectedOption, setSelectedOption] = useState<CreditOption | null>(null)
 
-  // Build the list of selectable credit options
+  // Build credit options
   const creditOptions = useMemo<CreditOption[]>(() => {
     const opts: CreditOption[] = []
-
-    // Active plan credits
     for (const plan of plans) {
       if (planDisplayStatus(plan) === "Active") {
         opts.push({ kind: "plan", plan, sessionType: "pack-hour" })
       }
     }
-
-    // Unused single sessions
     compCredits.forEach((credit, index) => {
       const matchTypes = SINGLE_LABEL_TO_TYPES[credit.label] ?? []
       const used = bookings.some(
@@ -108,39 +101,57 @@ export function BookingFlow({
           new Date(b.date) >= new Date(credit.grantedAt),
       )
       if (!used) {
-        opts.push({
-          kind: "single",
-          credit,
-          index,
-          sessionType: SINGLE_SESSION_TYPE[credit.label] ?? "private-60",
-        })
+        opts.push({ kind: "single", credit, index, sessionType: SINGLE_SESSION_TYPE[credit.label] ?? "private-60" })
       }
     })
-
     return opts
   }, [plans, compCredits, bookings])
 
-  // Auto-select if only one option; fall back to generic pack-hour when no plan/single data available
   const effectiveOption = selectedOption ?? (creditOptions.length === 1 ? creditOptions[0] : null)
   const showCreditStep = creditOptions.length > 1
-  // When credits exist but no structured options (all plans inactive, no comp credits), allow booking with default sessionType
   const noStructuredCredits = creditOptions.length === 0 && credits > 0
 
-  const timeSlots = useMemo(() => {
-    if (!selectedDate) return []
-    const taken = new Set(bookedSlots[selectedDate] ?? [])
-    return slotsForDate(selectedDate, week).map((slot) => ({ slot, taken: taken.has(slot) }))
-  }, [selectedDate, week, bookedSlots])
+  // Week navigation
+  const currentSunday = useMemo(() => {
+    const s = weekStart(today)
+    s.setDate(s.getDate() + weekOffset * 7)
+    return s
+  }, [today, weekOffset])
 
+  const weekDays = useMemo(() => buildWeekDays(currentSunday), [currentSunday])
+
+  const weekLabel = useMemo(() => {
+    const start = weekDays[0]
+    const end = weekDays[6]
+    const sameMonth = start.getMonth() === end.getMonth()
+    const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) => d.toLocaleDateString("en-US", opts)
+    if (sameMonth) {
+      return `${fmt(start, { month: "long" })} ${start.getDate()}–${end.getDate()}, ${start.getFullYear()}`
+    }
+    return `${fmt(start, { month: "short", day: "numeric" })} – ${fmt(end, { month: "short", day: "numeric", year: "numeric" })}`
+  }, [weekDays])
+
+  // Slots per day in the current week
+  const weekSlots = useMemo(() => {
+    return weekDays.map((d) => {
+      const iso = toIso(d)
+      const isPast = d < today
+      const slots = isPast ? [] : slotsForDate(iso, week)
+      const taken = new Set(bookedSlots[iso] ?? [])
+      return { date: d, iso, slots, taken, isPast }
+    })
+  }, [weekDays, week, bookedSlots, today])
+
+  const canGoBack = weekOffset > 0
   const canSubmit = selectedDate && selectedTime && (effectiveOption || noStructuredCredits) && !isPending
 
-  function handleSelectDate(iso: string) {
+  function selectSlot(iso: string, slot: string) {
     setSelectedDate(iso)
-    setSelectedTime(null)
+    setSelectedTime(slot)
   }
 
   function handleConfirm() {
-    if (!selectedDate || !selectedTime || !effectiveOption) return
+    if (!selectedDate || !selectedTime) return
     startTransition(async () => {
       const result = await createBooking({
         prepMasterId,
@@ -157,9 +168,7 @@ export function BookingFlow({
         router.push("/dashboard")
         router.refresh()
       } else if (result.error === "NO_CREDITS") {
-        toast.error("Out of credits", {
-          description: "Purchase a package to book more sessions.",
-        })
+        toast.error("Out of credits", { description: "Purchase a package to book more sessions." })
         router.push("/dashboard/packages")
       } else {
         toast.error("Couldn't book session", { description: result.error })
@@ -172,6 +181,7 @@ export function BookingFlow({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Credit selector */}
       {showCreditStep && (
         <section className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
@@ -179,10 +189,10 @@ export function BookingFlow({
             <h2 className="font-heading text-lg font-bold tracking-tight">Choose your credit</h2>
           </div>
           <div className="flex flex-col gap-2">
-            {creditOptions.map((opt, i) => {
-              const active = effectiveOption === opt ||
-                (effectiveOption?.kind === opt.kind &&
-                  opt.kind === "plan" && effectiveOption.kind === "plan" && effectiveOption.plan.id === opt.plan.id) ||
+            {creditOptions.map((opt) => {
+              const active =
+                effectiveOption === opt ||
+                (effectiveOption?.kind === "plan" && opt.kind === "plan" && effectiveOption.plan.id === opt.plan.id) ||
                 (effectiveOption?.kind === "single" && opt.kind === "single" && effectiveOption.index === opt.index)
 
               if (opt.kind === "plan") {
@@ -239,6 +249,7 @@ export function BookingFlow({
         </section>
       )}
 
+      {/* Single-option banner */}
       {noStructuredCredits && (
         <div className="flex items-center gap-2 rounded-lg bg-accent/40 px-4 py-2.5 text-sm">
           <Ticket className="size-4 text-primary" />
@@ -270,71 +281,98 @@ export function BookingFlow({
         </div>
       )}
 
+      {/* Week calendar */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <StepBadge n={1 + stepOffset} done={!!selectedDate} />
-          <h2 className="font-heading text-lg font-bold tracking-tight">Pick a date</h2>
+          <StepBadge n={1 + stepOffset} done={!!(selectedDate && selectedTime)} />
+          <h2 className="font-heading text-lg font-bold tracking-tight">Pick a date &amp; time</h2>
         </div>
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-          {days.map((d) => {
-            const active = selectedDate === d.iso
+
+        {/* Week nav */}
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setWeekOffset((w) => w - 1)}
+            disabled={!canGoBack}
+            className="grid size-8 place-items-center rounded-md border bg-card transition-colors hover:border-primary/50 disabled:pointer-events-none disabled:opacity-30"
+            aria-label="Previous week"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+          <span className="text-sm font-medium text-muted-foreground">{weekLabel}</span>
+          <button
+            type="button"
+            onClick={() => setWeekOffset((w) => w + 1)}
+            className="grid size-8 place-items-center rounded-md border bg-card transition-colors hover:border-primary/50"
+            aria-label="Next week"
+          >
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+
+        {/* 7-column week grid */}
+        <div className="grid grid-cols-7 gap-1.5">
+          {weekSlots.map(({ date, iso, slots, taken, isPast }) => {
+            const isSelected = selectedDate === iso
+            const hasSlots = slots.length > 0
             return (
-              <button
-                key={d.iso}
-                type="button"
-                onClick={() => handleSelectDate(d.iso)}
+              <div
+                key={iso}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-lg border py-3 transition-colors",
-                  active ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:border-primary/50",
+                  "flex flex-col gap-1 rounded-lg border p-1.5",
+                  isPast || !hasSlots ? "opacity-40" : "",
+                  isSelected ? "border-primary bg-primary/5" : "bg-card",
                 )}
-                aria-pressed={active}
               >
-                <span className="text-xs font-medium opacity-80">{d.weekday}</span>
-                <span className="font-heading text-lg font-bold leading-none">{d.day}</span>
-                <span className="text-xs opacity-80">{d.month}</span>
-              </button>
+                {/* Day header */}
+                <div className="flex flex-col items-center py-1">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {date.toLocaleDateString("en-US", { weekday: "short" })}
+                  </span>
+                  <span className={cn("font-heading text-base font-bold leading-tight", isSelected ? "text-primary" : "")}>
+                    {date.getDate()}
+                  </span>
+                </div>
+
+                {/* Time slots */}
+                <div className="flex flex-col gap-1">
+                  {slots.length === 0 ? (
+                    <div className="py-2 text-center text-[10px] text-muted-foreground">—</div>
+                  ) : (
+                    slots.map((slot) => {
+                      const isTaken = taken.has(slot)
+                      const isSlotSelected = isSelected && selectedTime === slot
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          disabled={isTaken || isPast}
+                          onClick={() => selectSlot(iso, slot)}
+                          className={cn(
+                            "w-full rounded px-1 py-1.5 text-center text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                            isSlotSelected
+                              ? "bg-primary text-primary-foreground"
+                              : isTaken
+                              ? "bg-secondary text-muted-foreground"
+                              : "bg-secondary hover:bg-primary/10",
+                          )}
+                        >
+                          {slot}
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
             )
           })}
         </div>
       </section>
 
+      {/* Notes */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <StepBadge n={2 + stepOffset} done={!!selectedTime} />
-          <h2 className="font-heading text-lg font-bold tracking-tight">Pick a time</h2>
-        </div>
-        {!selectedDate ? (
-          <p className="text-sm text-muted-foreground">Select a date to see open times.</p>
-        ) : timeSlots.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No open times on this day. Try another date.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {timeSlots.map(({ slot, taken }) => {
-              const active = selectedTime === slot
-              return (
-                <button
-                  key={slot}
-                  type="button"
-                  disabled={taken}
-                  onClick={() => setSelectedTime(slot)}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-lg border py-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                    active ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:border-primary/50",
-                  )}
-                  aria-pressed={active}
-                >
-                  {slot}
-                  {taken ? <Badge variant="secondary" className="px-1 text-[10px]">Booked</Badge> : null}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <StepBadge n={3 + stepOffset} done={false} />
+          <StepBadge n={2 + stepOffset} done={false} />
           <h2 className="font-heading text-lg font-bold tracking-tight">Anything we should know?</h2>
         </div>
         <div className="flex flex-col gap-2">
@@ -349,6 +387,7 @@ export function BookingFlow({
         </div>
       </section>
 
+      {/* Sticky confirm bar */}
       <Card className="sticky bottom-4">
         <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm">
