@@ -273,33 +273,39 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                     </p>
                     <ul className="flex flex-col gap-1.5">
                       {memberPlanList.map((plan) => {
-                        const date = plan.purchasedAt
-                          ? new Date(plan.purchasedAt).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })
+                        const purchaseDate = plan.purchasedAt
+                          ? new Date(plan.purchasedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                          : null
+                        const expiryDate = plan.expiresAt
+                          ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                           : null
                         const planStatus = planDisplayStatus(plan)
                         return (
                           <li
                             key={plan.id}
-                            className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+                            className="flex flex-col gap-1 rounded-md border px-3 py-2 text-sm"
                           >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Package className="size-3.5 shrink-0 text-primary" />
-                              <span className="font-medium">{plan.planName}</span>
-                              <span className="text-muted-foreground">
-                                {plan.sessions} credits · ${plan.pricePaid}
-                                {date ? ` · ${date}` : ""}
-                              </span>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Package className="size-3.5 shrink-0 text-primary" />
+                                <span className="font-medium">{plan.planName}</span>
+                                <span className="text-muted-foreground">
+                                  {plan.sessions} credits · ${plan.pricePaid}
+                                  {purchaseDate ? ` · ${purchaseDate}` : ""}
+                                </span>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={`capitalize text-xs shrink-0 ${planStatus === "Active" ? "border-green-300 bg-green-100 text-green-700" : planStatus === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
+                              >
+                                {planStatus}
+                              </Badge>
                             </div>
-                            <Badge
-                              variant="outline"
-                              className={`capitalize text-xs shrink-0 ${planStatus === "Active" ? "border-green-300 bg-green-100 text-green-700" : planStatus === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
-                            >
-                              {planStatus}
-                            </Badge>
+                            {expiryDate && (
+                              <p className="pl-5 text-xs text-muted-foreground">
+                                Expires {expiryDate}
+                              </p>
+                            )}
                           </li>
                         )
                       })}
