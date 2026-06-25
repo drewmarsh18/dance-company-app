@@ -84,7 +84,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
 
   function handleAddCredits(member: AdminMember, label: string) {
     startTransition(async () => {
-      const result = await addComplimentaryCredits(member.id, creditsFor(member), 1)
+      const result = await addComplimentaryCredits(member.id, creditsFor(member), 1, label, member.compCredits)
       if (result.ok) {
         setLocalCredits((prev) => ({ ...prev, [member.id]: creditsFor(member) + 1 }))
         toast.success(`Added complimentary ${label} credit to ${member.name || member.email}.`)

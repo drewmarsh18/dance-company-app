@@ -55,13 +55,15 @@ export async function addComplimentaryCredits(
   memberId: string,
   currentCredits: number,
   creditsToAdd: number,
+  compLabel?: string,
+  existingCompCredits?: import("@/lib/airtable").CompCredit[],
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     await assertAdmin()
     if (creditsToAdd < 1 || creditsToAdd > 100) {
       return { ok: false, error: "Credits must be between 1 and 100." }
     }
-    await adminAddCredits(memberId, currentCredits, creditsToAdd)
+    await adminAddCredits(memberId, currentCredits, creditsToAdd, compLabel, existingCompCredits)
     revalidatePath("/admin")
     revalidatePath("/dashboard")
     return { ok: true }

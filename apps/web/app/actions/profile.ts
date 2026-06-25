@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
-import { TABLES, appBase, getPlansForUser, type ClientFields, type MemberPlan } from "@/lib/airtable"
+import { TABLES, appBase, getPlansForUser, type ClientFields, type MemberPlan, type CompCredit } from "@/lib/airtable"
 
 async function getSessionUser() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -18,6 +18,7 @@ export type ClientProfile = {
   phone: string
   goals: string
   creditsRemaining: number
+  compCredits: CompCredit[]
 }
 
 async function findClientRecord(userId: string) {
@@ -79,6 +80,8 @@ export async function getOrCreateProfile({
     })
   }
 
+  let compCredits: CompCredit[] = []
+  try { compCredits = JSON.parse(record?.fields["Comp Credits"] ?? "[]") } catch {}
   return {
     recordId: record?.id ?? "",
     name: record?.fields.Name ?? user.name,
@@ -86,6 +89,7 @@ export async function getOrCreateProfile({
     phone: record?.fields.Phone ?? "",
     goals: record?.fields.Goals ?? "",
     creditsRemaining: record?.fields["Credits Remaining"] ?? 0,
+    compCredits,
   }
 }
 

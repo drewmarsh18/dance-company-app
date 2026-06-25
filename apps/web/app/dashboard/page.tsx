@@ -33,6 +33,7 @@ export default async function DashboardPage() {
   }
 
   let credits = 0
+  let compCredits: import("@/lib/airtable").CompCredit[] = []
   let bookings: Booking[] = []
   let plans: MemberPlan[] = []
   let error: string | null = null
@@ -47,6 +48,7 @@ export default async function DashboardPage() {
       getMyPlans(user!.id),
     ])
     credits = profile.creditsRemaining
+    compCredits = profile.compCredits
     bookings = myBookings
     plans = myPlans
     console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
@@ -112,7 +114,19 @@ export default async function DashboardPage() {
                 {credits > 0
                   ? "Ready to use on private sessions."
                   : "Purchase a package to start booking."}
-            </p>
+              </p>
+              {compCredits.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {compCredits.map((c, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+                    >
+                      Complimentary {c.label}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             {plans.length > 0 && (
               <div className="flex flex-col gap-1.5 border-t pt-3">
