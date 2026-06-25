@@ -96,6 +96,21 @@ export const notification = pgTable(
   }),
 )
 
+// Stores Google Calendar OAuth tokens per prep master so we can create
+// calendar events on their behalf when a dancer books a session.
+export const googleCalendarToken = pgTable("google_calendar_token", {
+  id: text("id").primaryKey(),
+  userId: text("userId")
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
+  accessToken: text("accessToken").notNull(),
+  refreshToken: text("refreshToken").notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
 // A prep master's weekly recurring availability. One row per (email, weekday).
 // Keyed by the prep master's email, which is both their login email and their
 // Workers-table email, so dancers can look up availability when booking.

@@ -4,8 +4,10 @@ import {
   getBookingsForPrepMaster,
 } from "@/lib/airtable"
 import { getSessionUserWithRole } from "@/lib/roles"
+import { isCalendarConnected } from "@/lib/google-calendar"
 import { AirtableSetupNotice } from "@/components/airtable-setup-notice"
 import { AppointmentCard } from "@/components/appointment-card"
+import { GoogleCalendarButton } from "@/components/google-calendar-button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
@@ -48,7 +50,10 @@ export default async function PortalPage() {
     )
   }
 
-  const bookings = await getBookingsForPrepMaster(prepMaster.name)
+  const [bookings, calendarConnected] = await Promise.all([
+    getBookingsForPrepMaster(prepMaster.name),
+    user ? isCalendarConnected(user.id) : Promise.resolve(false),
+  ])
   const today = startOfToday()
   const upcoming = bookings.filter(
     (b) => !b.date || new Date(`${b.date}T00:00:00`) >= today,
@@ -60,11 +65,14 @@ export default async function PortalPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="font-heading text-3xl font-bold tracking-tight">Welcome, {firstName}</h1>
-        <p className="mt-1 text-muted-foreground">
-          Here are your private sessions. Confirm or decline any pending requests.
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="font-heading text-3xl font-bold tracking-tight">Welcome, {firstName}</h1>
+          <p className="mt-1 text-muted-foreground">
+            Here are your private sessions. Confirm or decline any pending requests.
+          </p>
+        </div>
+        <GoogleCalendarButton connected={calendarConnected} />
       </div>
 
       <section className="flex flex-col gap-4">

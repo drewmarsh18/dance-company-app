@@ -17,6 +17,10 @@ import {
 } from "@/lib/airtable"
 import { sendSms } from "@/lib/sms"
 import { createNotification } from "@/app/actions/notifications"
+import { createCalendarEvent } from "@/lib/google-calendar"
+import { db } from "@/lib/db"
+import { user as userTable } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { isWithin24Hours } from "@/lib/utils"
@@ -239,6 +243,19 @@ export async function createBooking(input: {
       title: "Booking confirmed",
       body: `Your session with ${input.prepMasterName} on ${input.date} at ${input.time} is confirmed.`,
       bookingId: record.id,
+    }).catch(() => {})
+
+    // Create Google Calendar event on prep master's calendar — fire and forget
+    getPrepMaster(input.prepMasterId).then(async (pm) => {
+      if (!pm?.email) return
+      const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
+      if (!pmUser) return
+      createCalendarEvent(pmUser.id, {
+        dancerName: user.name,
+        date: input.date,
+        time: input.time,
+        notes: input.notes,
+      }).catch((e) => console.error("Calendar event failed:", e))
     }).catch(() => {})
 
     // Notify prep master by SMS — fire and forget so a Twilio error never blocks the booking
