@@ -37,23 +37,18 @@ export default async function DashboardPage() {
   let plans: MemberPlan[] = []
   let error: string | null = null
 
-  const isAdminPreview = user?.role === "admin"
+  const resolvedUser = user ? { id: user.id, email: user.email, name: user.name ?? "" } : undefined
+  const noCreate = user?.role === "admin"
   try {
     console.log("[page] fetching profile/bookings/plans")
-    if (isAdminPreview) {
-      // For admin preview only fetch bookings — avoids extra DB round-trips
-      // from re-resolving the session inside getOrCreateProfile/getMyPlans.
-      bookings = await getBookingsForUserId(user!.id)
-    } else {
-      const [profile, myBookings, myPlans] = await Promise.all([
-        getOrCreateProfile(),
-        getBookingsForUserId(user!.id),
-        getMyPlans(),
-      ])
-      credits = profile.creditsRemaining
-      bookings = myBookings
-      plans = myPlans
-    }
+    const [profile, myBookings, myPlans] = await Promise.all([
+      getOrCreateProfile({ noCreate, resolvedUser }),
+      getBookingsForUserId(user!.id),
+      getMyPlans(user!.id),
+    ])
+    credits = profile.creditsRemaining
+    bookings = myBookings
+    plans = myPlans
     console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
   } catch (err) {
     console.log("[page] error in data fetch", Date.now() - t0 + "ms", err)

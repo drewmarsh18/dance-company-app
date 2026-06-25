@@ -43,8 +43,15 @@ async function findClientByEmail(email: string) {
 // Ensures the logged-in dancer exists in the Clients table; returns profile.
 // Checks User ID first, then falls back to email so admin-created records link on first sign-in.
 // Pass noCreate:true to skip record creation (e.g. admin previewing member view).
-export async function getOrCreateProfile({ noCreate = false }: { noCreate?: boolean } = {}): Promise<ClientProfile> {
-  const user = await getSessionUser()
+// Pass resolvedUser to skip the internal getSession DB call (use when session already resolved).
+export async function getOrCreateProfile({
+  noCreate = false,
+  resolvedUser,
+}: {
+  noCreate?: boolean
+  resolvedUser?: { id: string; email: string; name: string }
+} = {}): Promise<ClientProfile> {
+  const user = resolvedUser ?? await getSessionUser()
   let record = await findClientRecord(user.id)
 
   if (!record) {
@@ -82,9 +89,9 @@ export async function getOrCreateProfile({ noCreate = false }: { noCreate?: bool
   }
 }
 
-export async function getMyPlans(): Promise<MemberPlan[]> {
-  const user = await getSessionUser()
-  return getPlansForUser(user.id)
+export async function getMyPlans(resolvedUserId?: string): Promise<MemberPlan[]> {
+  const id = resolvedUserId ?? (await getSessionUser()).id
+  return getPlansForUser(id)
 }
 
 export async function updateProfile(input: {
