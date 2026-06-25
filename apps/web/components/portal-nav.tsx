@@ -3,10 +3,11 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { CalendarDays, Clock } from "lucide-react"
+import { CalendarDays, Clock, CalendarPlus } from "lucide-react"
 
 const LINKS = [
   { href: "/portal", label: "Schedule", icon: CalendarDays },
+  { href: "/portal/book", label: "Book session", icon: CalendarPlus },
   { href: "/portal/availability", label: "Availability", icon: Clock },
 ]
 
