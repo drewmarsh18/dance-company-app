@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
+import { GoogleSignInButton } from "@/components/google-sign-in-button"
 
 export function AuthForm() {
   const router = useRouter()
@@ -98,6 +99,17 @@ export function AuthForm() {
           {isSignUp ? "Create account" : "Sign in"}
         </Button>
       </form>
+
+      <div className="relative my-4">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-card px-2 text-muted-foreground">or</span>
+        </div>
+      </div>
+
+      <GoogleSignInButton callbackURL="/" className="w-full" />
 
       <p className="mt-4 text-sm text-muted-foreground">
         {isSignUp ? "Already have an account?" : "New to College Dance Prep?"}{" "}
