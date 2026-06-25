@@ -25,6 +25,7 @@ async function findClientRecord(userId: string) {
   const records = await appBase.list<ClientFields>(TABLES.clients, {
     filterByFormula: `{User ID} = '${safeId}'`,
     maxRecords: 1,
+    revalidate: 0,
   })
   return records[0] ?? null
 }
@@ -34,6 +35,7 @@ async function findClientByEmail(email: string) {
   const records = await appBase.list<ClientFields>(TABLES.clients, {
     filterByFormula: `LOWER({Email}) = '${safe}'`,
     maxRecords: 1,
+    revalidate: 0,
   })
   return records[0] ?? null
 }
