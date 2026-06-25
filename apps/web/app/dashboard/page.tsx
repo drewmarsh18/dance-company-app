@@ -40,8 +40,8 @@ export default async function DashboardPage() {
     console.log("[page] fetching profile/bookings/plans")
     const [profile, myBookings, myPlans] = await Promise.all([
       getOrCreateProfile({ noCreate: isAdminPreview }),
-      isAdminPreview ? Promise.resolve([]) : getMyBookings(),
-      isAdminPreview ? Promise.resolve([]) : getMyPlans(),
+      getMyBookings(),
+      getMyPlans(),
     ])
     console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
     credits = profile.creditsRemaining
