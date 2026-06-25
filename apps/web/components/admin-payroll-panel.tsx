@@ -13,8 +13,14 @@ import { Separator } from "@/components/ui/separator"
 import { ChevronDown, ChevronUp, DollarSign, CalendarDays } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { AdminWorker, AdminBooking } from "@/lib/airtable"
-import { SINGLE_HOUR_PRICE } from "@/lib/packages"
+import { PER_PRIVATE, PACKAGES } from "@/lib/packages"
 import { BookingFilterBar, applyFilters, type SortDir } from "@/components/booking-filter-bar"
+
+const PACK_SESSION_PRICE = PACKAGES[0].perSession // $99
+const PRICE_POINTS = [
+  { label: "Pack hour", revenue: PACK_SESSION_PRICE },
+  ...PER_PRIVATE.map((s) => ({ label: `${s.name} per-private`, revenue: s.price })),
+]
 
 type Props = {
   workers: AdminWorker[]
@@ -64,7 +70,7 @@ export function AdminPayrollPanel({ workers, bookings, query = "" }: Props) {
 
         const payPerSession = worker.hourlyRate
         const totalPay = payPerSession * completedBookings.length
-        const totalRevenue = SINGLE_HOUR_PRICE * completedBookings.length
+        const totalRevenue = PACK_SESSION_PRICE * completedBookings.length
         const margin = totalRevenue - totalPay
 
         return (
@@ -99,8 +105,32 @@ export function AdminPayrollPanel({ workers, bookings, query = "" }: Props) {
                   <StatTile label="Pay rate / session" value={formatMoney(payPerSession)} />
                   <StatTile label="Total sessions" value={String(completedBookings.length)} />
                   <StatTile label="Total pay owed" value={formatMoney(totalPay)} highlight />
-                  <StatTile label="Revenue" value={formatMoney(totalRevenue)} sub={`Margin ${formatMoney(margin)}`} />
+                  <StatTile label="Revenue (pack)" value={formatMoney(totalRevenue)} sub={`Margin ${formatMoney(margin)}`} />
                 </div>
+
+                {/* Margin by session type */}
+                <div className="rounded-lg border p-3">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">Margin by session type</p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 sm:grid-cols-4">
+                    {PRICE_POINTS.map(({ label, revenue }) => {
+                      const m = revenue - payPerSession
+                      const isNeg = m < 0
+                      return (
+                        <div key={label} className="flex flex-col">
+                          <span className="text-[11px] text-muted-foreground">{label}</span>
+                          <span className="text-sm font-semibold">
+                            {formatMoney(revenue)}
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">charged</span>
+                          </span>
+                          <span className={`text-xs font-medium ${isNeg ? "text-destructive" : "text-green-600"}`}>
+                            {isNeg ? "−" : "+"}{formatMoney(Math.abs(m))} margin
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
                 <PayrollBookingList bookings={workerBookings} payPerSession={payPerSession} />
               </CardContent>
             )}
