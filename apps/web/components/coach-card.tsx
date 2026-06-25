@@ -2,7 +2,8 @@ import Link from "next/link"
 import type { PrepMaster } from "@/lib/airtable"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, MapPin } from "lucide-react"
+import { ArrowRight } from "lucide-react"
+import { getUniversityColor } from "@/lib/university-colors"
 
 export function CoachCard({ coach }: { coach: PrepMaster }) {
   const initials = coach.name
@@ -11,6 +12,8 @@ export function CoachCard({ coach }: { coach: PrepMaster }) {
     .slice(0, 2)
     .join("")
     .toUpperCase()
+
+  const { bg, text } = getUniversityColor(coach.university)
 
   return (
     <Card className="flex flex-row items-center gap-3 p-3">
@@ -22,11 +25,13 @@ export function CoachCard({ coach }: { coach: PrepMaster }) {
         <h3 className="truncate font-heading text-sm font-semibold tracking-tight">
           {coach.name}
         </h3>
-        {coach.region ? (
-          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-            <MapPin className="size-3 shrink-0" />
-            <span className="truncate">{coach.region}</span>
-          </p>
+        {coach.university ? (
+          <span
+            className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none"
+            style={{ backgroundColor: bg, color: text }}
+          >
+            {coach.university}
+          </span>
         ) : null}
       </div>
 

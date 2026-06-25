@@ -39,6 +39,7 @@ export type WorkerFields = {
   Email?: string
   Phone?: string
   Region?: string
+  University?: string
   Address?: string
   "Hourly Rate"?: number
   Active?: boolean
@@ -187,6 +188,7 @@ export type PrepMaster = {
   name: string
   email: string
   region: string
+  university: string
 }
 
 function toPrepMaster(r: AirtableRecord<WorkerFields>): PrepMaster {
@@ -195,6 +197,7 @@ function toPrepMaster(r: AirtableRecord<WorkerFields>): PrepMaster {
     name: r.fields["Full Name"] ?? "Unnamed Prep Master",
     email: r.fields.Email ?? "",
     region: r.fields.Region ?? "",
+    university: r.fields.University ?? "",
     // Hourly Rate is intentionally NOT included here.
   }
 }
