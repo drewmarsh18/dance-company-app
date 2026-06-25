@@ -203,9 +203,10 @@ export function BookingFlow({
                       <Package className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
                       <span>
                         <span className="font-medium">{opt.plan.planName}</span>
-                        {expiryDate && (
-                          <span className="ml-2 text-xs text-muted-foreground">Expires {expiryDate}</span>
-                        )}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {opt.plan.sessions} {opt.plan.sessions === 1 ? "credit" : "credits"} remaining
+                          {expiryDate && ` · Expires ${expiryDate}`}
+                        </span>
                       </span>
                     </span>
                     {active && <Check className="size-4 shrink-0 text-primary" />}
