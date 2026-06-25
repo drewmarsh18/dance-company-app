@@ -120,9 +120,11 @@ export function BookingFlow({
     return opts
   }, [plans, compCredits, bookings])
 
-  // Auto-select if only one option
+  // Auto-select if only one option; fall back to generic pack-hour when no plan/single data available
   const effectiveOption = selectedOption ?? (creditOptions.length === 1 ? creditOptions[0] : null)
   const showCreditStep = creditOptions.length > 1
+  // When credits exist but no structured options (all plans inactive, no comp credits), allow booking with default sessionType
+  const noStructuredCredits = creditOptions.length === 0 && credits > 0
 
   const timeSlots = useMemo(() => {
     if (!selectedDate) return []
@@ -130,7 +132,7 @@ export function BookingFlow({
     return slotsForDate(selectedDate, week).map((slot) => ({ slot, taken: taken.has(slot) }))
   }, [selectedDate, week, bookedSlots])
 
-  const canSubmit = selectedDate && selectedTime && effectiveOption && !isPending
+  const canSubmit = selectedDate && selectedTime && (effectiveOption || noStructuredCredits) && !isPending
 
   function handleSelectDate(iso: string) {
     setSelectedDate(iso)
@@ -146,7 +148,7 @@ export function BookingFlow({
         date: selectedDate,
         time: selectedTime,
         notes,
-        sessionType: effectiveOption.sessionType,
+        sessionType: effectiveOption?.sessionType,
       })
       if (result.ok) {
         toast.success("Session booked!", {
@@ -236,7 +238,17 @@ export function BookingFlow({
         </section>
       )}
 
-      {!showCreditStep && effectiveOption && (
+      {noStructuredCredits && (
+        <div className="flex items-center gap-2 rounded-lg bg-accent/40 px-4 py-2.5 text-sm">
+          <Ticket className="size-4 text-primary" />
+          <span>
+            You have <span className="font-semibold">{credits}</span>{" "}
+            {credits === 1 ? "credit" : "credits"}. This booking uses 1.
+          </span>
+        </div>
+      )}
+
+      {!showCreditStep && !noStructuredCredits && effectiveOption && (
         <div className="flex items-center gap-2 rounded-lg bg-accent/40 px-4 py-2.5 text-sm">
           {effectiveOption.kind === "plan" ? (
             <Package className="size-4 text-primary" />

@@ -316,7 +316,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                                 >
                                   {planStatus}
                                 </Badge>
-                                {planStatus === "Active" && (
+                                {planStatus !== "Used" && (
                                   <button
                                     disabled={isPending}
                                     onClick={() => handleRemovePlan(member, plan)}
