@@ -20,9 +20,10 @@ type Props = {
 function buildAvailableDays(week: DayAvailability[]) {
   const enabledDays = new Set(week.filter((w) => w.enabled).map((w) => w.dayOfWeek))
   const days: { iso: string; label: string }[] = []
+  if (enabledDays.size === 0) return days
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  for (let i = 1; days.length < 30; i++) {
+  for (let i = 1; days.length < 30 && i < 365; i++) {
     const d = new Date(today)
     d.setDate(today.getDate() + i)
     if (!enabledDays.has(d.getDay())) continue
