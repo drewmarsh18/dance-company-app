@@ -67,6 +67,14 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
     return localCredits[member.id] ?? member.creditsRemaining
   }
 
+  function memberStatus(member: AdminMember) {
+    const credits = creditsFor(member)
+    const activePlan = memberPlans(member).find((p) => planDisplayStatus(p) === "Active")
+    if (credits > 0 || activePlan) return "active"
+    if (memberBookings(member).length === 0) return "lead"
+    return "inactive"
+  }
+
   function handleAddCredits(member: AdminMember) {
     const amount = parseInt(creditInputs[member.id] ?? "", 10)
     if (!amount || amount < 1) {
@@ -150,6 +158,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
         const memberPlanList = memberPlans(member)
         const activePlan = memberPlanList.find((p) => planDisplayStatus(p) === "Active")
         const credits = creditsFor(member)
+        const status = memberStatus(member)
 
         return (
           <Card key={member.id}>
@@ -165,6 +174,18 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={
+                      status === "active"
+                        ? "border-green-300 bg-green-100 text-green-700"
+                        : status === "lead"
+                          ? "border-blue-300 bg-blue-100 text-blue-700"
+                          : "border-gray-200 bg-gray-100 text-gray-500"
+                    }
+                  >
+                    {status === "active" ? "Active" : status === "lead" ? "Lead" : "Inactive"}
+                  </Badge>
                   {activePlan && (
                     <Badge variant="default" className="gap-1 hidden sm:flex">
                       <Package className="size-3" />
