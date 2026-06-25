@@ -54,6 +54,15 @@ export type ClientFields = {
   "Credits Remaining"?: number
 }
 
+export type SessionType = "pack-hour" | "private-30" | "private-45" | "private-60"
+
+export const SESSION_TYPE_LABELS: Record<SessionType, string> = {
+  "pack-hour": "Pack (1 hr)",
+  "private-30": "Per-private (30 min)",
+  "private-45": "Per-private (45 min)",
+  "private-60": "Per-private (1 hr)",
+}
+
 export type BookingFields = {
   Name?: string
   "Client Email"?: string
@@ -63,6 +72,7 @@ export type BookingFields = {
   Time?: string
   Status?: string
   Notes?: string
+  "Session Type"?: string
 }
 
 export type PlanFields = {
@@ -456,6 +466,7 @@ export type AdminBooking = {
   time: string
   status: string
   notes: string
+  sessionType: SessionType | null
 }
 
 export async function adminGetAllMembers(): Promise<AdminMember[]> {
@@ -496,6 +507,7 @@ export async function adminGetAllBookings(): Promise<AdminBooking[]> {
       time: r.fields.Time ?? "",
       status: r.fields.Status ?? "Pending",
       notes: r.fields.Notes ?? "",
+      sessionType: (r.fields["Session Type"] as SessionType) ?? null,
     }
   })
 }

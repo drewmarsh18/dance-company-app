@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { addComplimentaryCredits, adminAssignPlan, createMember } from "@/app/actions/admin"
 import type { AdminMember, AdminBooking, MemberPlan } from "@/lib/airtable"
+import { SESSION_TYPE_LABELS } from "@/lib/airtable"
 import { planDisplayStatus } from "@/lib/plan-utils"
 import type { DancePackage } from "@/lib/packages"
 import { Button } from "@/components/ui/button"
@@ -353,13 +354,18 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                             key={b.id}
                             className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
                           >
-                            <div>
+                            <div className="min-w-0">
                               <span className="font-medium">{b.prepMasterName || "Prep Master"}</span>
                               <span className="ml-2 text-muted-foreground">
                                 {b.date}{b.time ? ` · ${b.time}` : ""}
                               </span>
+                              {b.sessionType && (
+                                <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${b.sessionType === "pack-hour" ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"}`}>
+                                  {SESSION_TYPE_LABELS[b.sessionType]}
+                                </span>
+                              )}
                             </div>
-                            <Badge variant={statusVariant} className="capitalize">
+                            <Badge variant={statusVariant} className="capitalize shrink-0">
                               {b.status}
                             </Badge>
                           </li>
