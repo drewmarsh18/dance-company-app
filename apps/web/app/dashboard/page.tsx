@@ -4,15 +4,14 @@ import Link from "next/link"
 import { isAirtableConfigured } from "@/lib/airtable"
 import { getOrCreateProfile, getMyPlans } from "@/app/actions/profile"
 import type { MemberPlan } from "@/lib/airtable"
-import { planDisplayStatus } from "@/lib/plan-utils"
 import { getBookingsForUserId, type Booking } from "@/app/actions/booking"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { CalendarPlus, Ticket, CalendarClock, AlertTriangle, Package } from "lucide-react"
+import { CalendarPlus, Ticket, CalendarClock, AlertTriangle } from "lucide-react"
 import { AirtableSetupNotice } from "@/components/airtable-setup-notice"
 import { BookingRow } from "@/components/booking-row"
+import { CreditsCard } from "@/components/credits-card"
 import { getSessionUserWithRole } from "@/lib/roles"
 import type { DayAvailability } from "@/lib/availability"
 
@@ -100,78 +99,7 @@ export default async function DashboardPage() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Ticket className="size-4 text-primary" />
-              Session credits
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {credits === 0 && compCredits.length === 0 && plans.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Purchase a package to start booking.</p>
-            ) : null}
-            {plans.map((plan) => {
-              const status = planDisplayStatus(plan)
-              const expiryDate = plan.expiresAt
-                ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                : null
-              return (
-                <div key={plan.id} className="flex flex-col gap-1 rounded-md border px-3 py-2 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2 font-medium">
-                      <Package className="size-3.5 shrink-0 text-primary" />
-                      {plan.planName}
-                      <span className="font-normal text-muted-foreground">{plan.sessions} credits</span>
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className={`capitalize text-xs ${status === "Active" ? "border-green-300 bg-green-100 text-green-700" : status === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
-                    >
-                      {status}
-                    </Badge>
-                  </div>
-                  {expiryDate && (
-                    <p className="pl-5 text-xs text-muted-foreground">Expires {expiryDate}</p>
-                  )}
-                </div>
-              )
-            })}
-            {compCredits.map((c, i) => {
-              const labelToType: Record<string, string[]> = {
-                "60 min": ["private-60", "pack-hour"],
-                "45 min": ["private-45"],
-                "30 min": ["private-30"],
-              }
-              const matchTypes = labelToType[c.label] ?? []
-              const used = bookings.some(
-                (b) =>
-                  b.status.toLowerCase() !== "cancelled" &&
-                  b.sessionType !== null &&
-                  matchTypes.includes(b.sessionType) &&
-                  new Date(b.date) >= new Date(c.grantedAt),
-              )
-              const displayLabel = c.label === "60 min" ? "60-Min Single Session"
-                : c.label === "45 min" ? "45-Min Single Session"
-                : "30-Min Single Session"
-              return (
-                <div key={i} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
-                  <span className="flex items-center gap-2 font-medium">
-                    <Ticket className="size-3.5 shrink-0 text-muted-foreground" />
-                    {displayLabel}
-                    <span className="font-normal text-muted-foreground">{used ? "0 of 1" : "1 of 1"} credits</span>
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${used ? "border-gray-200 bg-gray-100 text-gray-500" : "border-green-300 bg-green-100 text-green-700"}`}
-                  >
-                    {used ? "Used" : "Available"}
-                  </Badge>
-                </div>
-              )
-            })}
-          </CardContent>
-        </Card>
+        <CreditsCard plans={plans} compCredits={compCredits} bookings={bookings} credits={credits} />
 
         <Card className="flex flex-col justify-between">
           <CardHeader className="pb-2">

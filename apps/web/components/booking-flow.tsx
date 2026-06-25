@@ -93,12 +93,13 @@ export function BookingFlow({
     }
     compCredits.forEach((credit, index) => {
       const matchTypes = SINGLE_LABEL_TO_TYPES[credit.label] ?? []
+      const grantedDateStr = credit.grantedAt.split("T")[0]
       const used = bookings.some(
         (b) =>
           b.status.toLowerCase() !== "cancelled" &&
           b.sessionType !== null &&
           matchTypes.includes(b.sessionType) &&
-          new Date(b.date) >= new Date(credit.grantedAt),
+          b.date >= grantedDateStr,
       )
       if (!used) {
         opts.push({ kind: "single", credit, index, sessionType: SINGLE_SESSION_TYPE[credit.label] ?? "private-60" })

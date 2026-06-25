@@ -343,12 +343,13 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                           "30 min": ["private-30"],
                         }
                         const matchTypes = labelToTypes[c.label] ?? []
+                        const grantedDateStr = c.grantedAt.split("T")[0]
                         const used = history.some(
                           (b) =>
                             b.status.toLowerCase() !== "cancelled" &&
                             b.sessionType !== null &&
                             matchTypes.includes(b.sessionType) &&
-                            new Date(b.date) >= new Date(c.grantedAt),
+                            b.date >= grantedDateStr,
                         )
                         const grantDate = new Date(c.grantedAt).toLocaleDateString("en-US", {
                           month: "short", day: "numeric", year: "numeric",
