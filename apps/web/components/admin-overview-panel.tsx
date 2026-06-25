@@ -2,7 +2,9 @@
 
 import { useState } from "react"
 import type { AdminMember, AdminBooking, AdminWorker } from "@/lib/airtable"
-import { SINGLE_HOUR_PRICE } from "@/lib/packages"
+import { PACKAGES } from "@/lib/packages"
+
+const SINGLE_HOUR_PRICE = PACKAGES[0].perSession // $99 pack rate
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
