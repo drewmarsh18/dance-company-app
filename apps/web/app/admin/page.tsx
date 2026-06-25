@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { getAdminData } from "@/app/actions/admin"
 import { AdminTabs } from "@/components/admin-tabs"
 
@@ -12,13 +13,15 @@ export default async function AdminPage() {
           Manage member accounts, Prep Masters, and company performance.
         </p>
       </div>
-      <AdminTabs
-        members={members}
-        bookings={bookings}
-        workers={workers}
-        plans={plans}
-        packages={packages}
-      />
+      <Suspense>
+        <AdminTabs
+          members={members}
+          bookings={bookings}
+          workers={workers}
+          plans={plans}
+          packages={packages}
+        />
+      </Suspense>
     </div>
   )
 }

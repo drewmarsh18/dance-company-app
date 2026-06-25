@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { addComplimentaryCredits, adminAssignPlan, createMember } from "@/app/actions/admin"
+import { addComplimentaryCredits, adminAssignPlan, createMember, adminRemovePlan } from "@/app/actions/admin"
 import type { AdminMember, AdminBooking, MemberPlan } from "@/lib/airtable"
 import { SESSION_TYPE_LABELS } from "@/lib/session-types"
 import { planDisplayStatus } from "@/lib/plan-utils"
@@ -26,6 +26,7 @@ import {
   CalendarDays,
   Ticket,
   Package,
+  Trash2,
   X,
 } from "lucide-react"
 import { Label } from "@/components/ui/label"
@@ -88,6 +89,20 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
       if (result.ok) {
         setLocalCredits((prev) => ({ ...prev, [member.id]: creditsFor(member) + 1 }))
         toast.success(`Added ${label} single session to ${member.name || member.email}.`)
+      } else {
+        toast.error(result.error)
+      }
+    })
+  }
+
+  function handleRemovePlan(member: AdminMember, plan: MemberPlan) {
+    if (!confirm(`Remove "${plan.planName}" from ${member.name || member.email}? This will deduct ${plan.sessions} credits.`)) return
+    startTransition(async () => {
+      const result = await adminRemovePlan(plan.id, member.id, plan.sessions, creditsFor(member))
+      if (result.ok) {
+        setLocalPlans((prev) => prev.filter((p) => p.id !== plan.id))
+        setLocalCredits((prev) => ({ ...prev, [member.id]: Math.max(0, creditsFor(member) - plan.sessions) }))
+        toast.success(`Removed "${plan.planName}" from ${member.name || member.email}.`)
       } else {
         toast.error(result.error)
       }
@@ -294,12 +309,24 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                                   {purchaseDate ? ` · ${purchaseDate}` : ""}
                                 </span>
                               </div>
-                              <Badge
-                                variant="outline"
-                                className={`capitalize text-xs shrink-0 ${planStatus === "Active" ? "border-green-300 bg-green-100 text-green-700" : planStatus === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
-                              >
-                                {planStatus}
-                              </Badge>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className={`capitalize text-xs ${planStatus === "Active" ? "border-green-300 bg-green-100 text-green-700" : planStatus === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
+                                >
+                                  {planStatus}
+                                </Badge>
+                                {planStatus === "Active" && (
+                                  <button
+                                    disabled={isPending}
+                                    onClick={() => handleRemovePlan(member, plan)}
+                                    className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                                    aria-label="Remove plan"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             {expiryDate && (
                               <p className="pl-5 text-xs text-muted-foreground">

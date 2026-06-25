@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import type { AdminMember, AdminBooking, AdminWorker, MemberPlan } from "@/lib/airtable"
 import type { DancePackage } from "@/lib/packages"
 import { AdminMembersPanel } from "@/components/admin-members-panel"
@@ -35,8 +36,20 @@ type Props = {
 }
 
 export function AdminTabs({ members, bookings, workers, plans, packages }: Props) {
-  const [active, setActive] = useState<TabId>("overview")
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab") as TabId | null
+  const [active, setActive] = useState<TabId>(
+    tabParam && TABS.some((t) => t.id === tabParam) ? tabParam : "overview"
+  )
   const [queries, setQueries] = useState<Partial<Record<TabId, string>>>({})
+
+  function switchTab(id: TabId) {
+    setActive(id)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("tab", id)
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }
 
   const query = queries[active] ?? ""
   const setQuery = (v: string) => setQueries((prev) => ({ ...prev, [active]: v }))
@@ -48,7 +61,7 @@ export function AdminTabs({ members, bookings, workers, plans, packages }: Props
           {TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActive(tab.id)}
+              onClick={() => switchTab(tab.id)}
               className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
                 active === tab.id
                   ? "bg-background text-foreground shadow-sm"

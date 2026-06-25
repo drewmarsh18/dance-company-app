@@ -20,6 +20,9 @@ import {
   createMemberPlan,
   getActivePlanForUser,
   setPlanStatus,
+  TABLES,
+  appBase,
+  type ClientFields,
   type AdminMember,
   type AdminBooking,
   type AdminWorker,
@@ -204,5 +207,28 @@ export async function addPrepMaster(input: {
       ok: false,
       error: err instanceof Error ? err.message : "Failed to add Prep Master.",
     }
+  }
+}
+
+export async function adminRemovePlan(
+  planId: string,
+  memberId: string,
+  planSessions: number,
+  currentCredits: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await assertAdmin()
+    // Mark plan inactive
+    await setPlanStatus(planId, "Inactive")
+    // Deduct the plan's sessions from the member's credits (floor at 0)
+    const newCredits = Math.max(0, currentCredits - planSessions)
+    await appBase.update<ClientFields>(TABLES.clients, memberId, {
+      "Credits Remaining": newCredits,
+    })
+    revalidatePath("/admin")
+    revalidatePath("/dashboard")
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to remove plan." }
   }
 }
