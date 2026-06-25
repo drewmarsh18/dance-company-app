@@ -38,7 +38,11 @@ export type Booking = {
 
 export async function getMyBookings(): Promise<Booking[]> {
   const user = await getSessionUser()
-  const safeId = user.id.replace(/'/g, "\\'")
+  return getBookingsForUserId(user.id)
+}
+
+export async function getBookingsForUserId(userId: string): Promise<Booking[]> {
+  const safeId = userId.replace(/'/g, "\\'")
   const records = await appBase.list<BookingFields>(TABLES.bookings, {
     filterByFormula: `{User ID} = '${safeId}'`,
     sort: [{ field: "Date", direction: "desc" }],

@@ -3,7 +3,7 @@ import { isAirtableConfigured } from "@/lib/airtable"
 import { getOrCreateProfile, getMyPlans } from "@/app/actions/profile"
 import type { MemberPlan } from "@/lib/airtable"
 import { planDisplayStatus } from "@/lib/plan-utils"
-import { getMyBookings, type Booking } from "@/app/actions/booking"
+import { getBookingsForUserId, type Booking } from "@/app/actions/booking"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -40,7 +40,7 @@ export default async function DashboardPage() {
     console.log("[page] fetching profile/bookings/plans")
     const [profile, myBookings, myPlans] = await Promise.all([
       getOrCreateProfile({ noCreate: isAdminPreview }),
-      getMyBookings(),
+      getBookingsForUserId(user!.id),
       getMyPlans(),
     ])
     console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
