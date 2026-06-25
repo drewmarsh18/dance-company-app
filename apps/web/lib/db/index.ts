@@ -11,7 +11,7 @@ export const pool = new Pool({
   connectionString: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL,
   connectionTimeoutMillis: 5000,
   statement_timeout: 8000,
-  idleTimeoutMillis: 100,
+  idleTimeoutMillis: 2000,
   max: 3,
 })
 
