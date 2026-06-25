@@ -154,6 +154,7 @@ export default async function DashboardPage() {
 
       <section className="flex flex-col gap-4">
         <h2 className="font-heading text-xl font-bold tracking-tight">Upcoming sessions</h2>
+        <p className="text-xs font-mono text-muted-foreground">uid={user?.id} total={bookings.length} upcoming={upcoming.length} err={error ?? "none"}</p>
         {upcoming.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
