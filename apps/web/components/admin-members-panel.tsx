@@ -69,9 +69,16 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
 
   function memberStatus(member: AdminMember) {
     const credits = creditsFor(member)
-    const activePlan = memberPlans(member).find((p) => planDisplayStatus(p) === "Active")
+    const plans = memberPlans(member)
+    const activePlan = plans.find((p) => planDisplayStatus(p) === "Active")
     if (credits > 0 || activePlan) return "active"
-    if (memberBookings(member).length === 0) return "lead"
+    const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000
+    const recentBooking = memberBookings(member).some(
+      (b) => b.status.toLowerCase() !== "cancelled" && new Date(b.date).getTime() >= oneYearAgo,
+    )
+    const recentPlan = plans.some((p) => new Date(p.purchasedAt).getTime() >= oneYearAgo)
+    if (recentBooking || recentPlan) return "active"
+    if (memberBookings(member).length === 0 && plans.length === 0) return "lead"
     return "inactive"
   }
 
