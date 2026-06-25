@@ -346,7 +346,7 @@ export async function getPlansForUser(userId: string): Promise<MemberPlan[]> {
 export async function adminGetAllPlans(): Promise<MemberPlan[]> {
   const records = await list<PlanFields>(TABLES.plans, {
     sort: [{ field: "Purchased At", direction: "desc" }],
-    revalidate: 10,
+    revalidate: 0,
   })
   return records.map((r) => ({
     id: r.id,
@@ -457,7 +457,7 @@ export type AdminBooking = {
 export async function adminGetAllMembers(): Promise<AdminMember[]> {
   const records = await list<ClientFields>(TABLES.clients, {
     sort: [{ field: "Name", direction: "asc" }],
-    revalidate: 10,
+    revalidate: 0,
   })
   return records.map((r) => ({
     id: r.id,
@@ -473,7 +473,7 @@ export async function adminGetAllMembers(): Promise<AdminMember[]> {
 export async function adminGetAllBookings(): Promise<AdminBooking[]> {
   const records = await list<BookingFields>(TABLES.bookings, {
     sort: [{ field: "Date", direction: "desc" }],
-    revalidate: 10,
+    revalidate: 0,
   })
   const userIds = Array.from(
     new Set(records.map((r) => r.fields["User ID"]).filter(Boolean) as string[]),
@@ -528,7 +528,7 @@ export async function adminCreateWorker(fields: {
 export async function adminGetAllWorkers(): Promise<AdminWorker[]> {
   const records = await list<WorkerFields>(TABLES.workers, {
     sort: [{ field: "Full Name", direction: "asc" }],
-    revalidate: 10,
+    revalidate: 0,
   })
   return records.map((r) => ({
     id: r.id,
