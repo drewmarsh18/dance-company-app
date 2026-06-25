@@ -12,7 +12,7 @@ export const pool = new Pool({
   connectionTimeoutMillis: 5000,
   statement_timeout: 8000,
   idleTimeoutMillis: 100,
-  max: 1,
+  max: 3,
 })
 
 export const db = drizzle(pool, { schema })
