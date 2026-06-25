@@ -40,15 +40,21 @@ export default async function DashboardPage() {
   const isAdminPreview = user?.role === "admin"
   try {
     console.log("[page] fetching profile/bookings/plans")
-    const [profile, myBookings, myPlans] = await Promise.all([
-      getOrCreateProfile({ noCreate: isAdminPreview }),
-      getBookingsForUserId(user!.id),
-      getMyPlans(),
-    ])
+    if (isAdminPreview) {
+      // For admin preview only fetch bookings — avoids extra DB round-trips
+      // from re-resolving the session inside getOrCreateProfile/getMyPlans.
+      bookings = await getBookingsForUserId(user!.id)
+    } else {
+      const [profile, myBookings, myPlans] = await Promise.all([
+        getOrCreateProfile(),
+        getBookingsForUserId(user!.id),
+        getMyPlans(),
+      ])
+      credits = profile.creditsRemaining
+      bookings = myBookings
+      plans = myPlans
+    }
     console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
-    credits = profile.creditsRemaining
-    bookings = myBookings as Booking[]
-    plans = myPlans as MemberPlan[]
   } catch (err) {
     console.log("[page] error in data fetch", Date.now() - t0 + "ms", err)
     error = err instanceof Error ? err.message : "Something went wrong."
@@ -154,7 +160,6 @@ export default async function DashboardPage() {
 
       <section className="flex flex-col gap-4">
         <h2 className="font-heading text-xl font-bold tracking-tight">Upcoming sessions</h2>
-        <p className="text-xs font-mono text-muted-foreground">uid={user?.id} total={bookings.length} upcoming={upcoming.length} err={error ?? "none"}</p>
         {upcoming.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
