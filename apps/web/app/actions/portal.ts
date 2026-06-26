@@ -1,15 +1,23 @@
 "use server"
 
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { getSessionUserWithRole } from "@/lib/roles"
 import { TABLES, appBase, getPrepMasterByEmail, type BookingFields } from "@/lib/airtable"
 import { sendEmail, bookingUpdatedEmail } from "@/lib/email"
+import { createNotification } from "@/app/actions/notifications"
+import { db } from "@/lib/db"
+import { user as userTable } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 
 async function assertPrepMaster() {
   const user = await getSessionUserWithRole()
   if (!user || (user.role !== "prep_master" && user.role !== "admin")) throw new Error("Unauthorized")
   return user
+}
+
+async function getUserIdByEmail(email: string): Promise<string | null> {
+  const [row] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, email))
+  return row?.id ?? null
 }
 
 export async function confirmBooking(
@@ -20,16 +28,26 @@ export async function confirmBooking(
     const pm = await getPrepMasterByEmail(user.email)
     if (!pm) return { ok: false, error: "Staff record not found." }
 
-    // Verify this booking belongs to this prep master
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
       filterByFormula: `AND({Prep Master Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
       maxRecords: 1,
     })
     if (!records[0]) return { ok: false, error: "Booking not found." }
 
-    await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
-      Status: "Confirmed",
-    })
+    await appBase.update<BookingFields>(TABLES.bookings, bookingId, { Status: "Confirmed" })
+
+    // Notify member in-app
+    const dancerUserId = records[0].fields["User ID"]
+    if (dancerUserId) {
+      createNotification({
+        userId: dancerUserId,
+        type: "booking_confirmed",
+        title: "Booking confirmed",
+        body: `${pm.name} has confirmed your session on ${records[0].fields.Date ?? ""} at ${records[0].fields.Time ?? ""}.`,
+        bookingId,
+      }).catch(() => {})
+    }
+
     revalidatePath("/portal")
     return { ok: true }
   } catch (err) {
@@ -59,10 +77,32 @@ export async function adjustBooking(
 
     await appBase.update<BookingFields>(TABLES.bookings, bookingId, update)
 
-    // Notify both parties of the change — fire and forget
     const newDate = fields.date ?? records[0].fields.Date ?? ""
     const newTime = fields.time ?? records[0].fields.Time ?? ""
     const dancerEmail = records[0].fields["Client Email"]
+    const dancerUserId = records[0].fields["User ID"]
+
+    // In-app notification → member
+    if (dancerUserId) {
+      createNotification({
+        userId: dancerUserId,
+        type: "booking_updated",
+        title: "Session rescheduled",
+        body: `${pm.name} has rescheduled your session to ${newDate} at ${newTime}.`,
+        bookingId,
+      }).catch(() => {})
+    }
+
+    // In-app notification → prep master (themselves, as a confirmation)
+    createNotification({
+      userId: user.id,
+      type: "booking_updated",
+      title: "Session updated",
+      body: `You rescheduled the session on ${newDate} at ${newTime}.`,
+      bookingId,
+    }).catch(() => {})
+
+    // Email both parties — fire and forget
     if (dancerEmail) {
       const { subject, html } = bookingUpdatedEmail({
         recipientName: dancerEmail,
@@ -105,9 +145,20 @@ export async function declineBooking(
     })
     if (!records[0]) return { ok: false, error: "Booking not found." }
 
-    await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
-      Status: "Cancelled",
-    })
+    await appBase.update<BookingFields>(TABLES.bookings, bookingId, { Status: "Cancelled" })
+
+    // Notify member in-app
+    const dancerUserId = records[0].fields["User ID"]
+    if (dancerUserId) {
+      createNotification({
+        userId: dancerUserId,
+        type: "booking_cancelled",
+        title: "Booking declined",
+        body: `${pm.name} has declined your session request on ${records[0].fields.Date ?? ""} at ${records[0].fields.Time ?? ""}. Your credit has been refunded.`,
+        bookingId,
+      }).catch(() => {})
+    }
+
     revalidatePath("/portal")
     return { ok: true }
   } catch (err) {

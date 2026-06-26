@@ -195,10 +195,24 @@ export async function rescheduleBooking(
       })
       sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Reschedule email to member failed:", e))
     }
-    // Find prep master's email to notify them
-    getPrepMasters().then((all) => {
+    // Find prep master's email + userId to notify them (email + in-app)
+    getPrepMasters().then(async (all) => {
       const pm = all.find((p) => p.name === prepMasterName)
       if (!pm?.email) return
+
+      // In-app notification → prep master
+      const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
+      if (pmUser) {
+        createNotification({
+          userId: pmUser.id,
+          type: "booking_updated",
+          title: "Session rescheduled",
+          body: `${memberName} has rescheduled their session to ${newDate} at ${newTime}.`,
+          bookingId,
+        }).catch(() => {})
+      }
+
+      // Email → prep master
       const { subject, html } = bookingUpdatedEmail({
         recipientName: pm.name,
         updatedByName: memberName,
