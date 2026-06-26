@@ -325,7 +325,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                                 <Package className="size-3.5 shrink-0 text-primary" />
                                 <span className="font-medium">{plan.planName}</span>
                                 <span className="text-muted-foreground">
-                                  {plan.sessions} credits · ${plan.pricePaid}
+                                  {planStatus === "Active" ? creditsFor(member) : plan.sessions} credits · ${plan.pricePaid}
                                   {purchaseDate ? ` · ${purchaseDate}` : ""}
                                 </span>
                               </div>
