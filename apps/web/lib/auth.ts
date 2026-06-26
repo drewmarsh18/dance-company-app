@@ -25,10 +25,34 @@ export const auth = betterAuth({
           google: {
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-            // Allow ID tokens from native iOS/Android clients
-            ...(process.env.GOOGLE_IOS_CLIENT_ID
-              ? { extraClientIds: [process.env.GOOGLE_IOS_CLIENT_ID] }
-              : {}),
+            // Accept ID tokens from any configured client (web or native iOS/Android)
+            verifyIdToken: async (token: string) => {
+              const { decodeProtectedHeader, jwtVerify } = await import("jose")
+              try {
+                const { kid, alg: jwtAlg } = decodeProtectedHeader(token)
+                if (!kid || !jwtAlg) return false
+                const GOOGLE_CERTS_URL = "https://www.googleapis.com/oauth2/v3/certs"
+                const { createRemoteJWKSet } = await import("jose")
+                const JWKS = createRemoteJWKSet(new URL(GOOGLE_CERTS_URL))
+                const allowedAudiences = [
+                  process.env.GOOGLE_CLIENT_ID!,
+                  ...(process.env.GOOGLE_IOS_CLIENT_ID ? [process.env.GOOGLE_IOS_CLIENT_ID] : []),
+                ]
+                for (const audience of allowedAudiences) {
+                  try {
+                    await jwtVerify(token, JWKS, {
+                      algorithms: [jwtAlg as string],
+                      issuer: ["https://accounts.google.com", "accounts.google.com"],
+                      audience,
+                    })
+                    return true
+                  } catch {}
+                }
+                return false
+              } catch {
+                return false
+              }
+            },
           },
         },
       }
