@@ -11,13 +11,8 @@ import {
 import { useState } from "react"
 import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
-import * as WebBrowser from "expo-web-browser"
-import { signIn, authClient } from "@/lib/auth-client"
+import { signIn } from "@/lib/auth-client"
 import { COLORS, SPACING, RADIUS } from "@/constants/theme"
-
-WebBrowser.maybeCompleteAuthSession()
-
-const APP_URL = "https://dance-company-app.vercel.app"
 
 export default function SignInScreen() {
   const router = useRouter()
@@ -52,20 +47,16 @@ export default function SignInScreen() {
     setError(null)
     setGoogleLoading(true)
     try {
-      const result = await authClient.signIn.social({
+      // expoClient plugin opens the browser and handles the deep-link
+      // callback automatically — no manual WebBrowser call needed.
+      const result = await signIn.social({
         provider: "google",
-        callbackURL: `${APP_URL}/api/auth/callback/google`,
+        callbackURL: "cdp://",
       })
       if (result?.error) {
         setError(result.error.message ?? "Google sign-in failed.")
-      } else if (result?.data?.url) {
-        const browserResult = await WebBrowser.openAuthSessionAsync(
-          result.data.url,
-          "cdp://",
-        )
-        if (browserResult.type === "success") {
-          router.replace("/")
-        }
+      } else {
+        router.replace("/")
       }
     } catch {
       setError("Google sign-in failed. Please try again.")
