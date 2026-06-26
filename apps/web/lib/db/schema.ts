@@ -111,6 +111,24 @@ export const googleCalendarToken = pgTable("google_calendar_token", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
 
+// Expo push tokens — one row per user device. A user can have multiple devices.
+export const pushToken = pgTable(
+  "push_token",
+  {
+    id: text("id").primaryKey(),
+    userId: text("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("push_token_user_idx").on(t.userId),
+    tokenUnique: unique("push_token_unique").on(t.token),
+  }),
+)
+
 // A prep master's weekly recurring availability. One row per (email, weekday).
 // Keyed by the prep master's email, which is both their login email and their
 // Workers-table email, so dancers can look up availability when booking.

@@ -329,7 +329,7 @@ export async function createBooking(input: {
       sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Confirmation email failed:", e))
     }
 
-    // Email prep master with approve/deny links — fire and forget
+    // Email + push notification to prep master with approve/deny — fire and forget
     getPrepMaster(input.prepMasterId).then(async (pm) => {
       if (!pm?.email) return
       const approveUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=approve&token=${CONFIRM_SECRET}`
@@ -345,6 +345,24 @@ export async function createBooking(input: {
         denyUrl,
       })
       sendEmail({ to: pm.email, subject, html }).catch((e) => console.error("PM request email failed:", e))
+
+      // Push notification with approve/deny actions
+      const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
+      if (pmUser) {
+        createNotification({
+          userId: pmUser.id,
+          type: "booking_request",
+          title: "New session request",
+          body: `${dancerDisplayName} wants to book ${input.date} at ${input.time}.`,
+          bookingId: record.id,
+          pushCategory: "BOOKING_REQUEST",
+          pushData: {
+            bookingId: record.id,
+            approveUrl,
+            denyUrl,
+          },
+        }).catch(() => {})
+      }
     }).catch(() => {})
 
     // Create Google Calendar event on prep master's calendar — fire and forget

@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { notification } from "@/lib/db/schema"
 import { eq, desc, and } from "drizzle-orm"
 import { getSessionUserWithRole } from "@/lib/roles"
+import { sendPushToUser } from "@/lib/push"
 
 export type AppNotification = {
   id: string
@@ -71,12 +72,16 @@ export async function createNotification({
   title,
   body,
   bookingId,
+  pushCategory,
+  pushData,
 }: {
   userId: string
   type: string
   title: string
   body: string
   bookingId?: string
+  pushCategory?: string
+  pushData?: Record<string, unknown>
 }): Promise<void> {
   await db.insert(notification).values({
     id: randomUUID(),
@@ -87,4 +92,12 @@ export async function createNotification({
     bookingId: bookingId ?? null,
     read: false,
   })
+
+  // Fire push — never block the caller
+  sendPushToUser(userId, {
+    title,
+    body,
+    categoryIdentifier: pushCategory,
+    data: { bookingId: bookingId ?? null, type, ...(pushData ?? {}) },
+  }).catch(() => {})
 }

@@ -143,6 +143,17 @@ export async function POST(req: Request) {
 
     const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
     if (pmUser) {
+      // Push with approve/deny actions
+      createNotification({
+        userId: pmUser.id,
+        type: "booking_request",
+        title: "New session request",
+        body: `${dancerDisplayName} wants to book ${date} at ${time}.`,
+        bookingId: record.id,
+        pushCategory: "BOOKING_REQUEST",
+        pushData: { bookingId: record.id, approveUrl, denyUrl },
+      }).catch(() => {})
+
       createCalendarEvent(pmUser.id, {
         dancerName: user.name,
         date,
