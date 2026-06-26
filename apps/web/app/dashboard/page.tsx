@@ -96,7 +96,9 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <CreditsCard plans={plans} credits={credits} />
+
         <Card className="flex flex-col justify-between">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
