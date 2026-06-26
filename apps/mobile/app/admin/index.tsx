@@ -1,34 +1,83 @@
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Modal, FlatList } from "react-native"
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, RefreshControl, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { CalendarDays, DollarSign, TrendingUp, Activity, Award, Users, X } from "lucide-react-native"
 import { COLORS, SPACING, RADIUS } from "@/constants/theme"
 import { SINGLE_HOUR_PRICE } from "@cdp/core"
-
-// --- Placeholder data (replace with real API calls) ---
-const BOOKINGS: any[] = []
-const WORKERS: any[] = []
-const MEMBERS: any[] = []
+import { useAdmin } from "@/lib/admin-context"
+import type { AdminBooking } from "@/lib/admin-types"
 
 function currentMonthLabel() {
   return new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })
 }
 
-export default function AdminOverviewScreen() {
-  const [bookingsModalOpen, setBookingsModalOpen] = useState(false)
+function currentMonthPrefix() {
+  return new Date().toISOString().slice(0, 7)
+}
 
-  const thisMonth = BOOKINGS.filter((b) =>
-    b.date?.startsWith(new Date().toISOString().slice(0, 7))
-  )
-  const completed = thisMonth.filter((b) => b.status?.toLowerCase() !== "cancelled")
-  const cancelled = thisMonth.filter((b) => b.status?.toLowerCase() === "cancelled")
+function statusColor(status: string) {
+  const s = status.toLowerCase()
+  if (s === "confirmed") return { bg: COLORS.primaryLight, text: COLORS.primary }
+  if (s.startsWith("cancelled")) return { bg: COLORS.redLight, text: COLORS.red }
+  return { bg: COLORS.grayLight ?? "#f3f4f6", text: COLORS.textMuted }
+}
+
+export default function AdminOverviewScreen() {
+  const { data, loading, error, refresh } = useAdmin()
+  const [bookingsModalOpen, setBookingsModalOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await refresh()
+    setRefreshing(false)
+  }, [refresh])
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  const bookings = data?.bookings ?? []
+  const workers = data?.workers ?? []
+  const members = data?.members ?? []
+
+  const thisMonth = bookings.filter((b) => b.date?.startsWith(currentMonthPrefix()))
+  const completed = thisMonth.filter((b) => !b.status?.toLowerCase().startsWith("cancelled"))
+  const cancelled = thisMonth.filter((b) => b.status?.toLowerCase().startsWith("cancelled"))
   const revenue = completed.length * SINGLE_HOUR_PRICE
-  const allCompleted = BOOKINGS.filter((b) => b.status?.toLowerCase() !== "cancelled")
+
+  const allCompleted = bookings.filter((b) => !b.status?.toLowerCase().startsWith("cancelled"))
   const allRevenue = allCompleted.length * SINGLE_HOUR_PRICE
+
+  // Pay owed this month per worker
+  const payOwedThisMonth = workers.reduce((sum, w) => {
+    const workerSessions = completed.filter((b) => b.prepMasterName === w.name)
+    return sum + workerSessions.length * w.hourlyRate
+  }, 0)
+  const margin = revenue - payOwedThisMonth
+
+  // Top prep masters this month by session count
+  const pmCounts: Record<string, number> = {}
+  completed.forEach((b) => {
+    if (b.prepMasterName) pmCounts[b.prepMasterName] = (pmCounts[b.prepMasterName] ?? 0) + 1
+  })
+  const topPMs = Object.entries(pmCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -39,6 +88,12 @@ export default function AdminOverviewScreen() {
             <Text style={styles.liveText}>Live</Text>
           </View>
         </View>
+
+        {error ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
 
         {/* KPI Grid */}
         <View style={styles.grid}>
@@ -65,8 +120,8 @@ export default function AdminOverviewScreen() {
               <TrendingUp size={14} color={COLORS.primary} />
               <Text style={styles.kpiLabel}>Margin this month</Text>
             </View>
-            <Text style={[styles.kpiValue, { color: COLORS.green }]}>$0</Text>
-            <Text style={styles.kpiSub}>Pay owed: $0</Text>
+            <Text style={[styles.kpiValue, { color: COLORS.green }]}>${margin.toLocaleString()}</Text>
+            <Text style={styles.kpiSub}>Pay owed: ${payOwedThisMonth.toLocaleString()}</Text>
           </View>
 
           <View style={styles.kpiCard}>
@@ -85,7 +140,16 @@ export default function AdminOverviewScreen() {
             <Award size={16} color={COLORS.primary} />
             <Text style={styles.cardTitle}>Top Prep Masters this month</Text>
           </View>
-          <Text style={styles.empty}>No completed sessions yet this month.</Text>
+          {topPMs.length === 0 ? (
+            <Text style={styles.empty}>No completed sessions yet this month.</Text>
+          ) : (
+            topPMs.map(([name, count], i) => (
+              <View key={name} style={styles.rosterRow}>
+                <Text style={styles.rosterLabel}>#{i + 1} {name}</Text>
+                <Text style={styles.rosterValue}>{count} session{count !== 1 ? "s" : ""}</Text>
+              </View>
+            ))
+          )}
         </View>
 
         {/* Roster Snapshot */}
@@ -94,14 +158,14 @@ export default function AdminOverviewScreen() {
             <Users size={16} color={COLORS.primary} />
             <Text style={styles.cardTitle}>Roster snapshot</Text>
           </View>
-          <RosterRow label="Total members" value={MEMBERS.length} />
-          <RosterRow label="Active Prep Masters" value={WORKERS.filter((w) => w.active).length} />
-          <RosterRow label="Inactive Prep Masters" value={WORKERS.filter((w) => !w.active).length} />
+          <RosterRow label="Total members" value={members.length} />
+          <RosterRow label="Active Prep Masters" value={workers.filter((w) => w.active).length} />
+          <RosterRow label="Inactive Prep Masters" value={workers.filter((w) => !w.active).length} />
           <View style={styles.divider} />
           <Text style={styles.sectionLabel}>ALL-TIME BOOKINGS BY STATUS</Text>
           <RosterRow label="Completed" value={allCompleted.length} />
-          <RosterRow label="Cancelled" value={BOOKINGS.filter((b) => b.status?.toLowerCase() === "cancelled").length} />
-          <RosterRow label="Pending" value={BOOKINGS.filter((b) => b.status?.toLowerCase() === "pending").length} />
+          <RosterRow label="Cancelled" value={bookings.filter((b) => b.status?.toLowerCase().startsWith("cancelled")).length} />
+          <RosterRow label="Pending" value={bookings.filter((b) => b.status?.toLowerCase() === "pending").length} />
         </View>
       </ScrollView>
 
@@ -127,7 +191,9 @@ export default function AdminOverviewScreen() {
                     <Text style={styles.bookingName}>{b.dancerName || b.clientEmail || "Client"}</Text>
                     <Text style={styles.bookingSub}>{b.prepMasterName} · {b.date}{b.time ? ` · ${b.time}` : ""}</Text>
                   </View>
-                  <StatusBadge status={b.status} />
+                  <View style={[styles.badge, { backgroundColor: statusColor(b.status).bg }]}>
+                    <Text style={[styles.badgeText, { color: statusColor(b.status).text }]}>{b.status}</Text>
+                  </View>
                 </View>
               )}
             />
@@ -147,25 +213,17 @@ function RosterRow({ label, value }: { label: string; value: number }) {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const s = status?.toLowerCase()
-  const bg = s === "confirmed" ? COLORS.primaryLight : s === "cancelled" ? COLORS.redLight : COLORS.grayLight
-  const color = s === "confirmed" ? COLORS.primary : s === "cancelled" ? COLORS.red : COLORS.gray
-  return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
-      <Text style={[styles.badgeText, { color }]}>{status}</Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
   scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: SPACING.xl },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   month: { fontSize: 22, fontWeight: "700", color: COLORS.text },
   subtitle: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
   liveBadge: { backgroundColor: COLORS.greenLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.full },
   liveText: { fontSize: 12, fontWeight: "600", color: COLORS.green },
+  errorBox: { backgroundColor: COLORS.redLight, borderRadius: RADIUS.sm, padding: SPACING.sm },
+  errorText: { fontSize: 13, color: COLORS.red },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
   kpiCard: {
     width: "48%", backgroundColor: COLORS.surface, borderRadius: RADIUS.md,

@@ -1,9 +1,11 @@
 import { Tabs } from "expo-router"
 import { LayoutDashboard, Users, Star, DollarSign } from "lucide-react-native"
 import { COLORS } from "@/constants/theme"
+import { AdminProvider } from "@/lib/admin-context"
 
 export default function AdminLayout() {
   return (
+    <AdminProvider>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -45,5 +47,6 @@ export default function AdminLayout() {
         }}
       />
     </Tabs>
+    </AdminProvider>
   )
 }

@@ -1,32 +1,45 @@
-import { useState } from "react"
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, ScrollView } from "react-native"
+import { useState, useCallback } from "react"
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, ScrollView, RefreshControl, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Search, ChevronRight, X, MapPin, DollarSign } from "lucide-react-native"
 import { COLORS, SPACING, RADIUS } from "@/constants/theme"
-
-type Worker = {
-  id: string
-  name: string
-  email: string
-  phone?: string
-  region?: string
-  hourlyRate: number
-  active: boolean
-}
-
-// Placeholder — replace with real API fetch
-const WORKERS: Worker[] = []
+import { useAdmin } from "@/lib/admin-context"
+import type { AdminWorker, AdminBooking } from "@/lib/admin-types"
 
 export default function AdminPrepMastersScreen() {
+  const { data, loading, refresh } = useAdmin()
   const [query, setQuery] = useState("")
-  const [selected, setSelected] = useState<Worker | null>(null)
+  const [selected, setSelected] = useState<AdminWorker | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const filtered = WORKERS.filter(
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await refresh()
+    setRefreshing(false)
+  }, [refresh])
+
+  const workers = data?.workers ?? []
+  const bookings = data?.bookings ?? []
+  const filtered = workers.filter(
     (w) =>
       !query ||
       w.name.toLowerCase().includes(query.toLowerCase()) ||
       w.email.toLowerCase().includes(query.toLowerCase()),
   )
+
+  function bookingsFor(worker: AdminWorker): AdminBooking[] {
+    return bookings.filter((b) => b.prepMasterName === worker.name)
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -48,22 +61,23 @@ export default function AdminPrepMastersScreen() {
         keyExtractor={(w) => w.id}
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            {WORKERS.length === 0 ? "No Prep Masters yet." : "No Prep Masters match your search."}
+            {workers.length === 0 ? "No Prep Masters yet." : "No Prep Masters match your search."}
           </Text>
         }
         renderItem={({ item: w }) => (
           <TouchableOpacity style={styles.row} onPress={() => setSelected(w)} activeOpacity={0.7}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{w.name.slice(0, 2).toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{(w.name || "?").slice(0, 2).toUpperCase()}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{w.name}</Text>
-              <Text style={styles.email}>{w.region || w.email}</Text>
+              <Text style={styles.sub}>{w.region || w.email}</Text>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: w.active ? COLORS.greenLight : COLORS.grayLight }]}>
-              <Text style={[styles.statusText, { color: w.active ? COLORS.green : COLORS.gray }]}>
+            <View style={[styles.statusBadge, { backgroundColor: w.active ? COLORS.greenLight : (COLORS.grayLight ?? "#f3f4f6") }]}>
+              <Text style={[styles.statusText, { color: w.active ? COLORS.green : COLORS.textMuted }]}>
                 {w.active ? "Active" : "Inactive"}
               </Text>
             </View>
@@ -72,7 +86,6 @@ export default function AdminPrepMastersScreen() {
         )}
       />
 
-      {/* Prep Master detail modal */}
       <Modal visible={!!selected} animationType="slide" presentationStyle="pageSheet">
         {selected && (
           <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -88,23 +101,57 @@ export default function AdminPrepMastersScreen() {
 
             <ScrollView contentContainerStyle={styles.detailBody}>
               <View style={styles.statsRow}>
-                <StatCard icon={<DollarSign size={18} color={COLORS.green} />} label="Pay rate" value={`$${selected.hourlyRate}/hr`} />
-                <StatCard icon={<MapPin size={18} color={COLORS.primary} />} label="Region" value={selected.region || "—"} />
+                <StatCard
+                  icon={<DollarSign size={18} color={COLORS.green} />}
+                  label="Pay rate"
+                  value={`$${selected.hourlyRate}/hr`}
+                />
+                <StatCard
+                  icon={<MapPin size={18} color={COLORS.primary} />}
+                  label="Region"
+                  value={selected.region || "—"}
+                />
               </View>
 
-              {selected.phone && <DetailRow label="Phone" value={selected.phone} />}
+              {selected.phone ? <DetailRow label="Phone" value={selected.phone} /> : null}
+              {selected.university ? <DetailRow label="University" value={selected.university} /> : null}
               <DetailRow label="Status" value={selected.active ? "Active" : "Inactive"} />
 
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Booking History</Text>
-              </View>
-              <Text style={styles.empty}>No bookings recorded yet.</Text>
+              <Text style={styles.sectionTitle}>All-time sessions</Text>
+              {bookingsFor(selected).length === 0 ? (
+                <Text style={styles.empty}>No bookings recorded yet.</Text>
+              ) : (
+                bookingsFor(selected).map((b) => (
+                  <View key={b.id} style={styles.bookingCard}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.bookingName}>{b.dancerName || b.clientEmail || "Client"}</Text>
+                      <Text style={styles.bookingSub}>{b.date}{b.time ? ` · ${b.time}` : ""}</Text>
+                    </View>
+                    <View style={[styles.badge, { backgroundColor: statusBg(b.status) }]}>
+                      <Text style={[styles.badgeText, { color: statusFg(b.status) }]}>{b.status}</Text>
+                    </View>
+                  </View>
+                ))
+              )}
             </ScrollView>
           </SafeAreaView>
         )}
       </Modal>
     </SafeAreaView>
   )
+}
+
+function statusBg(s: string) {
+  const l = s.toLowerCase()
+  if (l === "confirmed") return COLORS.primaryLight
+  if (l.startsWith("cancelled")) return COLORS.redLight
+  return COLORS.grayLight ?? "#f3f4f6"
+}
+function statusFg(s: string) {
+  const l = s.toLowerCase()
+  if (l === "confirmed") return COLORS.primary
+  if (l.startsWith("cancelled")) return COLORS.red
+  return COLORS.textMuted
 }
 
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
@@ -128,6 +175,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
   searchRow: {
     flexDirection: "row", alignItems: "center",
     margin: SPACING.md, backgroundColor: COLORS.surface,
@@ -146,7 +194,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 14, fontWeight: "700", color: COLORS.primary },
   name: { fontSize: 15, fontWeight: "600", color: COLORS.text },
-  email: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
+  sub: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full },
   statusText: { fontSize: 11, fontWeight: "600" },
   modalHeader: {
@@ -155,17 +203,25 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text },
   modalEmail: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
-  detailBody: { padding: SPACING.md, gap: SPACING.sm },
-  statsRow: { flexDirection: "row", gap: SPACING.sm, marginBottom: SPACING.sm },
+  detailBody: { padding: SPACING.md, gap: SPACING.md },
+  statsRow: { flexDirection: "row", gap: SPACING.sm },
   statCard: {
     flex: 1, backgroundColor: COLORS.surface, borderRadius: RADIUS.md,
-    borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: 4, alignItems: "flex-start",
+    borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: 4,
   },
   statValue: { fontSize: 20, fontWeight: "700", color: COLORS.text },
   statLabel: { fontSize: 12, color: COLORS.textMuted },
   detailRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   detailLabel: { fontSize: 14, color: COLORS.textMuted },
   detailValue: { fontSize: 14, fontWeight: "500", color: COLORS.text },
-  sectionHeader: { marginTop: SPACING.md, paddingBottom: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  sectionTitle: { fontSize: 15, fontWeight: "600", color: COLORS.text },
+  sectionTitle: { fontSize: 15, fontWeight: "600", color: COLORS.text, marginTop: SPACING.sm },
+  bookingCard: {
+    flexDirection: "row", alignItems: "center", gap: SPACING.sm,
+    backgroundColor: COLORS.surface, borderRadius: RADIUS.sm,
+    borderWidth: 1, borderColor: COLORS.border, padding: SPACING.sm,
+  },
+  bookingName: { fontSize: 14, fontWeight: "600", color: COLORS.text },
+  bookingSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full },
+  badgeText: { fontSize: 11, fontWeight: "600", textTransform: "capitalize" },
 })

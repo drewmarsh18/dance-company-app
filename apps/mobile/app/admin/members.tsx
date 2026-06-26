@@ -1,34 +1,43 @@
-import { useState } from "react"
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal } from "react-native"
+import { useState, useCallback } from "react"
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, RefreshControl, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Search, ChevronRight, X, CreditCard } from "lucide-react-native"
 import { COLORS, SPACING, RADIUS } from "@/constants/theme"
-
-type Member = {
-  id: string
-  name: string
-  email: string
-  creditsRemaining: number
-  phone?: string
-}
-
-// Placeholder — replace with real API fetch
-const MEMBERS: Member[] = []
+import { useAdmin } from "@/lib/admin-context"
+import type { AdminMember } from "@/lib/admin-types"
 
 export default function AdminMembersScreen() {
+  const { data, loading, refresh } = useAdmin()
   const [query, setQuery] = useState("")
-  const [selected, setSelected] = useState<Member | null>(null)
+  const [selected, setSelected] = useState<AdminMember | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const filtered = MEMBERS.filter(
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await refresh()
+    setRefreshing(false)
+  }, [refresh])
+
+  const members = data?.members ?? []
+  const filtered = members.filter(
     (m) =>
       !query ||
       m.name.toLowerCase().includes(query.toLowerCase()) ||
       m.email.toLowerCase().includes(query.toLowerCase()),
   )
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    )
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      {/* Search bar */}
       <View style={styles.searchRow}>
         <Search size={16} color={COLORS.textMuted} style={styles.searchIcon} />
         <TextInput
@@ -47,18 +56,19 @@ export default function AdminMembersScreen() {
         keyExtractor={(m) => m.id}
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            {MEMBERS.length === 0 ? "No members yet." : "No members match your search."}
+            {members.length === 0 ? "No members yet." : "No members match your search."}
           </Text>
         }
         renderItem={({ item: m }) => (
           <TouchableOpacity style={styles.row} onPress={() => setSelected(m)} activeOpacity={0.7}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{m.name.slice(0, 2).toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{(m.name || "?").slice(0, 2).toUpperCase()}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{m.name}</Text>
+              <Text style={styles.name}>{m.name || "(no name)"}</Text>
               <Text style={styles.email}>{m.email}</Text>
             </View>
             <View style={styles.creditsBadge}>
@@ -69,19 +79,19 @@ export default function AdminMembersScreen() {
         )}
       />
 
-      {/* Member detail modal */}
       <Modal visible={!!selected} animationType="slide" presentationStyle="pageSheet">
         {selected && (
           <SafeAreaView style={styles.safe} edges={["top"]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{selected.name}</Text>
+              <Text style={styles.modalTitle}>{selected.name || "(no name)"}</Text>
               <TouchableOpacity onPress={() => setSelected(null)} hitSlop={8}>
                 <X size={22} color={COLORS.text} />
               </TouchableOpacity>
             </View>
             <View style={styles.detailBody}>
               <DetailRow label="Email" value={selected.email} />
-              {selected.phone && <DetailRow label="Phone" value={selected.phone} />}
+              {selected.phone ? <DetailRow label="Phone" value={selected.phone} /> : null}
+              {selected.goals ? <DetailRow label="Goals" value={selected.goals} /> : null}
               <View style={styles.divider} />
               <View style={styles.creditRow}>
                 <CreditCard size={16} color={COLORS.primary} />
@@ -107,6 +117,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
   searchRow: {
     flexDirection: "row", alignItems: "center",
     margin: SPACING.md, backgroundColor: COLORS.surface,
@@ -139,7 +150,7 @@ const styles = StyleSheet.create({
   detailBody: { padding: SPACING.md, gap: SPACING.sm },
   detailRow: { flexDirection: "row", justifyContent: "space-between" },
   detailLabel: { fontSize: 14, color: COLORS.textMuted },
-  detailValue: { fontSize: 14, fontWeight: "500", color: COLORS.text },
+  detailValue: { fontSize: 14, fontWeight: "500", color: COLORS.text, flex: 1, textAlign: "right" },
   divider: { height: 1, backgroundColor: COLORS.border, marginVertical: SPACING.sm },
   creditRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   creditLabel: { flex: 1, fontSize: 15, fontWeight: "500", color: COLORS.text },

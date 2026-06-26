@@ -1,44 +1,62 @@
-import { useState } from "react"
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, ScrollView } from "react-native"
+import { useState, useCallback } from "react"
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Modal, ScrollView, RefreshControl, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Search, ChevronDown, ChevronUp, X } from "lucide-react-native"
 import { COLORS, SPACING, RADIUS } from "@/constants/theme"
-
-type Worker = {
-  id: string
-  name: string
-  email: string
-  region?: string
-  hourlyRate: number
-  active: boolean
-}
-
-// Placeholder — replace with real API fetch
-const WORKERS: Worker[] = []
-const BOOKINGS: any[] = []
+import { useAdmin } from "@/lib/admin-context"
+import type { AdminWorker, AdminBooking } from "@/lib/admin-types"
 
 function currentMonthLabel() {
   return new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })
 }
+function currentMonthPrefix() {
+  return new Date().toISOString().slice(0, 7)
+}
 
 export default function AdminPayrollScreen() {
+  const { data, loading, refresh } = useAdmin()
   const [query, setQuery] = useState("")
-  const [selected, setSelected] = useState<Worker | null>(null)
+  const [selected, setSelected] = useState<AdminWorker | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const filtered = WORKERS.filter(
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await refresh()
+    setRefreshing(false)
+  }, [refresh])
+
+  const workers = data?.workers ?? []
+  const bookings = data?.bookings ?? []
+
+  const filtered = workers.filter(
     (w) =>
       !query ||
       w.name.toLowerCase().includes(query.toLowerCase()) ||
       w.email.toLowerCase().includes(query.toLowerCase()),
   )
 
-  function bookingsFor(worker: Worker) {
-    return BOOKINGS.filter((b) => b.prepMasterName === worker.name)
+  function bookingsFor(worker: AdminWorker): AdminBooking[] {
+    return bookings.filter(
+      (b) => b.prepMasterName === worker.name && b.date?.startsWith(currentMonthPrefix()),
+    )
   }
 
-  function payOwed(worker: Worker) {
-    const completed = bookingsFor(worker).filter((b) => b.status?.toLowerCase() !== "cancelled")
-    return completed.length * worker.hourlyRate
+  function completedFor(worker: AdminWorker) {
+    return bookingsFor(worker).filter((b) => !b.status?.toLowerCase().startsWith("cancelled"))
+  }
+
+  function payOwed(worker: AdminWorker) {
+    return completedFor(worker).length * worker.hourlyRate
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    )
   }
 
   return (
@@ -61,26 +79,27 @@ export default function AdminPayrollScreen() {
         keyExtractor={(w) => w.id}
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            {WORKERS.length === 0 ? "No Prep Masters yet." : "No results."}
+            {workers.length === 0 ? "No Prep Masters yet." : "No results."}
           </Text>
         }
         renderItem={({ item: w }) => {
-          const sessions = bookingsFor(w).filter((b) => b.status?.toLowerCase() !== "cancelled").length
+          const sessions = completedFor(w).length
           const owed = payOwed(w)
           return (
             <TouchableOpacity style={styles.row} onPress={() => setSelected(w)} activeOpacity={0.7}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{w.name.slice(0, 2).toUpperCase()}</Text>
+                <Text style={styles.avatarText}>{(w.name || "?").slice(0, 2).toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{w.name}</Text>
-                <Text style={styles.sub}>{sessions} sessions · ${w.hourlyRate}/hr</Text>
+                <Text style={styles.sub}>{sessions} sessions this month · ${w.hourlyRate}/hr</Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>
                 <Text style={styles.payOwed}>${owed.toLocaleString()}</Text>
-                <Text style={styles.payLabel}>pay owed</Text>
+                <Text style={styles.payLabel}>this month</Text>
               </View>
               <ChevronDown size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
@@ -88,7 +107,6 @@ export default function AdminPayrollScreen() {
         }}
       />
 
-      {/* Payroll detail modal */}
       <Modal visible={!!selected} animationType="slide" presentationStyle="pageSheet">
         {selected && (
           <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -103,12 +121,9 @@ export default function AdminPayrollScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.detailBody}>
-              {/* Summary */}
               <View style={styles.summaryCard}>
                 <View style={styles.summaryItem}>
-                  <Text style={styles.summaryValue}>
-                    {bookingsFor(selected).filter((b) => b.status?.toLowerCase() !== "cancelled").length}
-                  </Text>
+                  <Text style={styles.summaryValue}>{completedFor(selected).length}</Text>
                   <Text style={styles.summaryLabel}>Sessions</Text>
                 </View>
                 <View style={styles.summaryDivider} />
@@ -120,13 +135,11 @@ export default function AdminPayrollScreen() {
                 </View>
               </View>
 
-              <Text style={styles.sectionTitle}>Booking History</Text>
+              <Text style={styles.sectionTitle}>Bookings this month</Text>
               {bookingsFor(selected).length === 0 ? (
-                <Text style={styles.empty}>No bookings recorded.</Text>
+                <Text style={styles.empty}>No bookings this month.</Text>
               ) : (
-                bookingsFor(selected).map((b) => (
-                  <BookingRow key={b.id} booking={b} />
-                ))
+                bookingsFor(selected).map((b) => <BookingRow key={b.id} booking={b} />)
               )}
             </ScrollView>
           </SafeAreaView>
@@ -136,11 +149,12 @@ export default function AdminPayrollScreen() {
   )
 }
 
-function BookingRow({ booking: b }: { booking: any }) {
+function BookingRow({ booking: b }: { booking: AdminBooking }) {
   const [expanded, setExpanded] = useState(false)
-  const isCancelled = b.status?.toLowerCase() === "cancelled"
-  const badgeBg = isCancelled ? COLORS.redLight : b.status?.toLowerCase() === "confirmed" ? COLORS.primaryLight : COLORS.grayLight
-  const badgeColor = isCancelled ? COLORS.red : b.status?.toLowerCase() === "confirmed" ? COLORS.primary : COLORS.gray
+  const isCancelled = b.status?.toLowerCase().startsWith("cancelled")
+  const isConfirmed = b.status?.toLowerCase() === "confirmed"
+  const badgeBg = isCancelled ? COLORS.redLight : isConfirmed ? COLORS.primaryLight : (COLORS.grayLight ?? "#f3f4f6")
+  const badgeColor = isCancelled ? COLORS.red : isConfirmed ? COLORS.primary : COLORS.textMuted
 
   return (
     <View style={styles.bookingCard}>
@@ -166,6 +180,7 @@ function BookingRow({ booking: b }: { booking: any }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
   searchRow: {
     flexDirection: "row", alignItems: "center",
     margin: SPACING.md, backgroundColor: COLORS.surface,
@@ -196,17 +211,14 @@ const styles = StyleSheet.create({
   detailBody: { padding: SPACING.md, gap: SPACING.md },
   summaryCard: {
     flexDirection: "row", backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border,
-    padding: SPACING.md,
+    borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md,
   },
   summaryItem: { flex: 1, alignItems: "center", gap: 4 },
   summaryValue: { fontSize: 26, fontWeight: "700", color: COLORS.text },
   summaryLabel: { fontSize: 12, color: COLORS.textMuted },
   summaryDivider: { width: 1, backgroundColor: COLORS.border, marginHorizontal: SPACING.sm },
   sectionTitle: { fontSize: 15, fontWeight: "600", color: COLORS.text },
-  bookingCard: {
-    borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden",
-  },
+  bookingCard: { borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden" },
   bookingRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, padding: SPACING.sm },
   bookingName: { fontSize: 14, fontWeight: "600", color: COLORS.text },
   bookingSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
