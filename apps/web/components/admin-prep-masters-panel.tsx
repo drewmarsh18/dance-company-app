@@ -219,6 +219,14 @@ function PrepMasterProfile({
             <div>
               <CardTitle>{worker.name}</CardTitle>
               <CardDescription>Edit Prep Master profile, pay rate, and status</CardDescription>
+              {worker.university && (() => {
+                const { bg, text } = getUniversityColor(worker.university)
+                return (
+                  <span className="mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none" style={{ backgroundColor: bg, color: text }}>
+                    {worker.university}
+                  </span>
+                )
+              })()}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Badge variant="outline" className={active ? "border-green-300 bg-green-100 text-green-700" : "border-gray-200 bg-gray-100 text-gray-500"}>{active ? "Active" : "Inactive"}</Badge>
