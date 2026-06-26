@@ -9,7 +9,12 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.collegedanceprep.app"
+      "bundleIdentifier": "com.collegedanceprep.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used for scanning barcodes.",
+        "NSPhotoLibraryUsageDescription": "Used for selecting profile photos."
+      }
     },
     "android": {
       "adaptiveIcon": {
