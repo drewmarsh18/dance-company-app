@@ -24,6 +24,7 @@ import { eq } from "drizzle-orm"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { isWithin24Hours } from "@/lib/utils"
+import { sendEmail, bookingConfirmationEmail, bookingCancelledEmail } from "@/lib/email"
 
 async function getSessionUser() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -120,6 +121,17 @@ export async function cancelBooking(
       body: `Your session with ${pmName} on ${dateLabel} has been cancelled.${!within24 ? "" : " No credit was refunded (within 24 hours)."}`,
       bookingId,
     }).catch(() => {})
+
+    if (user.email) {
+      const { subject, html } = bookingCancelledEmail({
+        dancerName: user.name ?? "Dancer",
+        prepMasterName: pmName,
+        date: booking.fields.Date ?? dateLabel,
+        time: booking.fields.Time ?? "",
+        creditRefunded: !within24,
+      })
+      sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Cancel email failed:", e))
+    }
 
     revalidatePath("/dashboard")
     return { ok: true, creditRefunded: !within24 }
@@ -255,6 +267,17 @@ export async function createBooking(input: {
       body: `Your session with ${input.prepMasterName} on ${input.date} at ${input.time} is confirmed.`,
       bookingId: record.id,
     }).catch(() => {})
+
+    // Send booking confirmation email — fire and forget
+    if (user.email) {
+      const { subject, html } = bookingConfirmationEmail({
+        dancerName: user.name ?? "Dancer",
+        prepMasterName: input.prepMasterName,
+        date: input.date,
+        time: input.time,
+      })
+      sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Confirmation email failed:", e))
+    }
 
     // Create Google Calendar event on prep master's calendar — fire and forget
     getPrepMaster(input.prepMasterId).then(async (pm) => {
