@@ -17,7 +17,7 @@ export default function Index() {
     }
 
     // Use authClient.$fetch so the expo SecureStore session token is sent automatically
-    authClient.$fetch("/api/me")
+    authClient.$fetch("https://dance-company-app.vercel.app/api/me")
       .then(({ data, error }) => {
         if (error || !data) { router.replace("/member"); return }
         const role: string = (data as any).role ?? "dancer"
