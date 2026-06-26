@@ -99,7 +99,7 @@ export default async function DashboardPage() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <CreditsCard plans={plans} compCredits={compCredits} bookings={bookings} credits={credits} />
+        <CreditsCard plans={plans} compCredits={compCredits} credits={credits} />
 
         <Card className="flex flex-col justify-between">
           <CardHeader className="pb-2">

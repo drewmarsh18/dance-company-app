@@ -13,8 +13,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { Check, ChevronLeft, ChevronRight, Loader2, Package, Ticket } from "lucide-react"
+import { slotToLocalTime, localTimezoneAbbr, userIsInDifferentTimezone, COMPANY_TIMEZONE } from "@/lib/time"
 import type { MemberPlan, CompCredit } from "@/lib/airtable"
-import type { Booking } from "@/app/actions/booking"
 import type { SessionType } from "@/lib/session-types"
 
 type CreditOption =
@@ -27,11 +27,6 @@ const SINGLE_SESSION_TYPE: Record<string, SessionType> = {
   "30 min": "private-30",
 }
 
-const SINGLE_LABEL_TO_TYPES: Record<string, string[]> = {
-  "60 min": ["private-60", "pack-hour"],
-  "45 min": ["private-45"],
-  "30 min": ["private-30"],
-}
 
 function toIso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
@@ -62,7 +57,6 @@ export function BookingFlow({
   credits,
   plans,
   compCredits,
-  bookings,
 }: {
   prepMasterId: string
   prepMasterName: string
@@ -71,12 +65,12 @@ export function BookingFlow({
   credits: number
   plans: MemberPlan[]
   compCredits: CompCredit[]
-  bookings: Booking[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
+  const tzAbbr = typeof window !== "undefined" && userIsInDifferentTimezone() ? localTimezoneAbbr() : ""
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
@@ -92,21 +86,12 @@ export function BookingFlow({
       }
     }
     compCredits.forEach((credit, index) => {
-      const matchTypes = SINGLE_LABEL_TO_TYPES[credit.label] ?? []
-      const grantedDateStr = credit.grantedAt.split("T")[0]
-      const used = bookings.some(
-        (b) =>
-          b.status.toLowerCase() !== "cancelled" &&
-          b.sessionType !== null &&
-          matchTypes.includes(b.sessionType) &&
-          b.date >= grantedDateStr,
-      )
-      if (!used) {
+      if (!credit.usedAt) {
         opts.push({ kind: "single", credit, index, sessionType: SINGLE_SESSION_TYPE[credit.label] ?? "private-60" })
       }
     })
     return opts
-  }, [plans, compCredits, bookings])
+  }, [plans, compCredits])
 
   const effectiveOption = selectedOption ?? (creditOptions.length === 1 ? creditOptions[0] : null)
   const showCreditStep = creditOptions.length > 1
@@ -286,7 +271,10 @@ export function BookingFlow({
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <StepBadge n={1 + stepOffset} done={!!(selectedDate && selectedTime)} />
-          <h2 className="font-heading text-lg font-bold tracking-tight">Pick a date &amp; time</h2>
+          <h2 className="font-heading text-lg font-bold tracking-tight">
+            Pick a date &amp; time
+            {tzAbbr && <span className="ml-2 text-sm font-normal text-muted-foreground">{tzAbbr}</span>}
+          </h2>
         </div>
 
         {/* Week nav */}
@@ -343,6 +331,7 @@ export function BookingFlow({
                     slots.map((slot) => {
                       const isTaken = taken.has(slot)
                       const isSlotSelected = isSelected && selectedTime === slot
+                      const displaySlot = slotToLocalTime(slot, iso, COMPANY_TIMEZONE)
                       return (
                         <button
                           key={slot}
@@ -358,7 +347,7 @@ export function BookingFlow({
                               : "bg-secondary hover:bg-primary/10",
                           )}
                         >
-                          {slot}
+                          {displaySlot}
                         </button>
                       )
                     })

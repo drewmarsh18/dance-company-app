@@ -9,7 +9,6 @@ import {
 } from "@/lib/airtable"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { getOrCreateProfile, getMyPlans } from "@/app/actions/profile"
-import { getBookingsForUserId } from "@/app/actions/booking"
 import { hasAnyAvailability, buildWeekTemplate } from "@/lib/availability"
 import { BookingFlow } from "@/components/booking-flow"
 import { BrandLogo } from "@/components/brand-logo"
@@ -32,12 +31,11 @@ export default async function BookPage({
   const coach = await getPrepMaster(masterId)
   if (!coach) notFound()
 
-  const [savedAvailability, bookedSlots, profile, plans, bookings] = await Promise.all([
+  const [savedAvailability, bookedSlots, profile, plans] = await Promise.all([
     getAvailabilityForEmail(coach.email),
     getUpcomingBookedSlots(coach.name),
     getOrCreateProfile(),
     getMyPlans(),
-    getBookingsForUserId(session.user.id),
   ])
   const week = buildWeekTemplate(savedAvailability)
   const credits = profile.creditsRemaining
@@ -96,7 +94,6 @@ export default async function BookPage({
             credits={credits}
             plans={plans}
             compCredits={profile.compCredits}
-            bookings={bookings}
           />
         )}
       </main>

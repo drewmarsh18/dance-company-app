@@ -434,7 +434,7 @@ export async function createMemberPlan(fields: {
 
 // --- Admin-only helpers (never call from dancer/prep master code paths) ------
 
-export type CompCredit = { label: string; grantedAt: string }
+export type CompCredit = { label: string; grantedAt: string; usedAt?: string }
 
 export type AdminMember = {
   id: string

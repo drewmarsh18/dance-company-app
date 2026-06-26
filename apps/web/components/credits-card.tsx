@@ -6,25 +6,9 @@ import { Badge } from "@/components/ui/badge"
 import { Ticket, Package } from "lucide-react"
 import { planDisplayStatus } from "@/lib/plan-utils"
 import type { MemberPlan, CompCredit } from "@/lib/airtable"
-import type { Booking } from "@/app/actions/booking"
 
-const LABEL_TO_TYPES: Record<string, string[]> = {
-  "60 min": ["private-60", "pack-hour"],
-  "45 min": ["private-45"],
-  "30 min": ["private-30"],
-}
-
-function isCompCreditUsed(credit: CompCredit, bookings: Booking[]) {
-  const matchTypes = LABEL_TO_TYPES[credit.label] ?? []
-  // Compare date-only strings to avoid time-of-day mismatch with grantedAt timestamp
-  const grantedDateStr = credit.grantedAt.split("T")[0]
-  return bookings.some(
-    (b) =>
-      b.status.toLowerCase() !== "cancelled" &&
-      b.sessionType !== null &&
-      matchTypes.includes(b.sessionType) &&
-      b.date >= grantedDateStr,
-  )
+function isCompCreditUsed(credit: CompCredit) {
+  return !!credit.usedAt
 }
 
 function singleSessionLabel(label: string) {
@@ -36,12 +20,10 @@ function singleSessionLabel(label: string) {
 export function CreditsCard({
   plans,
   compCredits,
-  bookings,
   credits,
 }: {
   plans: MemberPlan[]
   compCredits: CompCredit[]
-  bookings: Booking[]
   credits: number
 }) {
   const [view, setView] = useState<"active" | "history">("active")
@@ -49,8 +31,8 @@ export function CreditsCard({
   const activePlans = plans.filter((p) => planDisplayStatus(p) === "Active")
   const usedPlans = plans.filter((p) => planDisplayStatus(p) === "Used")
 
-  const availableSingles = compCredits.filter((c) => !isCompCreditUsed(c, bookings))
-  const usedSingles = compCredits.filter((c) => isCompCreditUsed(c, bookings))
+  const availableSingles = compCredits.filter((c) => !isCompCreditUsed(c))
+  const usedSingles = compCredits.filter((c) => isCompCreditUsed(c))
 
   const hasActive = activePlans.length > 0 || availableSingles.length > 0
   const hasHistory = usedPlans.length > 0 || usedSingles.length > 0

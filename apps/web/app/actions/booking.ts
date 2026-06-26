@@ -14,7 +14,19 @@ import {
   setPlanStatus,
   type BookingFields,
   type ClientFields,
+  type CompCredit,
 } from "@/lib/airtable"
+
+// Maps single-session session types back to their comp credit label
+const SESSION_TYPE_TO_COMP_LABEL: Partial<Record<string, string>> = {
+  "private-60": "60 min",
+  "private-45": "45 min",
+  "private-30": "30 min",
+}
+
+function parseCompCredits(raw: string | undefined): CompCredit[] {
+  try { return JSON.parse(raw ?? "[]") } catch { return [] }
+}
 import { sendSms } from "@/lib/sms"
 import { createNotification } from "@/app/actions/notifications"
 import { createCalendarEvent } from "@/lib/google-calendar"
@@ -99,9 +111,28 @@ export async function cancelBooking(
       const client = await findClientRecord(user.id)
       if (client) {
         const current = client.fields["Credits Remaining"] ?? 0
-        await appBase.update<ClientFields>(TABLES.clients, client.id, {
-          "Credits Remaining": current + 1,
-        })
+
+        // If this was a single-session booking, restore the comp credit's usedAt
+        const sessionType = booking.fields["Session Type"] as string | undefined
+        const compLabel = SESSION_TYPE_TO_COMP_LABEL[sessionType ?? ""]
+        const compCredits = parseCompCredits(client.fields["Comp Credits"])
+        const usedIdx = compLabel
+          ? compCredits.reduce((found, c, i) => c.label === compLabel && c.usedAt ? i : found, -1)
+          : -1
+
+        if (usedIdx !== -1) {
+          const { usedAt: _removed, ...rest } = compCredits[usedIdx]
+          compCredits[usedIdx] = rest as CompCredit
+          await appBase.update<ClientFields>(TABLES.clients, client.id, {
+            "Credits Remaining": current + 1,
+            "Comp Credits": JSON.stringify(compCredits),
+          })
+        } else {
+          await appBase.update<ClientFields>(TABLES.clients, client.id, {
+            "Credits Remaining": current + 1,
+          })
+        }
+
         // If credits were at 0, reactivate the most recently expired plan
         if (current === 0) {
           const inactivePlan = await getMostRecentInactivePlanForUser(user.id)
@@ -230,9 +261,22 @@ export async function createBooking(input: {
     })
 
     const newCredits = credits - 1
-    await appBase.update<ClientFields>(TABLES.clients, client.id, {
-      "Credits Remaining": newCredits,
-    })
+
+    // If this is a single-session type, mark the matching comp credit as usedAt
+    const compLabel = SESSION_TYPE_TO_COMP_LABEL[input.sessionType ?? ""]
+    const compCredits = parseCompCredits(client.fields["Comp Credits"])
+    const creditIdx = compLabel ? compCredits.findIndex((c) => c.label === compLabel && !c.usedAt) : -1
+    if (creditIdx !== -1) {
+      compCredits[creditIdx] = { ...compCredits[creditIdx], usedAt: new Date().toISOString() }
+      await appBase.update<ClientFields>(TABLES.clients, client.id, {
+        "Credits Remaining": newCredits,
+        "Comp Credits": JSON.stringify(compCredits),
+      })
+    } else {
+      await appBase.update<ClientFields>(TABLES.clients, client.id, {
+        "Credits Remaining": newCredits,
+      })
+    }
 
     // If this booking used the last credit, mark the active plan as Used
     if (newCredits === 0) {

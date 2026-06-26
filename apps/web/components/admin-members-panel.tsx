@@ -337,20 +337,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                         )
                       })}
                       {member.compCredits.map((c, i) => {
-                        const labelToTypes: Record<string, string[]> = {
-                          "60 min": ["private-60", "pack-hour"],
-                          "45 min": ["private-45"],
-                          "30 min": ["private-30"],
-                        }
-                        const matchTypes = labelToTypes[c.label] ?? []
-                        const grantedDateStr = c.grantedAt.split("T")[0]
-                        const used = history.some(
-                          (b) =>
-                            b.status.toLowerCase() !== "cancelled" &&
-                            b.sessionType !== null &&
-                            matchTypes.includes(b.sessionType) &&
-                            b.date >= grantedDateStr,
-                        )
+                        const used = !!c.usedAt
                         const grantDate = new Date(c.grantedAt).toLocaleDateString("en-US", {
                           month: "short", day: "numeric", year: "numeric",
                         })

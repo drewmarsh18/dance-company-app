@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CalendarClock, X } from "lucide-react"
 import { slotsForDate, type DayAvailability } from "@/lib/availability"
+import { LocalTime } from "@/components/local-time"
 
 type Props = {
   booking: Booking
@@ -119,7 +120,7 @@ export function BookingRow({ booking, availability }: Props) {
             <div>
               <p className="font-medium">{booking.prepMasterName || "Prep Master"}</p>
               <p className="text-sm text-muted-foreground">
-                {displayFormatted}{localTime ? ` · ${localTime}` : ""}
+                {displayFormatted}{localTime ? <> · <LocalTime slot={localTime} dateIso={localDate} /></> : ""}
               </p>
               {within24 && !isCancelled && (
                 <p className="text-xs text-amber-500 mt-0.5">Within 24 hours — cancel only</p>
