@@ -391,9 +391,6 @@ function BookingHistoryList({ bookings }: { bookings: AdminBooking[] }) {
                 </span>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {b.status.toLowerCase() === "cancelled (late)" && (
-                  <Badge variant="outline" className="border-amber-300 bg-amber-100 text-amber-700 text-xs">Late cancel</Badge>
-                )}
                 <Badge variant={statusVariant} className="capitalize">{b.status}</Badge>
                 {isOpen ? <ChevronUp className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
               </div>
