@@ -3,9 +3,18 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { useState, useCallback } from "react"
 import { CalendarDays, DollarSign, TrendingUp, Activity, Award, Users, X } from "lucide-react-native"
 import { COLORS, SPACING, RADIUS } from "@/constants/theme"
-import { SINGLE_HOUR_PRICE } from "@cdp/core"
 import { useAdmin } from "@/lib/admin-context"
 import type { AdminBooking } from "@/lib/admin-types"
+
+const SESSION_PRICE: Record<string, number> = {
+  "private-30": 65,
+  "private-45": 89,
+  "private-60": 99,
+  "pack-hour": 99,
+}
+function sessionRevenue(sessionType: string | null) {
+  return SESSION_PRICE[sessionType ?? ""] ?? 99
+}
 
 function currentMonthLabel() {
   return new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })
@@ -48,18 +57,19 @@ export default function AdminOverviewScreen() {
   const members = data?.members ?? []
 
   const thisMonth = bookings.filter((b) => b.date?.startsWith(currentMonthPrefix()))
-  const completed = thisMonth.filter((b) => !b.status?.toLowerCase().startsWith("cancelled"))
+  const completed = thisMonth.filter((b) => b.status?.toLowerCase() !== "cancelled")
   const cancelled = thisMonth.filter((b) => b.status?.toLowerCase().startsWith("cancelled"))
-  const revenue = completed.length * SINGLE_HOUR_PRICE
+  const revenue = completed.reduce((sum, b) => sum + sessionRevenue(b.sessionType), 0)
 
-  const allCompleted = bookings.filter((b) => !b.status?.toLowerCase().startsWith("cancelled"))
-  const allRevenue = allCompleted.length * SINGLE_HOUR_PRICE
+  const allCompleted = bookings.filter((b) => b.status?.toLowerCase() !== "cancelled")
+  const allRevenue = allCompleted.reduce((sum, b) => sum + sessionRevenue(b.sessionType), 0)
 
-  // Pay owed this month per worker
-  const payOwedThisMonth = workers.reduce((sum, w) => {
-    const workerSessions = completed.filter((b) => b.prepMasterName === w.name)
-    return sum + workerSessions.length * w.hourlyRate
-  }, 0)
+  // Pay owed: each booking pays the prep master's individual hourly rate
+  const workerRateMap = new Map(workers.map((w) => [w.name, w.hourlyRate]))
+  const payOwedThisMonth = completed.reduce(
+    (sum, b) => sum + (workerRateMap.get(b.prepMasterName) ?? 0),
+    0,
+  )
   const margin = revenue - payOwedThisMonth
 
   // Top prep masters this month by session count
@@ -112,7 +122,7 @@ export default function AdminOverviewScreen() {
               <Text style={styles.kpiLabel}>Revenue this month</Text>
             </View>
             <Text style={[styles.kpiValue, { color: COLORS.green }]}>${revenue.toLocaleString()}</Text>
-            <Text style={styles.kpiSub}>${SINGLE_HOUR_PRICE}/session × {completed.length}</Text>
+            <Text style={styles.kpiSub}>{completed.length} completed sessions</Text>
           </View>
 
           <View style={[styles.kpiCard, { borderColor: "#bbf7d0" }]}>

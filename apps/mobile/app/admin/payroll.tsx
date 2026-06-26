@@ -42,7 +42,7 @@ export default function AdminPayrollScreen() {
   }
 
   function completedFor(worker: AdminWorker) {
-    return bookingsFor(worker).filter((b) => !b.status?.toLowerCase().startsWith("cancelled"))
+    return bookingsFor(worker).filter((b) => b.status?.toLowerCase() !== "cancelled")
   }
 
   function payOwed(worker: AdminWorker) {
@@ -151,7 +151,7 @@ export default function AdminPayrollScreen() {
 
 function BookingRow({ booking: b }: { booking: AdminBooking }) {
   const [expanded, setExpanded] = useState(false)
-  const isCancelled = b.status?.toLowerCase().startsWith("cancelled")
+  const isCancelled = b.status?.toLowerCase() === "cancelled"
   const isConfirmed = b.status?.toLowerCase() === "confirmed"
   const badgeBg = isCancelled ? COLORS.redLight : isConfirmed ? COLORS.primaryLight : (COLORS.grayLight ?? "#f3f4f6")
   const badgeColor = isCancelled ? COLORS.red : isConfirmed ? COLORS.primary : COLORS.textMuted
