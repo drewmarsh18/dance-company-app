@@ -6,8 +6,11 @@ import {
   SectionList,
   RefreshControl,
   ActivityIndicator,
+  TouchableOpacity,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { useRouter } from "expo-router"
+import { Plus } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { COLORS, SPACING, RADIUS } from "@/constants/theme"
 
@@ -61,6 +64,7 @@ function BookingCard({ booking }: { booking: Booking }) {
 }
 
 export default function MemberBookingsScreen() {
+  const router = useRouter()
   const [sections, setSections] = useState<{ title: string; data: Booking[] }[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -106,6 +110,10 @@ export default function MemberBookingsScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.titleRow}>
         <Text style={styles.title}>My Bookings</Text>
+        <TouchableOpacity style={styles.newBtn} onPress={() => router.push("/member/book" as any)} activeOpacity={0.7}>
+          <Plus size={16} color="#fff" />
+          <Text style={styles.newBtnText}>New Booking</Text>
+        </TouchableOpacity>
       </View>
       {error ? (
         <View style={styles.errorBox}>
@@ -139,8 +147,10 @@ export default function MemberBookingsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: SPACING.lg, gap: SPACING.sm },
-  titleRow: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
+  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
   title: { fontSize: 26, fontWeight: "700", color: COLORS.text },
+  newBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full },
+  newBtnText: { fontSize: 13, fontWeight: "700", color: "#fff" },
   errorBox: { margin: SPACING.md, backgroundColor: COLORS.redLight, borderRadius: RADIUS.sm, padding: SPACING.sm },
   errorText: { fontSize: 13, color: COLORS.red },
   list: { padding: SPACING.md, paddingTop: 0, paddingBottom: SPACING.xl },

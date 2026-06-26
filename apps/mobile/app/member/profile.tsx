@@ -13,8 +13,9 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
+import { Chrome } from "lucide-react-native"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
-import { COLORS, SPACING, RADIUS } from "@/constants/theme"
+import { COLORS, SPACING, RADIUS, initials } from "@/constants/theme"
 
 const API_BASE = "https://dance-company-app.vercel.app"
 
@@ -39,6 +40,11 @@ export default function MemberProfileScreen() {
   const [phone, setPhone] = useState("")
   const [goals, setGoals] = useState("")
   const [dirty, setDirty] = useState(false)
+  const [googleLinking, setGoogleLinking] = useState(false)
+
+  const isGoogleLinked = !!(session?.user as any)?.accounts?.some(
+    (a: any) => a.provider === "google",
+  )
 
   const load = useCallback(async () => {
     try {
@@ -78,6 +84,20 @@ export default function MemberProfileScreen() {
     }
   }
 
+  async function handleConnectGoogle() {
+    setGoogleLinking(true)
+    try {
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/dashboard",
+      })
+    } catch (e) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google account.")
+    } finally {
+      setGoogleLinking(false)
+    }
+  }
+
   async function handleSignOut() {
     await signOut()
     router.replace("/(auth)/sign-in")
@@ -109,7 +129,7 @@ export default function MemberProfileScreen() {
           <View style={styles.avatarWrap}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                {(name || session?.user?.name || "?")[0].toUpperCase()}
+                {initials(name || session?.user?.name || "?")}
               </Text>
             </View>
             <Text style={styles.avatarEmail}>{profile?.email ?? session?.user?.email ?? ""}</Text>
@@ -128,6 +148,26 @@ export default function MemberProfileScreen() {
               {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.btnText}>Save changes</Text>}
             </TouchableOpacity>
           )}
+
+          {/* Connected accounts */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Connected accounts</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.googleBtn, isGoogleLinked && styles.googleBtnLinked]}
+            onPress={isGoogleLinked ? undefined : handleConnectGoogle}
+            disabled={isGoogleLinked || googleLinking}
+            activeOpacity={isGoogleLinked ? 1 : 0.8}
+          >
+            {googleLinking ? (
+              <ActivityIndicator size="small" color={COLORS.text} />
+            ) : (
+              <Chrome size={18} color={isGoogleLinked ? COLORS.green : COLORS.text} />
+            )}
+            <Text style={[styles.googleBtnText, isGoogleLinked && { color: COLORS.green }]}>
+              {isGoogleLinked ? "Google connected" : "Connect Google account"}
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
             <Text style={styles.signOutText}>Sign out</Text>
@@ -194,6 +234,15 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  sectionHeader: { marginTop: SPACING.sm },
+  sectionTitle: { fontSize: 13, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.6 },
+  googleBtn: {
+    flexDirection: "row", alignItems: "center", gap: SPACING.sm,
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm,
+    padding: SPACING.md, backgroundColor: COLORS.surface,
+  },
+  googleBtnLinked: { borderColor: COLORS.green, backgroundColor: COLORS.greenLight },
+  googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
   signOutBtn: {
     borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm,
     padding: SPACING.md, alignItems: "center",

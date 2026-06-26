@@ -1,0 +1,52 @@
+type UniversityColor = { bg: string; text: string }
+
+const COLORS: Record<string, UniversityColor> = {
+  "Alabama":              { bg: "#9E1B32", text: "#ffffff" },
+  "Arizona":              { bg: "#AB0520", text: "#ffffff" },
+  "ASU":                  { bg: "#8C1D40", text: "#FFC627" },
+  "Boise":                { bg: "#0033A0", text: "#ffffff" },
+  "Coastal Carolina":     { bg: "#006F71", text: "#ffffff" },
+  "CSU":                  { bg: "#1E4D2B", text: "#C8C372" },
+  "CU Boulder":           { bg: "#CFB87C", text: "#000000" },
+  "ECU":                  { bg: "#592A8A", text: "#FDC82F" },
+  "FSU":                  { bg: "#782F40", text: "#CEB888" },
+  "GCU":                  { bg: "#522398", text: "#ffffff" },
+  "Indiana":              { bg: "#990000", text: "#ffffff" },
+  "Kansas State":         { bg: "#512888", text: "#ffffff" },
+  "Kansas University":    { bg: "#0051A5", text: "#E8000D" },
+  "Louisville":           { bg: "#AD0000", text: "#ffffff" },
+  "LSU Tiger Girls":      { bg: "#461D7C", text: "#FDD023" },
+  "Mississippi State":    { bg: "#660000", text: "#ffffff" },
+  "NC State":             { bg: "#CC0000", text: "#ffffff" },
+  "Ole Miss":             { bg: "#14213D", text: "#CE1126" },
+  "Ohio State Club Team": { bg: "#BB0000", text: "#ffffff" },
+  "Oregon":               { bg: "#154733", text: "#FEE123" },
+  "Penn State":           { bg: "#041E42", text: "#ffffff" },
+  "Pitt":                 { bg: "#003594", text: "#FFB81C" },
+  "Purdue":               { bg: "#CEB888", text: "#000000" },
+  "Samford":              { bg: "#00205B", text: "#ffffff" },
+  "Sam Houston State":    { bg: "#F26522", text: "#ffffff" },
+  "SDSU":                 { bg: "#A6192E", text: "#ffffff" },
+  "South Carolina":       { bg: "#73000A", text: "#ffffff" },
+  "Tennessee":            { bg: "#FF8200", text: "#ffffff" },
+  "Texas State":          { bg: "#501214", text: "#ffffff" },
+  "U Miami":              { bg: "#005030", text: "#F47321" },
+  "UCLA":                 { bg: "#2774AE", text: "#FFD100" },
+  "UCSB":                 { bg: "#003660", text: "#FEBC11" },
+  "UK":                   { bg: "#0033A0", text: "#ffffff" },
+  "UNLV":                 { bg: "#CE1126", text: "#ffffff" },
+  "Utah":                 { bg: "#CC0000", text: "#ffffff" },
+  "Vanderbilt":           { bg: "#000000", text: "#C5A900" },
+  "Virginia Tech":        { bg: "#861F41", text: "#E5751F" },
+  "Washington":           { bg: "#4B2E83", text: "#E8D3A2" },
+  "Western Michigan":     { bg: "#6C3D2E", text: "#D4A634" },
+  "Wisconsin":            { bg: "#C5050C", text: "#ffffff" },
+  "WVU":                  { bg: "#002855", text: "#EAAA00" },
+  "Wichita State":        { bg: "#000000", text: "#F2A900" },
+}
+
+const FALLBACK: UniversityColor = { bg: "#6b7280", text: "#ffffff" }
+
+export function getUniversityColor(university: string): UniversityColor {
+  return COLORS[university] ?? FALLBACK
+}

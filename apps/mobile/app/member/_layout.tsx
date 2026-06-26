@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router"
-import { Home, Calendar, User } from "lucide-react-native"
+import { Home, Calendar, Package, User } from "lucide-react-native"
 import { COLORS } from "@/constants/theme"
 
 export default function MemberLayout() {
@@ -28,11 +28,22 @@ export default function MemberLayout() {
         }}
       />
       <Tabs.Screen
+        name="plans"
+        options={{
+          title: "Plans",
+          tabBarIcon: ({ color, size }) => <Package color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
+      />
+      <Tabs.Screen
+        name="book"
+        options={{ href: null }}
       />
     </Tabs>
   )

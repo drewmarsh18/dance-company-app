@@ -1,0 +1,199 @@
+import { useState } from "react"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Linking, Alert } from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
+import { Check, Clock } from "lucide-react-native"
+import { COLORS, SPACING, RADIUS } from "@/constants/theme"
+import { authClient } from "@/lib/auth-client"
+import { PACKAGES, PER_PRIVATE } from "@cdp/core"
+
+const API_BASE = "https://dance-company-app.vercel.app"
+
+async function startCheckout(itemId: string, setLoading: (id: string | null) => void) {
+  setLoading(itemId)
+  try {
+    const { data, error } = await authClient.$fetch(`${API_BASE}/api/checkout`, {
+      method: "POST",
+      body: JSON.stringify({ itemId }),
+      headers: { "Content-Type": "application/json" },
+    })
+    if (error) throw new Error((error as any)?.message ?? JSON.stringify(error))
+    const url = (data as any)?.url
+    if (!url) throw new Error("No checkout URL returned.")
+    await Linking.openURL(url)
+  } catch (e) {
+    Alert.alert("Checkout error", e instanceof Error ? e.message : "Could not open checkout. Please try again.")
+  }
+  setLoading(null)
+}
+
+export default function MemberPlansScreen() {
+  const [loading, setLoading] = useState<string | null>(null)
+
+  return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Choose your training plan</Text>
+          <Text style={styles.subtitle}>
+            Every plan includes private one-on-one sessions with your choice of Prep Master. Bundle hourly privates to drop your rate from $119 to $99 per session.
+          </Text>
+        </View>
+
+        {/* Packages */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Packages</Text>
+          <Text style={styles.sectionSub}>Hourly privates — the more you commit, the more you save.</Text>
+
+          <View style={styles.packageGrid}>
+            {PACKAGES.map((pkg) => {
+              const isHighlight = !!pkg.highlight
+              const isLoading = loading === pkg.id
+              return (
+                <View
+                  key={pkg.id}
+                  style={[styles.packageCard, isHighlight && styles.packageCardHighlight]}
+                >
+                  {isHighlight && (
+                    <View style={styles.popularBadge}>
+                      <Text style={styles.popularText}>Most popular</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.packageTop}>
+                    <Text style={styles.packageName}>{pkg.name}</Text>
+                    <View style={styles.savingsBadge}>
+                      <Text style={styles.savingsText}>Save ${pkg.savings}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.packageType}>Hourly privates</Text>
+
+                  <View style={styles.priceRow}>
+                    <Text style={styles.price}>${pkg.price}</Text>
+                    <Text style={styles.pricePer}>/ {pkg.sessions} hours</Text>
+                  </View>
+                  <Text style={styles.perSession}>${pkg.perSession} per session</Text>
+
+                  <View style={styles.features}>
+                    {pkg.features.map((f) => (
+                      <View key={f} style={styles.featureRow}>
+                        <Check size={14} color={COLORS.primary} />
+                        <Text style={styles.featureText}>{f}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.btn, isHighlight ? styles.btnPrimary : styles.btnOutline, isLoading && styles.btnDisabled]}
+                    onPress={() => startCheckout(pkg.id, setLoading)}
+                    disabled={!!loading}
+                    activeOpacity={0.7}
+                  >
+                    {isLoading
+                      ? <ActivityIndicator size="small" color={isHighlight ? "#fff" : COLORS.primary} />
+                      : <Text style={[styles.btnText, isHighlight ? styles.btnTextPrimary : styles.btnTextOutline]}>Get {pkg.name}</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              )
+            })}
+          </View>
+        </View>
+
+        {/* Per Private */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Per Private</Text>
+          <Text style={styles.sectionSub}>Prefer to pay as you go? Book a single private session.</Text>
+
+          {PER_PRIVATE.map((s) => {
+            const isLoading = loading === s.id
+            return (
+              <View key={s.id} style={styles.perPrivateCard}>
+                <View style={styles.perPrivateLeft}>
+                  <View style={styles.clockIcon}>
+                    <Clock size={20} color={COLORS.textSecondary} />
+                  </View>
+                  <View>
+                    <Text style={styles.perPrivateName}>{s.name}</Text>
+                    <Text style={styles.perPrivateSub}>{s.minutes}-minute private session</Text>
+                  </View>
+                </View>
+                <View style={styles.perPrivateRight}>
+                  <Text style={styles.perPrivatePrice}>${s.price}</Text>
+                  <TouchableOpacity
+                    style={[styles.btn, styles.btnOutline, styles.btnSm, isLoading && styles.btnDisabled]}
+                    onPress={() => startCheckout(s.id, setLoading)}
+                    disabled={!!loading}
+                    activeOpacity={0.7}
+                  >
+                    {isLoading
+                      ? <ActivityIndicator size="small" color={COLORS.primary} />
+                      : <Text style={styles.btnTextOutline}>Book single</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )
+          })}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  )
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { padding: SPACING.md, gap: SPACING.lg, paddingBottom: SPACING.xl },
+  header: { gap: SPACING.sm, alignItems: "center", paddingTop: SPACING.sm },
+  title: { fontSize: 24, fontWeight: "700", color: COLORS.text, textAlign: "center" },
+  subtitle: { fontSize: 13, color: COLORS.textMuted, textAlign: "center", lineHeight: 20 },
+  section: { gap: SPACING.sm },
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text },
+  sectionSub: { fontSize: 13, color: COLORS.textMuted },
+  packageGrid: { gap: SPACING.md },
+  packageCard: {
+    backgroundColor: COLORS.surface, borderRadius: RADIUS.md,
+    borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: SPACING.sm,
+  },
+  packageCardHighlight: { borderColor: COLORS.primary, borderWidth: 2 },
+  popularBadge: {
+    alignSelf: "center", backgroundColor: COLORS.primary,
+    paddingHorizontal: 12, paddingVertical: 4, borderRadius: RADIUS.full, marginBottom: 2,
+  },
+  popularText: { fontSize: 11, fontWeight: "700", color: "#fff" },
+  packageTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  packageName: { fontSize: 18, fontWeight: "700", color: COLORS.text },
+  savingsBadge: { backgroundColor: COLORS.grayLight, paddingHorizontal: 10, paddingVertical: 3, borderRadius: RADIUS.full },
+  savingsText: { fontSize: 12, fontWeight: "600", color: COLORS.textSecondary },
+  packageType: { fontSize: 12, color: COLORS.textMuted },
+  priceRow: { flexDirection: "row", alignItems: "flex-end", gap: 4, marginTop: 4 },
+  price: { fontSize: 36, fontWeight: "800", color: COLORS.text },
+  pricePer: { fontSize: 13, color: COLORS.textMuted, marginBottom: 6 },
+  perSession: { fontSize: 13, fontWeight: "600", color: COLORS.primary },
+  features: { gap: 8, marginTop: 4 },
+  featureRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  featureText: { fontSize: 13, color: COLORS.text, flex: 1, lineHeight: 18 },
+  btn: { borderRadius: RADIUS.sm, paddingVertical: 11, alignItems: "center", justifyContent: "center", marginTop: SPACING.sm },
+  btnPrimary: { backgroundColor: COLORS.primary },
+  btnOutline: { borderWidth: 1, borderColor: COLORS.border },
+  btnSm: { paddingVertical: 7, paddingHorizontal: 14, marginTop: 0 },
+  btnDisabled: { opacity: 0.5 },
+  btnText: { fontSize: 14, fontWeight: "600" },
+  btnTextPrimary: { color: "#fff" },
+  btnTextOutline: { color: COLORS.text, fontSize: 13, fontWeight: "600" },
+  perPrivateCard: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    backgroundColor: COLORS.surface, borderRadius: RADIUS.md,
+    borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: SPACING.sm,
+  },
+  perPrivateLeft: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, flex: 1 },
+  clockIcon: {
+    width: 44, height: 44, borderRadius: RADIUS.full,
+    backgroundColor: COLORS.grayLight, alignItems: "center", justifyContent: "center",
+  },
+  perPrivateName: { fontSize: 16, fontWeight: "700", color: COLORS.text },
+  perPrivateSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
+  perPrivateRight: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
+  perPrivatePrice: { fontSize: 22, fontWeight: "700", color: COLORS.text },
+  textSecondary: { color: COLORS.textSecondary },
+})
