@@ -13,7 +13,7 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
-import { Chrome } from "lucide-react-native"
+import { Link } from "lucide-react-native"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { COLORS, SPACING, RADIUS, initials } from "@/constants/theme"
 
@@ -41,21 +41,26 @@ export default function MemberProfileScreen() {
   const [goals, setGoals] = useState("")
   const [dirty, setDirty] = useState(false)
   const [googleLinking, setGoogleLinking] = useState(false)
-
-  const isGoogleLinked = !!(session?.user as any)?.accounts?.some(
-    (a: any) => a.provider === "google",
-  )
+  const [isGoogleLinked, setIsGoogleLinked] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const { data, error: err } = await authClient.$fetch(`${API_BASE}/api/member/dashboard`)
-      if (err || !data) throw new Error((err as any)?.statusText ?? "Failed to load")
-      const p = (data as any).profile as Profile
+      const [dashResult, accountsResult] = await Promise.all([
+        authClient.$fetch(`${API_BASE}/api/member/dashboard`),
+        authClient.$fetch(`${API_BASE}/api/auth/list-accounts`),
+      ])
+      if (dashResult.error || !dashResult.data) throw new Error((dashResult.error as any)?.statusText ?? "Failed to load")
+      const p = (dashResult.data as any).profile as Profile
       setProfile(p)
       setName(p.name)
       setPhone(p.phone)
       setGoals(p.goals)
       setError(null)
+
+      const accounts = (accountsResult.data as any) ?? []
+      setIsGoogleLinked(
+        Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"),
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.")
     }
@@ -91,6 +96,10 @@ export default function MemberProfileScreen() {
         provider: "google",
         callbackURL: "/dashboard",
       })
+      // Re-check linked accounts after OAuth completes
+      const { data } = await authClient.$fetch(`${API_BASE}/api/auth/list-accounts`)
+      const accounts = (data as any) ?? []
+      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google account.")
     } finally {
@@ -162,7 +171,7 @@ export default function MemberProfileScreen() {
             {googleLinking ? (
               <ActivityIndicator size="small" color={COLORS.text} />
             ) : (
-              <Chrome size={18} color={isGoogleLinked ? COLORS.green : COLORS.text} />
+              <Link size={18} color={isGoogleLinked ? COLORS.green : COLORS.text} />
             )}
             <Text style={[styles.googleBtnText, isGoogleLinked && { color: COLORS.green }]}>
               {isGoogleLinked ? "Google connected" : "Connect Google account"}
