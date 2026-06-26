@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router"
-import { Home, Calendar, User } from "lucide-react-native"
+import { Home, Clock, User } from "lucide-react-native"
 import { COLORS } from "@/constants/theme"
 
 export default function PortalLayout() {
@@ -23,8 +23,8 @@ export default function PortalLayout() {
       <Tabs.Screen
         name="schedule"
         options={{
-          title: "Schedule",
-          tabBarIcon: ({ color, size }) => <Calendar color={color} size={size} />,
+          title: "Availability",
+          tabBarIcon: ({ color, size }) => <Clock color={color} size={size} />,
         }}
       />
       <Tabs.Screen
