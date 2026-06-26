@@ -33,8 +33,33 @@ export type AdminBooking = {
   sessionType: string | null
 }
 
+export type MemberPlan = {
+  id: string
+  userId: string
+  planName: string
+  sessions: number
+  pricePaid: number
+  purchasedAt: string
+  expiresAt: string
+  status: string
+}
+
+export type DancePackage = {
+  id: string
+  name: string
+  sessions: number
+  price: number
+  perSession: number
+  savings: number
+  expiryDays: number
+  highlight?: boolean
+  features: string[]
+}
+
 export type AdminDashboard = {
   members: AdminMember[]
   workers: AdminWorker[]
   bookings: AdminBooking[]
+  plans: MemberPlan[]
+  packages: DancePackage[]
 }

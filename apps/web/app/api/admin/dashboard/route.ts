@@ -6,8 +6,10 @@ import {
   adminGetAllMembers,
   adminGetAllBookings,
   adminGetAllWorkers,
+  adminGetAllPlans,
   isAirtableConfigured,
 } from "@/lib/airtable"
+import { PACKAGES } from "@/lib/packages"
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -18,11 +20,12 @@ export async function GET() {
     return NextResponse.json({ error: "Airtable not configured" }, { status: 503 })
   }
 
-  const [members, bookings, workers] = await Promise.all([
+  const [members, bookings, workers, plans] = await Promise.all([
     adminGetAllMembers(),
     adminGetAllBookings(),
     adminGetAllWorkers(),
+    adminGetAllPlans(),
   ])
 
-  return NextResponse.json({ members, bookings, workers })
+  return NextResponse.json({ members, bookings, workers, plans, packages: PACKAGES })
 }
