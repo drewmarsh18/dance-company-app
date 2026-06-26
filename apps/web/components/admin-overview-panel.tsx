@@ -40,6 +40,7 @@ function monthLabel(key: string) {
 
 export function AdminOverviewPanel({ members, bookings, workers }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [revenueSheetOpen, setRevenueSheetOpen] = useState(false)
   const [sheetMonth, setSheetMonth] = useState(currentMonthKey())
   const [sheetSort, setSheetSort] = useState<SortDir>("desc")
   const [sheetSearch, setSheetSearch] = useState("")
@@ -100,6 +101,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
           value={`$${revenue.toLocaleString()}`}
           sub={`${completed.length} sessions · incl. late cancels`}
           highlight="green"
+          onClick={() => setRevenueSheetOpen(true)}
         />
         <KpiCard
           icon={<TrendingUp className="size-4 text-primary" />}
@@ -179,6 +181,53 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Revenue sheet */}
+      <Sheet open={revenueSheetOpen} onOpenChange={setRevenueSheetOpen}>
+        <SheetContent className="w-full sm:max-w-lg flex flex-col overflow-hidden">
+          <SheetHeader className="mb-3 shrink-0">
+            <SheetTitle className="flex items-center gap-2">
+              <DollarSign className="size-4 text-green-600" />
+              Revenue — {monthLabel(monthKey)}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto flex flex-col gap-3">
+            {completed.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No billable sessions this month.</p>
+            ) : (
+              <>
+                <ul className="flex flex-col gap-1.5">
+                  {completed.sort((a, b) => (b.date > a.date ? 1 : -1)).map((b) => {
+                    const amt = sessionRevenue(b.sessionType)
+                    const isLateCancelled = b.status.toLowerCase() === "cancelled (late)"
+                    const sessionLabel = b.sessionType === "private-30" ? "30 min" : b.sessionType === "private-45" ? "45 min" : "60 min"
+                    return (
+                      <li key={b.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{b.dancerName || b.clientEmail || "Client"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {b.prepMasterName}{b.date ? ` · ${b.date}` : ""}{b.time ? ` · ${b.time}` : ""} · {sessionLabel}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isLateCancelled && (
+                            <Badge variant="outline" className="border-amber-300 bg-amber-100 text-amber-700 text-xs">Late cancel</Badge>
+                          )}
+                          <span className="font-semibold text-green-700">${amt}</span>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+                <div className="border-t pt-3 flex items-center justify-between text-sm font-semibold">
+                  <span>Total</span>
+                  <span className="text-green-700">${revenue.toLocaleString()}</span>
+                </div>
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Bookings sheet */}
       <Sheet open={sheetOpen} onOpenChange={(v) => { setSheetOpen(v); if (!v) setSheetSearch("") }}>
