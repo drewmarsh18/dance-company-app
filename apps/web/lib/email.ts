@@ -61,17 +61,24 @@ function emailBase(subtitle: string, bodyHtml: string) {
 </html>`
 }
 
-function sessionTable(prepMasterName: string, date: string, time: string, bgColor: string, borderColor: string, labelColor: string, rowBorderColor: string) {
-  const row = (label: string, value: string, last = false) =>
-    `<tr>
-      <td style="padding:7px 0;color:${labelColor};font-weight:500;font-size:14px;${last ? "" : `border-bottom:0.5px solid ${rowBorderColor}`}">${label}</td>
-      <td style="padding:7px 0;color:#1f2937;font-weight:600;font-size:14px;text-align:right;${last ? "" : `border-bottom:0.5px solid ${rowBorderColor}`}">${value}</td>
+/** Returns the first name from a full name, or the local part of an email. */
+function firstName(nameOrEmail: string): string {
+  if (!nameOrEmail) return "there"
+  if (nameOrEmail.includes("@")) return nameOrEmail.split("@")[0]
+  return nameOrEmail.split(" ")[0]
+}
+
+function sessionTable(rows: { label: string; value: string }[]) {
+  const rowHtml = rows.map(({ label, value }, i) => {
+    const last = i === rows.length - 1
+    return `<tr>
+      <td style="padding:8px 0;color:#6b7280;font-size:14px;${last ? "" : "border-bottom:1px solid #f3f4f6"}">${label}</td>
+      <td style="padding:8px 0;color:#111827;font-weight:600;font-size:14px;text-align:right;${last ? "" : "border-bottom:1px solid #f3f4f6"}">${value}</td>
     </tr>`
+  }).join("")
   return `
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:${bgColor};border:1px solid ${borderColor};border-radius:8px;padding:16px 20px;margin:20px 0">
-      ${row("Prep Master", prepMasterName)}
-      ${row("Date", date)}
-      ${row("Time", time, true)}
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:4px 16px;margin:20px 0">
+      ${rowHtml}
     </table>`
 }
 
@@ -87,9 +94,13 @@ export function bookingConfirmationEmail({
   time: string
 }) {
   const body = `
-    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${dancerName},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(dancerName)},</p>
     <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">Your booking request has been submitted! Here are the details:</p>
-    ${sessionTable(prepMasterName, date, time, "#fdf2f8", "#f9a8d4", "#9d174d", "#f3e8f0")}
+    ${sessionTable([
+      { label: "Prep Master", value: prepMasterName },
+      { label: "Date", value: date },
+      { label: "Time", value: time },
+    ])}
     <div style="font-size:13px;color:#6b7280;background:#f9fafb;border-left:3px solid #e91e8c;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.5">
       Your booking is pending confirmation from your Prep Master. You will receive an email notification once they have confirmed your booking request.
     </div>`
@@ -105,6 +116,7 @@ export function prepMasterBookingRequestEmail({
   dancerEmail,
   date,
   time,
+  notes,
   approveUrl,
   denyUrl,
 }: {
@@ -113,13 +125,20 @@ export function prepMasterBookingRequestEmail({
   dancerEmail: string
   date: string
   time: string
+  notes?: string
   approveUrl: string
   denyUrl: string
 }) {
+  const rows = [
+    { label: "Member", value: `${dancerName} (${dancerEmail})` },
+    { label: "Date", value: date },
+    { label: "Time", value: time },
+    ...(notes ? [{ label: "Notes", value: notes }] : []),
+  ]
   const body = `
-    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${prepMasterName},</p>
-    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">You have a new session request from <strong>${dancerName}</strong> (${dancerEmail}).</p>
-    ${sessionTable(dancerName, date, time, "#fdf2f8", "#f9a8d4", "#9d174d", "#f3e8f0")}
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(prepMasterName)},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">You have a new session request from <strong>${dancerName}</strong>.</p>
+    ${sessionTable(rows)}
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0">
       <tr>
         <td style="padding-right:8px">
@@ -128,7 +147,7 @@ export function prepMasterBookingRequestEmail({
           </a>
         </td>
         <td style="padding-left:8px">
-          <a href="${denyUrl}" style="display:block;text-align:center;background:#f4f4f5;color:#374151;font-size:14px;font-weight:600;padding:12px 0;border-radius:8px;text-decoration:none">
+          <a href="${denyUrl}" style="display:block;text-align:center;background:#f3f4f6;color:#374151;font-size:14px;font-weight:600;padding:12px 0;border-radius:8px;text-decoration:none">
             Deny
           </a>
         </td>
@@ -164,9 +183,13 @@ export function bookingCancelledEmail({
         ⚠ Cancelled within 24 hours — no credit was refunded per our cancellation policy.
        </div>`
   const body = `
-    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${dancerName},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(dancerName)},</p>
     <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">Your session has been cancelled. Here's a summary:</p>
-    ${sessionTable(prepMasterName, date, time, "#fff1f2", "#fecdd3", "#9f1239", "#fde8ea")}
+    ${sessionTable([
+      { label: "Prep Master", value: prepMasterName },
+      { label: "Date", value: date },
+      { label: "Time", value: time },
+    ])}
     ${creditBlock}`
   return {
     subject: `Session cancelled — ${date} at ${time}`,
@@ -180,17 +203,26 @@ export function bookingUpdatedEmail({
   updatedByRole,
   date,
   time,
+  notes,
 }: {
   recipientName: string
   updatedByName: string
   updatedByRole: "member" | "prep master"
   date: string
   time: string
+  notes?: string
 }) {
+  const counterpart = updatedByRole === "member" ? updatedByName : updatedByName
+  const rows = [
+    { label: updatedByRole === "prep master" ? "Prep Master" : "Member", value: counterpart },
+    { label: "Date", value: date },
+    { label: "Time", value: time },
+    ...(notes ? [{ label: "Notes", value: notes }] : []),
+  ]
   const body = `
-    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${recipientName},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(recipientName)},</p>
     <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">Your session has been rescheduled by <strong>${updatedByName}</strong>. Here are the updated details:</p>
-    ${sessionTable(updatedByRole === "member" ? updatedByName : recipientName, date, time, "#fdf2f8", "#f9a8d4", "#9d174d", "#f3e8f0")}
+    ${sessionTable(rows)}
     <div style="font-size:13px;color:#6b7280;background:#f9fafb;border-left:3px solid #e91e8c;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.5">
       If you have any questions about this change, reply to this email.
     </div>`

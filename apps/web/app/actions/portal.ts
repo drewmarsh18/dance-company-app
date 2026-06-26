@@ -79,6 +79,7 @@ export async function adjustBooking(
 
     const newDate = fields.date ?? records[0].fields.Date ?? ""
     const newTime = fields.time ?? records[0].fields.Time ?? ""
+    const newNotes = fields.notes !== undefined ? fields.notes : (records[0].fields.Notes || undefined)
     const dancerEmail = records[0].fields["Client Email"]
     const dancerUserId = records[0].fields["User ID"]
 
@@ -110,6 +111,7 @@ export async function adjustBooking(
         updatedByRole: "prep master",
         date: newDate,
         time: newTime,
+        notes: newNotes,
       })
       sendEmail({ to: dancerEmail, subject, html }).catch((e) => console.error("Update email to dancer failed:", e))
     }
@@ -119,6 +121,7 @@ export async function adjustBooking(
       updatedByRole: "prep master",
       date: newDate,
       time: newTime,
+      notes: newNotes,
     })
     sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Update email to PM failed:", e))
 

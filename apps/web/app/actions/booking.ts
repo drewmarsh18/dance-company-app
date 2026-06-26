@@ -185,6 +185,7 @@ export async function rescheduleBooking(
 
     // Email both parties about the reschedule — fire and forget
     const memberName = user.name ?? user.email ?? "Your member"
+    const existingNotes = existing.fields.Notes || undefined
     if (user.email) {
       const { subject, html } = bookingUpdatedEmail({
         recipientName: memberName,
@@ -192,6 +193,7 @@ export async function rescheduleBooking(
         updatedByRole: "member",
         date: newDate,
         time: newTime,
+        notes: existingNotes,
       })
       sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Reschedule email to member failed:", e))
     }
@@ -219,6 +221,7 @@ export async function rescheduleBooking(
         updatedByRole: "member",
         date: newDate,
         time: newTime,
+        notes: existingNotes,
       })
       sendEmail({ to: pm.email, subject, html }).catch((e) => console.error("Reschedule email to PM failed:", e))
     }).catch(() => {})
@@ -334,6 +337,7 @@ export async function createBooking(input: {
         dancerEmail: user.email ?? "",
         date: input.date,
         time: input.time,
+        notes: input.notes || undefined,
         approveUrl,
         denyUrl,
       })
