@@ -6,6 +6,7 @@ import { getOrCreateProfile, getMyPlans } from "@/app/actions/profile"
 import type { MemberPlan } from "@/lib/airtable"
 import { getBookingsForUserId, type Booking } from "@/app/actions/booking"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
+import { getPrepMasters } from "@/lib/airtable"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CalendarPlus, Ticket, CalendarClock, AlertTriangle } from "lucide-react"
@@ -74,9 +75,28 @@ export default async function DashboardPage() {
     .filter((b) => b.status.toLowerCase().startsWith("cancelled"))
     .sort((a, b) => bookingMs(b.date) - bookingMs(a.date))
 
-  // Availability powers the reschedule date picker but is non-critical.
-  // Skipping this fetch avoids hanging on stale Neon TCP connections.
+  // Fetch availability for each unique prep master so the reschedule picker has dates
   const availabilityMap: Record<string, DayAvailability[]> = {}
+  const uniquePrepMasterNames = [...new Set(upcoming.map((b) => b.prepMasterName).filter(Boolean))]
+  if (uniquePrepMasterNames.length > 0) {
+    try {
+      const allPrepMasters = await getPrepMasters()
+      const nameToEmail = Object.fromEntries(allPrepMasters.map((pm) => [pm.name, pm.email]))
+      await Promise.all(
+        uniquePrepMasterNames.map(async (name) => {
+          const email = nameToEmail[name]
+          if (!email) return
+          try {
+            availabilityMap[name] = await getAvailabilityForEmail(email)
+          } catch {
+            // non-critical
+          }
+        })
+      )
+    } catch {
+      // non-critical
+    }
+  }
 
   return (
     <div className="flex flex-col gap-8">

@@ -88,14 +88,58 @@ export function bookingConfirmationEmail({
 }) {
   const body = `
     <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${dancerName},</p>
-    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">You're all set! Here are the details for your upcoming session.</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">Your booking request has been submitted! Here are the details:</p>
     ${sessionTable(prepMasterName, date, time, "#fdf2f8", "#f9a8d4", "#9d174d", "#f3e8f0")}
     <div style="font-size:13px;color:#6b7280;background:#f9fafb;border-left:3px solid #e91e8c;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.5">
-      Need to cancel? Please do so at least 24 hours in advance to get your credit back.
+      Your booking is pending confirmation from your Prep Master. You will receive an email notification once they have confirmed your booking request.
     </div>`
   return {
-    subject: `Session confirmed — ${date} at ${time}`,
-    html: emailBase("Session confirmed", body),
+    subject: `Booking request received — ${date} at ${time}`,
+    html: emailBase("Booking request received", body),
+  }
+}
+
+export function prepMasterBookingRequestEmail({
+  prepMasterName,
+  dancerName,
+  dancerEmail,
+  date,
+  time,
+  approveUrl,
+  denyUrl,
+}: {
+  prepMasterName: string
+  dancerName: string
+  dancerEmail: string
+  date: string
+  time: string
+  approveUrl: string
+  denyUrl: string
+}) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${prepMasterName},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">You have a new session request from <strong>${dancerName}</strong> (${dancerEmail}).</p>
+    ${sessionTable(dancerName, date, time, "#fdf2f8", "#f9a8d4", "#9d174d", "#f3e8f0")}
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0">
+      <tr>
+        <td style="padding-right:8px">
+          <a href="${approveUrl}" style="display:block;text-align:center;background:#e91e8c;color:#ffffff;font-size:14px;font-weight:600;padding:12px 0;border-radius:8px;text-decoration:none">
+            Approve
+          </a>
+        </td>
+        <td style="padding-left:8px">
+          <a href="${denyUrl}" style="display:block;text-align:center;background:#f4f4f5;color:#374151;font-size:14px;font-weight:600;padding:12px 0;border-radius:8px;text-decoration:none">
+            Deny
+          </a>
+        </td>
+      </tr>
+    </table>
+    <div style="font-size:13px;color:#6b7280;background:#f9fafb;border-left:3px solid #e91e8c;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.5">
+      Approving will confirm the booking and notify the member. Denying will cancel it and refund their credit.
+    </div>`
+  return {
+    subject: `New booking request — ${dancerName} on ${date} at ${time}`,
+    html: emailBase("New booking request", body),
   }
 }
 

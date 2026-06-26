@@ -24,7 +24,10 @@ import { eq } from "drizzle-orm"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { isWithin24Hours } from "@/lib/utils"
-import { sendEmail, bookingConfirmationEmail, bookingCancelledEmail } from "@/lib/email"
+import { sendEmail, bookingConfirmationEmail, bookingCancelledEmail, prepMasterBookingRequestEmail } from "@/lib/email"
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
+const CONFIRM_SECRET = process.env.BOOKING_CONFIRM_SECRET ?? "cdp-confirm-secret"
 
 async function getSessionUser() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -278,6 +281,23 @@ export async function createBooking(input: {
       })
       sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Confirmation email failed:", e))
     }
+
+    // Email prep master with approve/deny links — fire and forget
+    getPrepMaster(input.prepMasterId).then(async (pm) => {
+      if (!pm?.email) return
+      const approveUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=approve&token=${CONFIRM_SECRET}`
+      const denyUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=deny&token=${CONFIRM_SECRET}`
+      const { subject, html } = prepMasterBookingRequestEmail({
+        prepMasterName: pm.name,
+        dancerName: user.name ?? user.email ?? "A member",
+        dancerEmail: user.email ?? "",
+        date: input.date,
+        time: input.time,
+        approveUrl,
+        denyUrl,
+      })
+      sendEmail({ to: pm.email, subject, html }).catch((e) => console.error("PM request email failed:", e))
+    }).catch(() => {})
 
     // Create Google Calendar event on prep master's calendar — fire and forget
     getPrepMaster(input.prepMasterId).then(async (pm) => {
