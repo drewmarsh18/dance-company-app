@@ -39,25 +39,6 @@ export default async function ProfilePage() {
       ) : profile ? (
         <>
           <Card>
-            <CardContent className="flex items-center justify-between gap-4 py-4">
-              <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-lg bg-secondary">
-                  <Ticket className="size-5 text-primary" />
-                </span>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Session credits
-                  </p>
-                  <p className="font-heading text-xl font-bold">
-                    {profile.creditsRemaining}
-                  </p>
-                </div>
-              </div>
-              <Badge variant="secondary">Packages coming soon</Badge>
-            </CardContent>
-          </Card>
-
-          <Card>
             <CardHeader>
               <CardTitle className="text-lg">Your details</CardTitle>
             </CardHeader>
