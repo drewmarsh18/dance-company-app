@@ -5,41 +5,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Ticket, Package } from "lucide-react"
 import { planDisplayStatus } from "@/lib/plan-utils"
-import type { MemberPlan, CompCredit } from "@/lib/airtable"
-
-function isCompCreditUsed(credit: CompCredit) {
-  return !!credit.usedAt
-}
-
-function singleSessionLabel(label: string) {
-  return label === "60 min" ? "60-Min Single Session"
-    : label === "45 min" ? "45-Min Single Session"
-    : "30-Min Single Session"
-}
+import type { MemberPlan } from "@/lib/airtable"
 
 export function CreditsCard({
   plans,
-  compCredits,
   credits,
 }: {
   plans: MemberPlan[]
-  compCredits: CompCredit[]
   credits: number
 }) {
   const [view, setView] = useState<"active" | "history">("active")
 
   const activePlans = plans.filter((p) => planDisplayStatus(p) === "Active")
-  const usedPlans = plans.filter((p) => planDisplayStatus(p) === "Used")
+  const usedPlans = plans.filter((p) => planDisplayStatus(p) !== "Active")
 
-  const availableSingles = compCredits.filter((c) => !isCompCreditUsed(c))
-  const usedSingles = compCredits.filter((c) => isCompCreditUsed(c))
-
-  const hasActive = activePlans.length > 0 || availableSingles.length > 0
-  const hasHistory = usedPlans.length > 0 || usedSingles.length > 0
-  const isEmpty = credits === 0 && compCredits.length === 0 && plans.length === 0
+  const hasActive = activePlans.length > 0
+  const hasHistory = usedPlans.length > 0
+  const isEmpty = credits === 0 && plans.length === 0
 
   const shownPlans = view === "active" ? activePlans : usedPlans
-  const shownSingles = view === "active" ? availableSingles : usedSingles
 
   return (
     <Card>
@@ -70,14 +54,18 @@ export function CreditsCard({
       <CardContent className="flex flex-col gap-2">
         {isEmpty ? (
           <p className="text-sm text-muted-foreground">Purchase a package to start booking.</p>
-        ) : shownPlans.length === 0 && shownSingles.length === 0 ? (
+        ) : shownPlans.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {view === "active" ? "No active credits." : "No used credits yet."}
           </p>
         ) : null}
 
-        {shownPlans.map((plan) => {
+        {shownPlans.map((plan, idx) => {
           const status = planDisplayStatus(plan)
+          const isActive = status === "Active"
+          // For active plans show the live creditsRemaining total on the first plan only
+          // (creditsRemaining is a single pool shared across all active plans)
+          const displayCount = isActive && idx === 0 ? credits : plan.sessions
           const expiryDate = plan.expiresAt
             ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
             : null
@@ -87,7 +75,9 @@ export function CreditsCard({
                 <span className="flex items-center gap-2 font-medium">
                   <Package className="size-3.5 shrink-0 text-primary" />
                   {plan.planName}
-                  <span className="font-normal text-muted-foreground">{plan.sessions} credits</span>
+                  <span className="font-normal text-muted-foreground">
+                    {displayCount} {displayCount === 1 ? "credit" : "credits"} remaining
+                  </span>
                 </span>
                 <Badge
                   variant="outline"
@@ -99,25 +89,6 @@ export function CreditsCard({
               {expiryDate && (
                 <p className="pl-5 text-xs text-muted-foreground">Expires {expiryDate}</p>
               )}
-            </div>
-          )
-        })}
-
-        {shownSingles.map((c, i) => {
-          const used = view === "history"
-          return (
-            <div key={i} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
-              <span className="flex items-center gap-2 font-medium">
-                <Ticket className="size-3.5 shrink-0 text-muted-foreground" />
-                {singleSessionLabel(c.label)}
-                <span className="font-normal text-muted-foreground">{used ? "0 of 1" : "1 of 1"} credits</span>
-              </span>
-              <Badge
-                variant="outline"
-                className={`text-xs ${used ? "border-amber-300 bg-amber-100 text-amber-700" : "border-green-300 bg-green-100 text-green-700"}`}
-              >
-                {used ? "Used" : "Available"}
-              </Badge>
             </div>
           )
         })}

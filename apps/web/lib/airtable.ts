@@ -52,7 +52,6 @@ export type ClientFields = {
   Phone?: string
   Goals?: string
   "Credits Remaining"?: number
-  "Comp Credits"?: string // JSON: [{label: string, grantedAt: string}]
 }
 
 export type { SessionType } from "@/lib/session-types"
@@ -405,11 +404,13 @@ export async function createMemberPlan(fields: {
   planName: string
   sessions: number
   pricePaid: number
-  expiryDays: number
+  expiryDays?: number
 }): Promise<MemberPlan> {
   const purchasedAt = new Date()
-  const expiresAt = new Date(purchasedAt)
-  expiresAt.setDate(expiresAt.getDate() + fields.expiryDays)
+  const expiresAt = fields.expiryDays != null ? new Date(purchasedAt) : null
+  if (expiresAt && fields.expiryDays != null) {
+    expiresAt.setDate(expiresAt.getDate() + fields.expiryDays)
+  }
   const record = await create<PlanFields>(TABLES.plans, {
     "User ID": fields.userId,
     "Member Email": fields.memberEmail,
@@ -417,7 +418,7 @@ export async function createMemberPlan(fields: {
     Sessions: fields.sessions,
     "Price Paid": fields.pricePaid,
     "Purchased At": purchasedAt.toISOString(),
-    "Expires At": expiresAt.toISOString(),
+    ...(expiresAt ? { "Expires At": expiresAt.toISOString() } : {}),
     Status: "Active",
   })
   return {
@@ -434,8 +435,6 @@ export async function createMemberPlan(fields: {
 
 // --- Admin-only helpers (never call from dancer/prep master code paths) ------
 
-export type CompCredit = { label: string; grantedAt: string; usedAt?: string }
-
 export type AdminMember = {
   id: string
   name: string
@@ -444,7 +443,6 @@ export type AdminMember = {
   phone: string
   goals: string
   creditsRemaining: number
-  compCredits: CompCredit[]
 }
 
 export type AdminWorker = {
@@ -477,20 +475,15 @@ export async function adminGetAllMembers(): Promise<AdminMember[]> {
     sort: [{ field: "Name", direction: "asc" }],
     revalidate: 0,
   })
-  return records.map((r) => {
-    let compCredits: CompCredit[] = []
-    try { compCredits = JSON.parse(r.fields["Comp Credits"] ?? "[]") } catch {}
-    return {
-      id: r.id,
-      name: r.fields.Name ?? "",
-      email: r.fields.Email ?? "",
-      userId: r.fields["User ID"] ?? "",
-      phone: r.fields.Phone ?? "",
-      goals: r.fields.Goals ?? "",
-      creditsRemaining: r.fields["Credits Remaining"] ?? 0,
-      compCredits,
-    }
-  })
+  return records.map((r) => ({
+    id: r.id,
+    name: r.fields.Name ?? "",
+    email: r.fields.Email ?? "",
+    userId: r.fields["User ID"] ?? "",
+    phone: r.fields.Phone ?? "",
+    goals: r.fields.Goals ?? "",
+    creditsRemaining: r.fields["Credits Remaining"] ?? 0,
+  }))
 }
 
 export async function adminGetAllBookings(): Promise<AdminBooking[]> {
@@ -595,15 +588,10 @@ export async function adminAddCredits(
   memberId: string,
   currentCredits: number,
   creditsToAdd: number,
-  compLabel?: string,
-  existingCompCredits?: CompCredit[],
 ): Promise<void> {
-  const fields: Partial<ClientFields> = { "Credits Remaining": currentCredits + creditsToAdd }
-  if (compLabel) {
-    const updated = [...(existingCompCredits ?? []), { label: compLabel, grantedAt: new Date().toISOString() }]
-    fields["Comp Credits"] = JSON.stringify(updated)
-  }
-  await update<ClientFields>(TABLES.clients, memberId, fields)
+  await update<ClientFields>(TABLES.clients, memberId, {
+    "Credits Remaining": currentCredits + creditsToAdd,
+  })
 }
 
 export async function adminCreateMember(fields: {
@@ -628,7 +616,6 @@ export async function adminCreateMember(fields: {
     phone: record.fields.Phone ?? "",
     goals: record.fields.Goals ?? "",
     creditsRemaining: record.fields["Credits Remaining"] ?? 0,
-    compCredits: [],
   }
 }
 

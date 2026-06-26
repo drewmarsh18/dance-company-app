@@ -28,6 +28,12 @@ import {
   type AdminWorker,
   type MemberPlan,
 } from "@/lib/airtable"
+
+const SINGLE_SESSION_PLAN_NAMES: Record<string, string> = {
+  "60 min": "60-Min Single",
+  "45 min": "45-Min Single",
+  "30 min": "30-Min Single",
+}
 import { PACKAGES, type DancePackage } from "@/lib/packages"
 
 async function assertAdmin() {
@@ -55,26 +61,26 @@ export async function getAdminData(): Promise<{
 }
 
 export async function addComplimentaryCredits(
-  memberId: string,
-  currentCredits: number,
-  creditsToAdd: number,
-  compLabel?: string,
-  existingCompCredits?: import("@/lib/airtable").CompCredit[],
-): Promise<{ ok: true } | { ok: false; error: string }> {
+  member: { id: string; userId: string; email: string; creditsRemaining: number },
+  label: string,
+): Promise<{ ok: true; plan: MemberPlan } | { ok: false; error: string }> {
   try {
     await assertAdmin()
-    if (creditsToAdd < 1 || creditsToAdd > 100) {
-      return { ok: false, error: "Credits must be between 1 and 100." }
-    }
-    await adminAddCredits(memberId, currentCredits, creditsToAdd, compLabel, existingCompCredits)
+    const planName = SINGLE_SESSION_PLAN_NAMES[label]
+    if (!planName) return { ok: false, error: "Invalid session label." }
+    const plan = await createMemberPlan({
+      userId: member.userId,
+      memberEmail: member.email,
+      planName,
+      sessions: 1,
+      pricePaid: 0,
+    })
+    await adminAddCredits(member.id, member.creditsRemaining, 1)
     revalidatePath("/admin")
     revalidatePath("/dashboard")
-    return { ok: true }
+    return { ok: true, plan }
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Failed to add credits.",
-    }
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to add session." }
   }
 }
 
@@ -207,6 +213,25 @@ export async function addPrepMaster(input: {
       ok: false,
       error: err instanceof Error ? err.message : "Failed to add Prep Master.",
     }
+  }
+}
+
+
+export async function adminSetCredits(
+  memberId: string,
+  newCredits: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await assertAdmin()
+    if (newCredits < 0 || newCredits > 9999) return { ok: false, error: "Invalid credit amount." }
+    await appBase.update<ClientFields>(TABLES.clients, memberId, {
+      "Credits Remaining": newCredits,
+    })
+    revalidatePath("/admin")
+    revalidatePath("/dashboard")
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to set credits." }
   }
 }
 

@@ -10,6 +10,7 @@ import {
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { getOrCreateProfile, getMyPlans } from "@/app/actions/profile"
 import { hasAnyAvailability, buildWeekTemplate } from "@/lib/availability"
+import { planDisplayStatus } from "@/lib/plan-utils"
 import { BookingFlow } from "@/components/booking-flow"
 import { BrandLogo } from "@/components/brand-logo"
 import { Badge } from "@/components/ui/badge"
@@ -81,7 +82,7 @@ export default async function BookPage({
           </div>
         </div>
 
-        {credits < 1 ? (
+        {credits < 1 && !plans.some((p) => planDisplayStatus(p) === "Active") ? (
           <NoCreditsNotice />
         ) : !hasAnyAvailability(week) ? (
           <NoAvailabilityNotice name={coach.name} />
@@ -93,7 +94,6 @@ export default async function BookPage({
             bookedSlots={bookedSlots}
             credits={credits}
             plans={plans}
-            compCredits={profile.compCredits}
           />
         )}
       </main>

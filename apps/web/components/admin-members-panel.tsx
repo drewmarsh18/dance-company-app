@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { addComplimentaryCredits, adminAssignPlan, createMember, adminRemovePlan } from "@/app/actions/admin"
+import { addComplimentaryCredits, adminAssignPlan, createMember, adminRemovePlan, adminSetCredits } from "@/app/actions/admin"
 import type { AdminMember, AdminBooking, MemberPlan } from "@/lib/airtable"
 import { SESSION_TYPE_LABELS } from "@/lib/session-types"
 import { planDisplayStatus } from "@/lib/plan-utils"
@@ -49,6 +49,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
     : localMembers
   const [selectedPackage, setSelectedPackage] = useState<Record<string, string>>({})
   const [localCredits, setLocalCredits] = useState<Record<string, number>>({})
+  const [editingCredits, setEditingCredits] = useState<Record<string, string>>({})
   const [localPlans, setLocalPlans] = useState<MemberPlan[]>(plans)
   const [isPending, startTransition] = useTransition()
 
@@ -85,10 +86,29 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
 
   function handleAddCredits(member: AdminMember, label: string) {
     startTransition(async () => {
-      const result = await addComplimentaryCredits(member.id, creditsFor(member), 1, label, member.compCredits)
+      const result = await addComplimentaryCredits(
+        { id: member.id, userId: member.userId, email: member.email, creditsRemaining: creditsFor(member) },
+        label,
+      )
       if (result.ok) {
+        setLocalPlans((prev) => [result.plan, ...prev])
         setLocalCredits((prev) => ({ ...prev, [member.id]: creditsFor(member) + 1 }))
         toast.success(`Added ${label} single session to ${member.name || member.email}.`)
+      } else {
+        toast.error(result.error)
+      }
+    })
+  }
+
+  function handleSetCredits(member: AdminMember) {
+    const val = parseInt(editingCredits[member.id] ?? "", 10)
+    if (Number.isNaN(val) || val < 0) { toast.error("Enter a valid number."); return }
+    startTransition(async () => {
+      const result = await adminSetCredits(member.id, val)
+      if (result.ok) {
+        setLocalCredits((prev) => ({ ...prev, [member.id]: val }))
+        setEditingCredits((prev) => ({ ...prev, [member.id]: "" }))
+        toast.success(`Credits updated to ${val}.`)
       } else {
         toast.error(result.error)
       }
@@ -281,10 +301,10 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                 </div>
 
                 {/* Plan history + single sessions */}
-                {(memberPlanList.length > 0 || member.compCredits.length > 0) && (
+                {memberPlanList.length > 0 && (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm font-medium">
-                      Plan history ({memberPlanList.length + member.compCredits.length})
+                      Plan history ({memberPlanList.length})
                     </p>
                     <ul className="flex flex-col gap-1.5">
                       {memberPlanList.map((plan) => {
@@ -336,33 +356,6 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                           </li>
                         )
                       })}
-                      {member.compCredits.map((c, i) => {
-                        const used = !!c.usedAt
-                        const grantDate = new Date(c.grantedAt).toLocaleDateString("en-US", {
-                          month: "short", day: "numeric", year: "numeric",
-                        })
-                        const displayLabel = c.label === "60 min" ? "60-Min Single Session"
-                          : c.label === "45 min" ? "45-Min Single Session"
-                          : "30-Min Single Session"
-                        return (
-                          <li
-                            key={`comp-${i}`}
-                            className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Ticket className="size-3.5 shrink-0 text-muted-foreground" />
-                              <span className="font-medium">{displayLabel}</span>
-                              <span className="text-muted-foreground">· {grantDate}</span>
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className={`text-xs shrink-0 ${used ? "border-gray-200 bg-gray-100 text-gray-500" : "border-green-300 bg-green-100 text-green-700"}`}
-                            >
-                              {used ? "✓ Used" : "Available"}
-                            </Badge>
-                          </li>
-                        )
-                      })}
                     </ul>
                   </div>
                 )}
@@ -383,6 +376,30 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                         {label}
                       </Button>
                     ))}
+                  </div>
+                </div>
+
+                {/* Edit credit balance */}
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-medium">Set credit balance</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder={String(credits)}
+                      value={editingCredits[member.id] ?? ""}
+                      onChange={(e) => setEditingCredits((prev) => ({ ...prev, [member.id]: e.target.value }))}
+                      className="h-8 w-24 text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isPending || !editingCredits[member.id]}
+                      onClick={() => handleSetCredits(member)}
+                    >
+                      Save
+                    </Button>
+                    <span className="text-xs text-muted-foreground">Current: {credits}</span>
                   </div>
                 </div>
 

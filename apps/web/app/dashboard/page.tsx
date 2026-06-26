@@ -32,7 +32,6 @@ export default async function DashboardPage() {
   }
 
   let credits = 0
-  let compCredits: import("@/lib/airtable").CompCredit[] = []
   let bookings: Booking[] = []
   let plans: MemberPlan[] = []
   let error: string | null = null
@@ -47,7 +46,6 @@ export default async function DashboardPage() {
       getMyPlans(user!.id),
     ])
     credits = profile.creditsRemaining
-    compCredits = profile.compCredits
     bookings = myBookings
     plans = myPlans
     console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
@@ -99,7 +97,7 @@ export default async function DashboardPage() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <CreditsCard plans={plans} compCredits={compCredits} credits={credits} />
+        <CreditsCard plans={plans} credits={credits} />
 
         <Card className="flex flex-col justify-between">
           <CardHeader className="pb-2">

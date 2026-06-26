@@ -14,18 +14,9 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { Check, ChevronLeft, ChevronRight, Loader2, Package, Ticket } from "lucide-react"
 import { slotToLocalTime, localTimezoneAbbr, userIsInDifferentTimezone, COMPANY_TIMEZONE } from "@/lib/time"
-import type { MemberPlan, CompCredit } from "@/lib/airtable"
-import type { SessionType } from "@/lib/session-types"
+import type { MemberPlan } from "@/lib/airtable"
 
-type CreditOption =
-  | { kind: "plan"; plan: MemberPlan; sessionType: SessionType }
-  | { kind: "single"; credit: CompCredit; index: number; sessionType: SessionType }
-
-const SINGLE_SESSION_TYPE: Record<string, SessionType> = {
-  "60 min": "private-60",
-  "45 min": "private-45",
-  "30 min": "private-30",
-}
+type CreditOption = { plan: MemberPlan }
 
 
 function toIso(d: Date) {
@@ -56,7 +47,6 @@ export function BookingFlow({
   bookedSlots,
   credits,
   plans,
-  compCredits,
 }: {
   prepMasterId: string
   prepMasterName: string
@@ -64,7 +54,6 @@ export function BookingFlow({
   bookedSlots: Record<string, string[]>
   credits: number
   plans: MemberPlan[]
-  compCredits: CompCredit[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -77,21 +66,12 @@ export function BookingFlow({
   const [notes, setNotes] = useState("")
   const [selectedOption, setSelectedOption] = useState<CreditOption | null>(null)
 
-  // Build credit options
+  // Build credit options — every active plan is a selectable option
   const creditOptions = useMemo<CreditOption[]>(() => {
-    const opts: CreditOption[] = []
-    for (const plan of plans) {
-      if (planDisplayStatus(plan) === "Active") {
-        opts.push({ kind: "plan", plan, sessionType: "pack-hour" })
-      }
-    }
-    compCredits.forEach((credit, index) => {
-      if (!credit.usedAt) {
-        opts.push({ kind: "single", credit, index, sessionType: SINGLE_SESSION_TYPE[credit.label] ?? "private-60" })
-      }
-    })
-    return opts
-  }, [plans, compCredits])
+    return plans
+      .filter((p) => planDisplayStatus(p) === "Active")
+      .map((plan) => ({ plan }))
+  }, [plans])
 
   const effectiveOption = selectedOption ?? (creditOptions.length === 1 ? creditOptions[0] : null)
   const showCreditStep = creditOptions.length > 1
@@ -145,7 +125,7 @@ export function BookingFlow({
         date: selectedDate,
         time: selectedTime,
         notes,
-        sessionType: effectiveOption?.sessionType,
+        sessionType: "pack-hour",
       })
       if (result.ok) {
         toast.success("Session booked!", {
@@ -167,7 +147,7 @@ export function BookingFlow({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Credit selector */}
+      {/* Credit selector — only shown when member has multiple active plans to choose from */}
       {showCreditStep && (
         <section className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
@@ -176,60 +156,33 @@ export function BookingFlow({
           </div>
           <div className="flex flex-col gap-2">
             {creditOptions.map((opt) => {
-              const active =
-                effectiveOption === opt ||
-                (effectiveOption?.kind === "plan" && opt.kind === "plan" && effectiveOption.plan.id === opt.plan.id) ||
-                (effectiveOption?.kind === "single" && opt.kind === "single" && effectiveOption.index === opt.index)
-
-              if (opt.kind === "plan") {
-                const expiryDate = opt.plan.expiresAt
-                  ? new Date(opt.plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                  : null
-                return (
-                  <button
-                    key={`plan-${opt.plan.id}`}
-                    type="button"
-                    onClick={() => setSelectedOption(opt)}
-                    className={cn(
-                      "flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors",
-                      active ? "border-primary bg-primary/5" : "bg-card hover:border-primary/50",
-                    )}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Package className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
-                      <span>
-                        <span className="font-medium">{opt.plan.planName}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {opt.plan.sessions} {opt.plan.sessions === 1 ? "credit" : "credits"} remaining
-                          {expiryDate && ` · Expires ${expiryDate}`}
-                        </span>
+              const active = effectiveOption?.plan.id === opt.plan.id
+              const expiryDate = opt.plan.expiresAt
+                ? new Date(opt.plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                : null
+              return (
+                <button
+                  key={opt.plan.id}
+                  type="button"
+                  onClick={() => setSelectedOption(opt)}
+                  className={cn(
+                    "flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors",
+                    active ? "border-primary bg-primary/5" : "bg-card hover:border-primary/50",
+                  )}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Package className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+                    <span>
+                      <span className="font-medium">{opt.plan.planName}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {opt.plan.sessions} {opt.plan.sessions === 1 ? "credit" : "credits"} remaining
+                        {expiryDate && ` · Expires ${expiryDate}`}
                       </span>
                     </span>
-                    {active && <Check className="size-4 shrink-0 text-primary" />}
-                  </button>
-                )
-              } else {
-                const displayLabel = opt.credit.label === "60 min" ? "60-Min Single Session"
-                  : opt.credit.label === "45 min" ? "45-Min Single Session"
-                  : "30-Min Single Session"
-                return (
-                  <button
-                    key={`single-${opt.index}`}
-                    type="button"
-                    onClick={() => setSelectedOption(opt)}
-                    className={cn(
-                      "flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors",
-                      active ? "border-primary bg-primary/5" : "bg-card hover:border-primary/50",
-                    )}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Ticket className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
-                      <span className="font-medium">{displayLabel}</span>
-                    </span>
-                    {active && <Check className="size-4 shrink-0 text-primary" />}
-                  </button>
-                )
-              }
+                  </span>
+                  {active && <Check className="size-4 shrink-0 text-primary" />}
+                </button>
+              )
             })}
           </div>
         </section>
@@ -248,21 +201,9 @@ export function BookingFlow({
 
       {!showCreditStep && !noStructuredCredits && effectiveOption && (
         <div className="flex items-center gap-2 rounded-lg bg-accent/40 px-4 py-2.5 text-sm">
-          {effectiveOption.kind === "plan" ? (
-            <Package className="size-4 text-primary" />
-          ) : (
-            <Ticket className="size-4 text-primary" />
-          )}
+          <Package className="size-4 text-primary" />
           <span>
-            Using{" "}
-            <span className="font-semibold">
-              {effectiveOption.kind === "plan"
-                ? effectiveOption.plan.planName
-                : effectiveOption.credit.label === "60 min" ? "60-Min Single Session"
-                : effectiveOption.credit.label === "45 min" ? "45-Min Single Session"
-                : "30-Min Single Session"}
-            </span>
-            . This booking uses 1 credit.
+            Using <span className="font-semibold">{effectiveOption.plan.planName}</span>. This booking uses 1 credit.
           </span>
         </div>
       )}
