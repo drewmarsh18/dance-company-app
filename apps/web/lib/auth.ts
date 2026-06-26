@@ -39,25 +39,28 @@ export const auth = betterAuth({
     // *.vusercontent.net host that varies per session. Trust the wildcard so
     // sign-in/sign-up work in the preview without hardcoding a single host.
     "https://*.vusercontent.net",
+    // Native mobile app (Expo) — no browser origin header
+    "cdp://",
     // Allow local origins during development/testing.
     ...(process.env.NODE_ENV === "development"
       ? ["http://localhost:3000", `http://localhost:${process.env.PORT ?? 3000}`]
       : []),
   ],
-  session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // 1 day
-  },
-  ...(process.env.NODE_ENV === "development"
-    ? {
-        advanced: {
-          // In dev (v0 preview iframe), force cross-site cookies so the
-          // session cookie is stored by the browser.
+  advanced: {
+    ...(process.env.NODE_ENV === "development"
+      ? {
           defaultCookieAttributes: {
             sameSite: "none" as const,
             secure: true,
           },
-        },
-      }
-    : {}),
+        }
+      : {}),
+    // Native apps don't send an Origin header — disable the check so the
+    // Expo mobile client can reach the auth endpoints.
+    disableCSRFCheck: true,
+  },
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // 1 day
+  },
 })
