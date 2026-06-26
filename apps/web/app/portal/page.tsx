@@ -55,12 +55,16 @@ export default async function PortalPage() {
     user ? isCalendarConnected(user.id) : Promise.resolve(false),
   ])
   const today = startOfToday()
+  const isCancelled = (b: { status: string }) => b.status.toLowerCase().startsWith("cancelled")
+
   const upcoming = bookings.filter(
-    (b) => !b.date || new Date(`${b.date}T00:00:00`) >= today,
+    (b) => !isCancelled(b) && (!b.date || new Date(`${b.date}T00:00:00`) >= today),
   )
-  const past = bookings.filter(
-    (b) => b.date && new Date(`${b.date}T00:00:00`) < today,
+  const completed = bookings.filter(
+    (b) => !isCancelled(b) && b.date && new Date(`${b.date}T00:00:00`) < today,
   )
+  const cancelled = bookings.filter(isCancelled)
+
   const pendingCount = upcoming.filter((b) => b.status.toLowerCase() === "pending").length
 
   return (
@@ -84,7 +88,6 @@ export default async function PortalPage() {
             </Badge>
           )}
         </div>
-
         {upcoming.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
@@ -100,11 +103,22 @@ export default async function PortalPage() {
         )}
       </section>
 
-      {past.length > 0 && (
+      {completed.length > 0 && (
         <section className="flex flex-col gap-4">
-          <h2 className="font-heading text-xl font-semibold text-muted-foreground">Past sessions</h2>
+          <h2 className="font-heading text-xl font-semibold text-muted-foreground">Completed sessions</h2>
           <div className="flex flex-col gap-3 opacity-75">
-            {past.map((b) => (
+            {completed.map((b) => (
+              <AppointmentCard key={b.id} booking={b} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {cancelled.length > 0 && (
+        <section className="flex flex-col gap-4">
+          <h2 className="font-heading text-xl font-semibold text-muted-foreground">Cancelled sessions</h2>
+          <div className="flex flex-col gap-3 opacity-75">
+            {cancelled.map((b) => (
               <AppointmentCard key={b.id} booking={b} />
             ))}
           </div>
