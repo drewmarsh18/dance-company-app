@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import type { AdminMember, AdminBooking, AdminWorker, MemberPlan } from "@/lib/airtable"
 import type { DancePackage } from "@/lib/packages"
 import { AdminMembersPanel } from "@/components/admin-members-panel"
-import { AdminPayrollPanel } from "@/components/admin-payroll-panel"
+
 import { AdminPrepMastersPanel } from "@/components/admin-prep-masters-panel"
 import { AdminOverviewPanel } from "@/components/admin-overview-panel"
 import { Search } from "lucide-react"
@@ -14,17 +14,15 @@ const TABS = [
   { id: "overview", label: "Overview" },
   { id: "members", label: "Members" },
   { id: "prep-masters", label: "Prep Masters" },
-  { id: "payroll", label: "Payroll" },
 ] as const
 
 type TabId = (typeof TABS)[number]["id"]
 
-const SEARCHABLE_TABS = new Set<TabId>(["members", "prep-masters", "payroll"])
+const SEARCHABLE_TABS = new Set<TabId>(["members", "prep-masters"])
 
 const SEARCH_PLACEHOLDERS: Partial<Record<TabId, string>> = {
   members: "Search members…",
   "prep-masters": "Search Prep Masters…",
-  payroll: "Search Prep Masters…",
 }
 
 type Props = {
@@ -94,7 +92,6 @@ export function AdminTabs({ members, bookings, workers, plans, packages }: Props
       {active === "prep-masters" && (
         <AdminPrepMastersPanel workers={workers} bookings={bookings} query={query} />
       )}
-      {active === "payroll" && <AdminPayrollPanel workers={workers} bookings={bookings} query={query} />}
     </div>
   )
 }

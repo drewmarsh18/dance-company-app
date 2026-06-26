@@ -13,6 +13,15 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Users, DollarSign, Phone, Mail, Home, CalendarDays, ChevronDown, ChevronUp, PlusCircle, X } from "lucide-react"
 import { getUniversityColor } from "@/lib/university-colors"
 import { BookingFilterBar, applyFilters, type SortDir } from "@/components/booking-filter-bar"
+import { PER_PRIVATE, PACKAGES } from "@/lib/packages"
+
+const PACK_SESSION_PRICE = PACKAGES[0].perSession
+const PRICE_POINTS = [
+  { label: "Pack hour", revenue: PACK_SESSION_PRICE },
+  ...PER_PRIVATE.map((s) => ({ label: `${s.name} per-private`, revenue: s.price })),
+]
+
+function formatMoney(n: number) { return `$${n.toFixed(2)}` }
 
 type Props = {
   workers: AdminWorker[]
@@ -256,6 +265,48 @@ function PrepMasterProfile({
         </CardContent>
       </Card>
 
+      {/* Payroll summary */}
+      {bookings.length > 0 && (() => {
+        const payPerSession = worker.hourlyRate
+        const totalPay = payPerSession * completedBookings.length
+        const totalRevenue = PACK_SESSION_PRICE * completedBookings.length
+        const margin = totalRevenue - totalPay
+        return (
+          <div className="flex flex-col gap-3">
+            <h3 className="flex items-center gap-2 font-heading text-base font-semibold">
+              <DollarSign className="size-4 text-muted-foreground" />
+              Payroll
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <StatTile label="Pay rate / session" value={formatMoney(payPerSession)} />
+              <StatTile label="Total sessions" value={String(completedBookings.length)} />
+              <StatTile label="Total pay owed" value={formatMoney(totalPay)} highlight />
+              <StatTile label="Revenue (pack)" value={formatMoney(totalRevenue)} sub={`Margin ${formatMoney(margin)}`} />
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Margin by session type</p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 sm:grid-cols-4">
+                {PRICE_POINTS.map(({ label, revenue }) => {
+                  const m = revenue - payPerSession
+                  return (
+                    <div key={label} className="flex flex-col">
+                      <span className="text-[11px] text-muted-foreground">{label}</span>
+                      <span className="text-sm font-semibold">
+                        {formatMoney(revenue)}
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">charged</span>
+                      </span>
+                      <span className={`text-xs font-medium ${m < 0 ? "text-destructive" : "text-green-600"}`}>
+                        {m < 0 ? "−" : "+"}{formatMoney(Math.abs(m))} margin
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Booking history */}
       <div className="flex flex-col gap-3">
         <h3 className="flex items-center gap-2 font-heading text-base font-semibold">
@@ -266,12 +317,6 @@ function PrepMasterProfile({
           <p className="text-sm text-muted-foreground">No bookings yet.</p>
         ) : (
           <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-3">
-              <StatTile label="Total bookings" value={String(bookings.length)} />
-              <StatTile label="Completed" value={String(completedBookings.length)} />
-              <StatTile label="Total pay owed" value={`$${(completedBookings.length * worker.hourlyRate).toFixed(2)}`} highlight />
-            </div>
-            <Separator />
             <BookingHistoryList bookings={bookings} />
           </div>
         )}
@@ -323,6 +368,9 @@ function BookingHistoryList({ bookings }: { bookings: AdminBooking[] }) {
                 </span>
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                {b.status.toLowerCase() === "cancelled (late)" && (
+                  <Badge variant="outline" className="border-amber-300 bg-amber-100 text-amber-700 text-xs">Late cancel</Badge>
+                )}
                 <Badge variant={statusVariant} className="capitalize">{b.status}</Badge>
                 {isOpen ? <ChevronUp className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
               </div>
@@ -371,11 +419,12 @@ function BookingHistoryList({ bookings }: { bookings: AdminBooking[] }) {
   )
 }
 
-function StatTile({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function StatTile({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
     <div className={`rounded-lg border p-3 ${highlight ? "border-primary/30 bg-primary/5" : ""}`}>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={`mt-0.5 text-lg font-bold ${highlight ? "text-primary" : ""}`}>{value}</p>
+      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
     </div>
   )
 }
