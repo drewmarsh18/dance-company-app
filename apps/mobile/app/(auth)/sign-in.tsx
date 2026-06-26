@@ -47,18 +47,18 @@ export default function SignInScreen() {
     setError(null)
     setGoogleLoading(true)
     try {
-      // expoClient plugin opens the browser and handles the deep-link
-      // callback automatically — no manual WebBrowser call needed.
       const result = await signIn.social({
         provider: "google",
-        callbackURL: "cdp://",
+        callbackURL: "cdp://localhost",
       })
+      console.log("[Google] result:", JSON.stringify(result))
       if (result?.error) {
         setError(result.error.message ?? "Google sign-in failed.")
       } else {
         router.replace("/")
       }
-    } catch {
+    } catch (e) {
+      console.log("[Google] error:", e)
       setError("Google sign-in failed. Please try again.")
     } finally {
       setGoogleLoading(false)

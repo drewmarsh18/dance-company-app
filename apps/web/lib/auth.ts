@@ -41,6 +41,7 @@ export const auth = betterAuth({
     "https://*.vusercontent.net",
     // Native mobile app (Expo) — no browser origin header
     "cdp://",
+    "cdp://localhost",
     // Allow local origins during development/testing.
     ...(process.env.NODE_ENV === "development"
       ? ["http://localhost:3000", `http://localhost:${process.env.PORT ?? 3000}`]
