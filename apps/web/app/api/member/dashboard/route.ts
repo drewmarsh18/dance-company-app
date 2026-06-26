@@ -1,0 +1,68 @@
+import { NextResponse } from "next/server"
+import { headers } from "next/headers"
+import { auth } from "@/lib/auth"
+import { getOrCreateProfile } from "@/app/actions/profile"
+import { getBookingsForUserId } from "@/app/actions/booking"
+import { getMyPlans } from "@/app/actions/profile"
+import { isAirtableConfigured } from "@/lib/airtable"
+
+export async function GET() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  if (!isAirtableConfigured()) {
+    return NextResponse.json({ error: "Airtable not configured" }, { status: 503 })
+  }
+
+  try {
+    const resolvedUser = { id: session.user.id, email: session.user.email, name: session.user.name ?? "" }
+    const [profile, bookings, plans] = await Promise.all([
+      getOrCreateProfile({ resolvedUser }),
+      getBookingsForUserId(session.user.id),
+      getMyPlans(session.user.id),
+    ])
+
+    const todayMs = new Date(new Date().toDateString()).getTime()
+    const bookingMs = (date: string) => new Date(`${date}T00:00:00`).getTime()
+
+    const upcoming = bookings
+      .filter((b) => {
+        if (b.status.toLowerCase().startsWith("cancelled")) return false
+        const ms = bookingMs(b.date)
+        return !Number.isNaN(ms) && ms >= todayMs
+      })
+      .sort((a, b) => bookingMs(a.date) - bookingMs(b.date))
+
+    const past = bookings
+      .filter((b) => {
+        if (b.status.toLowerCase().startsWith("cancelled")) return false
+        const ms = bookingMs(b.date)
+        return !Number.isNaN(ms) && ms < todayMs
+      })
+      .sort((a, b) => bookingMs(b.date) - bookingMs(a.date))
+
+    const cancelled = bookings
+      .filter((b) => b.status.toLowerCase().startsWith("cancelled"))
+      .sort((a, b) => bookingMs(b.date) - bookingMs(a.date))
+
+    return NextResponse.json({
+      profile: {
+        recordId: profile.recordId,
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone,
+        goals: profile.goals,
+        creditsRemaining: profile.creditsRemaining,
+      },
+      plans,
+      upcoming,
+      past,
+      cancelled,
+    })
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to load dashboard" },
+      { status: 500 },
+    )
+  }
+}
