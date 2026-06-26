@@ -4,7 +4,15 @@ import { useState } from "react"
 import type { AdminMember, AdminBooking, AdminWorker } from "@/lib/airtable"
 import { PACKAGES } from "@/lib/packages"
 
-const SINGLE_HOUR_PRICE = PACKAGES[0].perSession // $99 pack rate
+const SESSION_PRICE: Record<string, number> = {
+  "private-30": 65,
+  "private-45": 89,
+  "private-60": 99,
+  "pack-hour": 99,
+}
+function sessionRevenue(sessionType: string | null) {
+  return SESSION_PRICE[sessionType ?? ""] ?? 99
+}
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -41,8 +49,8 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
   const completed = thisMonth.filter((b) => b.status.toLowerCase() !== "cancelled")
   const cancelled = thisMonth.filter((b) => b.status.toLowerCase() === "cancelled")
 
-  // Revenue = completed sessions × dancer-facing rate
-  const revenue = completed.length * SINGLE_HOUR_PRICE
+  // Revenue = sum of per-session price based on session type
+  const revenue = completed.reduce((sum, b) => sum + sessionRevenue(b.sessionType), 0)
 
   // Pay owed = sum over each completed booking of that prep master's hourly rate
   const workerRateMap = new Map(workers.map((w) => [w.name, w.hourlyRate]))
@@ -51,7 +59,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
 
   // All-time totals
   const allCompleted = bookings.filter((b) => b.status.toLowerCase() !== "cancelled")
-  const allRevenue = allCompleted.length * SINGLE_HOUR_PRICE
+  const allRevenue = allCompleted.reduce((sum, b) => sum + sessionRevenue(b.sessionType), 0)
 
   // Top Prep Masters this month by completed booking count
   const pmCounts = new Map<string, number>()
