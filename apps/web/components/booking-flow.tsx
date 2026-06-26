@@ -116,16 +116,26 @@ export function BookingFlow({
     setSelectedTime(slot)
   }
 
+  function planSessionType(planName: string): import("@/lib/session-types").SessionType {
+    if (planName.includes("30")) return "private-30"
+    if (planName.includes("45")) return "private-45"
+    if (planName.includes("60")) return "private-60"
+    return "pack-hour"
+  }
+
   function handleConfirm() {
     if (!selectedDate || !selectedTime) return
     startTransition(async () => {
+      const plan = effectiveOption?.plan
       const result = await createBooking({
         prepMasterId,
         prepMasterName,
         date: selectedDate,
         time: selectedTime,
         notes,
-        sessionType: "pack-hour",
+        planId: plan?.id,
+        planSessions: plan?.sessions,
+        sessionType: plan ? planSessionType(plan.planName) : "pack-hour",
       })
       if (result.ok) {
         toast.success("Session booked!", {

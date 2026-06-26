@@ -180,6 +180,8 @@ export async function createBooking(input: {
   date: string
   time: string
   notes?: string
+  planId?: string
+  planSessions?: number
   sessionType?: import("@/lib/session-types").SessionType
 }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   try {
@@ -235,10 +237,14 @@ export async function createBooking(input: {
       "Credits Remaining": newCredits,
     })
 
-    // If this booking used the last credit, mark the active plan as Used
-    if (newCredits === 0) {
-      const activePlan = await getActivePlanForUser(user.id)
-      if (activePlan) await setPlanStatus(activePlan.id, "Used")
+    // Mark the used plan as Used:
+    // - Single-session plans (sessions=1): mark immediately
+    // - Pack plans: mark when credits hit 0
+    if (input.planId && input.planSessions === 1) {
+      await setPlanStatus(input.planId, "Used")
+    } else if (newCredits === 0) {
+      const planToMark = input.planId ? { id: input.planId } : await getActivePlanForUser(user.id)
+      if (planToMark) await setPlanStatus(planToMark.id, "Used")
     }
 
     // In-app notification for the dancer
