@@ -1,10 +1,8 @@
 import { useEffect } from "react"
 import { View, ActivityIndicator, StyleSheet } from "react-native"
 import { useRouter } from "expo-router"
-import { useSession } from "@/lib/auth-client"
+import { authClient, useSession } from "@/lib/auth-client"
 import { COLORS } from "@/constants/theme"
-
-const API_BASE = "https://dance-company-app.vercel.app"
 
 export default function Index() {
   const { data: session, isPending } = useSession()
@@ -18,14 +16,11 @@ export default function Index() {
       return
     }
 
-    // Fetch the user's role from the API
-    fetch(`${API_BASE}/api/me`, {
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        const role: string = data.role ?? "dancer"
+    // Use authClient.$fetch so the expo SecureStore session token is sent automatically
+    authClient.$fetch("/api/me")
+      .then(({ data, error }) => {
+        if (error || !data) { router.replace("/member"); return }
+        const role: string = (data as any).role ?? "dancer"
         if (role === "admin") router.replace("/admin")
         else if (role === "prep_master") router.replace("/portal")
         else router.replace("/member")
