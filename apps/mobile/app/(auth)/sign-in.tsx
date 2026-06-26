@@ -8,11 +8,18 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
+import * as WebBrowser from "expo-web-browser"
+import * as Google from "expo-auth-session/providers/google"
 import { signIn } from "@/lib/auth-client"
 import { COLORS, SPACING, RADIUS } from "@/constants/theme"
+
+// Required at module level for expo-auth-session to close the browser on redirect
+WebBrowser.maybeCompleteAuthSession()
+
+const GOOGLE_CLIENT_ID = "31400941000-34u7k1dkm668qhnpov03c7af8npdckcd.apps.googleusercontent.com"
 
 export default function SignInScreen() {
   const router = useRouter()
@@ -21,6 +28,46 @@ export default function SignInScreen() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: GOOGLE_CLIENT_ID,
+  })
+
+  useEffect(() => {
+    if (response?.type === "success") {
+      const idToken = response.params?.id_token
+      const accessToken = response.authentication?.accessToken
+      if (idToken) {
+        handleGoogleToken(idToken, accessToken)
+      } else {
+        setError("Google sign-in failed: no ID token returned.")
+        setGoogleLoading(false)
+      }
+    } else if (response?.type === "error") {
+      setError(response.error?.message ?? "Google sign-in failed.")
+      setGoogleLoading(false)
+    } else if (response?.type === "dismiss" || response?.type === "cancel") {
+      setGoogleLoading(false)
+    }
+  }, [response])
+
+  async function handleGoogleToken(idToken: string, accessToken?: string) {
+    try {
+      const result = await signIn.social({
+        provider: "google",
+        idToken: { token: idToken, accessToken },
+      } as Parameters<typeof signIn.social>[0])
+      if (result?.error) {
+        setError(result.error.message ?? "Google sign-in failed.")
+      } else {
+        router.replace("/")
+      }
+    } catch {
+      setError("Google sign-in failed. Please try again.")
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
 
   async function handleSignIn() {
     if (!email || !password) {
@@ -43,26 +90,10 @@ export default function SignInScreen() {
     }
   }
 
-  async function handleGoogleSignIn() {
+  function handleGoogleSignIn() {
     setError(null)
     setGoogleLoading(true)
-    try {
-      const result = await signIn.social({
-        provider: "google",
-        callbackURL: "cdp://localhost",
-      })
-      console.log("[Google] result:", JSON.stringify(result))
-      if (result?.error) {
-        setError(result.error.message ?? "Google sign-in failed.")
-      } else {
-        router.replace("/")
-      }
-    } catch (e) {
-      console.log("[Google] error:", e)
-      setError("Google sign-in failed. Please try again.")
-    } finally {
-      setGoogleLoading(false)
-    }
+    promptAsync()
   }
 
   return (
