@@ -60,12 +60,10 @@ export function CreditsCard({
           </p>
         ) : null}
 
-        {shownPlans.map((plan, idx) => {
+        {shownPlans.map((plan) => {
           const status = planDisplayStatus(plan)
           const isActive = status === "Active"
-          // For active plans show the live creditsRemaining total on the first plan only
-          // (creditsRemaining is a single pool shared across all active plans)
-          const displayCount = isActive && idx === 0 ? credits : plan.sessions
+          const displayCount = isActive && activePlans.length === 1 ? credits : plan.sessions
           const expiryDate = plan.expiresAt
             ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
             : null
