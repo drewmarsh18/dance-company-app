@@ -175,6 +175,8 @@ function PrepMasterProfile({
   const [hourlyRate, setHourlyRate] = useState(String(worker.hourlyRate))
   const [active, setActive] = useState(worker.active)
   const [isPending, startTransition] = useTransition()
+  const [infoOpen, setInfoOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(true)
 
   const completedBookings = bookings.filter((b) => b.status.toLowerCase() !== "cancelled")
 
@@ -212,57 +214,62 @@ function PrepMasterProfile({
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="cursor-pointer" onClick={() => setInfoOpen((v) => !v)}>
           <div className="flex items-center justify-between gap-4">
             <div>
               <CardTitle>{worker.name}</CardTitle>
               <CardDescription>Edit Prep Master profile, pay rate, and status</CardDescription>
             </div>
-            <Badge variant="outline" className={active ? "border-green-300 bg-green-100 text-green-700" : "border-gray-200 bg-gray-100 text-gray-500"}>{active ? "Active" : "Inactive"}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Full name" icon={<Users className="size-3.5" />} value={name} onChange={setName} />
-            <Field label="Email" icon={<Mail className="size-3.5" />} value={email} onChange={setEmail} type="email" />
-            <Field label="Phone" icon={<Phone className="size-3.5" />} value={phone} onChange={setPhone} type="tel" />
-            <Field label="Address" icon={<Home className="size-3.5" />} value={address} onChange={setAddress} />
-            <div className="flex flex-col gap-1.5">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <DollarSign className="size-3.5" />
-                Pay rate per session ($)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={hourlyRate}
-                onChange={(e) => setHourlyRate(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
+            <div className="flex items-center gap-2 shrink-0">
+              <Badge variant="outline" className={active ? "border-green-300 bg-green-100 text-green-700" : "border-gray-200 bg-gray-100 text-gray-500"}>{active ? "Active" : "Inactive"}</Badge>
+              {infoOpen ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
             </div>
           </div>
+        </CardHeader>
+        {infoOpen && (
+          <CardContent className="flex flex-col gap-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Full name" icon={<Users className="size-3.5" />} value={name} onChange={setName} />
+              <Field label="Email" icon={<Mail className="size-3.5" />} value={email} onChange={setEmail} type="email" />
+              <Field label="Phone" icon={<Phone className="size-3.5" />} value={phone} onChange={setPhone} type="tel" />
+              <Field label="Address" icon={<Home className="size-3.5" />} value={address} onChange={setAddress} />
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <DollarSign className="size-3.5" />
+                  Pay rate per session ($)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={hourlyRate}
+                  onChange={(e) => setHourlyRate(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+            </div>
 
-          <div className="flex items-center gap-3 rounded-lg border p-3">
-            <input
-              id="active-toggle"
-              type="checkbox"
-              checked={active}
-              onChange={(e) => setActive(e.target.checked)}
-              className="size-4 rounded border-input accent-primary"
-            />
-            <label htmlFor="active-toggle" className="text-sm font-medium cursor-pointer">
-              Active — visible to dancers for booking
-            </label>
-          </div>
+            <div className="flex items-center gap-3 rounded-lg border p-3">
+              <input
+                id="active-toggle"
+                type="checkbox"
+                checked={active}
+                onChange={(e) => setActive(e.target.checked)}
+                className="size-4 rounded border-input accent-primary"
+              />
+              <label htmlFor="active-toggle" className="text-sm font-medium cursor-pointer">
+                Active — visible to dancers for booking
+              </label>
+            </div>
 
-          <div className="flex gap-2">
-            <Button disabled={isPending} onClick={handleSave}>
-              {isPending ? "Saving…" : "Save changes"}
-            </Button>
-            <Button variant="ghost" onClick={onBack}>Cancel</Button>
-          </div>
-        </CardContent>
+            <div className="flex gap-2">
+              <Button disabled={isPending} onClick={handleSave}>
+                {isPending ? "Saving…" : "Save changes"}
+              </Button>
+              <Button variant="ghost" onClick={onBack}>Cancel</Button>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       {/* Payroll summary */}
@@ -309,16 +316,24 @@ function PrepMasterProfile({
 
       {/* Booking history */}
       <div className="flex flex-col gap-3">
-        <h3 className="flex items-center gap-2 font-heading text-base font-semibold">
-          <CalendarDays className="size-4 text-muted-foreground" />
-          Booking history ({bookings.length})
-        </h3>
-        {bookings.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No bookings yet.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            <BookingHistoryList bookings={bookings} />
-          </div>
+        <button
+          className="flex items-center justify-between gap-2 text-left"
+          onClick={() => setHistoryOpen((v) => !v)}
+        >
+          <h3 className="flex items-center gap-2 font-heading text-base font-semibold">
+            <CalendarDays className="size-4 text-muted-foreground" />
+            Booking history ({bookings.length})
+          </h3>
+          {historyOpen ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
+        </button>
+        {historyOpen && (
+          bookings.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No bookings yet.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <BookingHistoryList bookings={bookings} />
+            </div>
+          )
         )}
       </div>
     </div>
