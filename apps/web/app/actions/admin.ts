@@ -29,10 +29,10 @@ import {
   type MemberPlan,
 } from "@/lib/airtable"
 
-const SINGLE_SESSION_PLAN_NAMES: Record<string, string> = {
-  "60 min": "60-Min Single",
-  "45 min": "45-Min Single",
-  "30 min": "30-Min Single",
+const SINGLE_SESSION_PLANS: Record<string, { name: string; price: number }> = {
+  "60 min": { name: "60-Min Single", price: 119 },
+  "45 min": { name: "45-Min Single", price: 89 },
+  "30 min": { name: "30-Min Single", price: 65 },
 }
 import { PACKAGES, type DancePackage } from "@/lib/packages"
 
@@ -66,14 +66,14 @@ export async function addComplimentaryCredits(
 ): Promise<{ ok: true; plan: MemberPlan } | { ok: false; error: string }> {
   try {
     await assertAdmin()
-    const planName = SINGLE_SESSION_PLAN_NAMES[label]
-    if (!planName) return { ok: false, error: "Invalid session label." }
+    const sessionPlan = SINGLE_SESSION_PLANS[label]
+    if (!sessionPlan) return { ok: false, error: "Invalid session label." }
     const plan = await createMemberPlan({
       userId: member.userId,
       memberEmail: member.email,
-      planName,
+      planName: sessionPlan.name,
       sessions: 1,
-      pricePaid: 0,
+      pricePaid: sessionPlan.price,
     })
     await adminAddCredits(member.id, member.creditsRemaining, 1)
     revalidatePath("/admin")
