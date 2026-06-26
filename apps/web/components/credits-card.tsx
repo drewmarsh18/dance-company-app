@@ -63,7 +63,12 @@ export function CreditsCard({
         {shownPlans.map((plan) => {
           const status = planDisplayStatus(plan)
           const isActive = status === "Active"
-          const displayCount = isActive && activePlans.length === 1 ? credits : plan.sessions
+          const activeSingleCount = activePlans.filter((p) => p.sessions === 1).length
+          const displayCount = !isActive
+            ? plan.sessions
+            : plan.sessions === 1
+              ? 1
+              : Math.max(0, credits - activeSingleCount)
           const expiryDate = plan.expiresAt
             ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
             : null

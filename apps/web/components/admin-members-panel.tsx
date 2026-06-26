@@ -315,10 +315,14 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                           ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                           : null
                         const planStatus = planDisplayStatus(plan)
-                        const activePlans = memberPlanList.filter((p) => planDisplayStatus(p) === "Active")
-                        const displayCount = planStatus === "Active" && activePlans.length === 1
-                          ? creditsFor(member)
-                          : plan.sessions
+                        const activeSingleCount = memberPlanList.filter(
+                          (p) => planDisplayStatus(p) === "Active" && p.sessions === 1
+                        ).length
+                        const displayCount = planStatus !== "Active"
+                          ? plan.sessions
+                          : plan.sessions === 1
+                            ? 1
+                            : Math.max(0, creditsFor(member) - activeSingleCount)
                         return (
                           <li
                             key={plan.id}
