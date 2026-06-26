@@ -14,14 +14,14 @@ export function CreditsCard({
   plans: MemberPlan[]
   credits: number
 }) {
-  const [view, setView] = useState<"active" | "history">("active")
-
   const activePlans = plans.filter((p) => planDisplayStatus(p) === "Active")
   const usedPlans = plans.filter((p) => planDisplayStatus(p) !== "Active")
 
   const hasActive = activePlans.length > 0
   const hasHistory = usedPlans.length > 0
   const isEmpty = credits === 0 && plans.length === 0
+
+  const [view, setView] = useState<"active" | "history">(hasActive ? "active" : "history")
 
   const shownPlans = view === "active" ? activePlans : usedPlans
 
@@ -33,7 +33,7 @@ export function CreditsCard({
             <Ticket className="size-4 text-primary" />
             Session credits
           </span>
-          {(hasActive && hasHistory) && (
+          {hasHistory && (
             <div className="flex gap-0.5 rounded-md border bg-muted p-0.5">
               <button
                 onClick={() => setView("active")}
