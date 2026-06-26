@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { getSessionUserWithRole } from "@/lib/roles"
-import { TABLES, appBase, getPrepMasterByEmail, type BookingFields } from "@/lib/airtable"
+import { TABLES, appBase, getPrepMasterByEmail, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { sendEmail, bookingUpdatedEmail } from "@/lib/email"
 import { createNotification } from "@/app/actions/notifications"
 import { db } from "@/lib/db"
@@ -83,6 +83,17 @@ export async function adjustBooking(
     const dancerEmail = records[0].fields["Client Email"]
     const dancerUserId = records[0].fields["User ID"]
 
+    // Look up the dancer's proper name from their Member record
+    let dancerName: string = dancerEmail ?? "Your member"
+    if (dancerUserId) {
+      const safeId = dancerUserId.replace(/'/g, "\\'")
+      const memberRecords = await appBase.list<ClientFields>(TABLES.clients, {
+        filterByFormula: `{User ID} = '${safeId}'`,
+        maxRecords: 1,
+      })
+      if (memberRecords[0]?.fields.Name) dancerName = memberRecords[0].fields.Name
+    }
+
     // In-app notification → member
     if (dancerUserId) {
       createNotification({
@@ -106,7 +117,7 @@ export async function adjustBooking(
     // Email both parties — fire and forget
     if (dancerEmail) {
       const { subject, html } = bookingUpdatedEmail({
-        recipientName: dancerEmail,
+        recipientName: dancerName,
         updatedByName: pm.name,
         updatedByRole: "prep master",
         date: newDate,

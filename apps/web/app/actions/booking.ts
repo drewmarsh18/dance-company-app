@@ -184,7 +184,8 @@ export async function rescheduleBooking(
     }).catch(() => {})
 
     // Email both parties about the reschedule — fire and forget
-    const memberName = user.name ?? user.email ?? "Your member"
+    const clientRecord = await findClientRecord(user.id)
+    const memberName = clientRecord?.fields.Name ?? user.name ?? user.email ?? "Your member"
     const existingNotes = existing.fields.Notes || undefined
     if (user.email) {
       const { subject, html } = bookingUpdatedEmail({
@@ -315,10 +316,12 @@ export async function createBooking(input: {
       bookingId: record.id,
     }).catch(() => {})
 
+    const dancerDisplayName = client.fields.Name ?? user.name ?? "Dancer"
+
     // Send booking confirmation email — fire and forget
     if (user.email) {
       const { subject, html } = bookingConfirmationEmail({
-        dancerName: user.name ?? "Dancer",
+        dancerName: dancerDisplayName,
         prepMasterName: input.prepMasterName,
         date: input.date,
         time: input.time,
@@ -333,7 +336,7 @@ export async function createBooking(input: {
       const denyUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=deny&token=${CONFIRM_SECRET}`
       const { subject, html } = prepMasterBookingRequestEmail({
         prepMasterName: pm.name,
-        dancerName: user.name ?? user.email ?? "A member",
+        dancerName: dancerDisplayName,
         dancerEmail: user.email ?? "",
         date: input.date,
         time: input.time,
