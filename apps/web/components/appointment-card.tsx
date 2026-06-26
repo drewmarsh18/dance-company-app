@@ -34,7 +34,7 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
   const [isPending, startTransition] = useTransition()
 
   const isPendingStatus = status.toLowerCase() === "pending"
-  const isCancelled = status.toLowerCase() === "cancelled"
+  const isCancelled = status.toLowerCase().startsWith("cancelled")
   const statusVariant =
     status.toLowerCase() === "confirmed" ? "default"
     : isCancelled ? "destructive"

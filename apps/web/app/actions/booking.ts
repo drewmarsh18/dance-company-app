@@ -91,7 +91,7 @@ export async function cancelBooking(
     const within24 = isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "")
 
     await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
-      Status: "Cancelled",
+      Status: within24 ? "Cancelled (Late)" : "Cancelled",
     })
 
     // Refund credit only when cancelled outside the 24-hour window

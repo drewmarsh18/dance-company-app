@@ -41,7 +41,7 @@ export function BookingRow({ booking, availability }: Props) {
     ? booking.date
     : date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
 
-  const isCancelled = booking.status.toLowerCase() === "cancelled"
+  const isCancelled = booking.status.toLowerCase().startsWith("cancelled")
   const within24 = isWithin24Hours(booking.date, booking.time)
   const canAdjust = !isCancelled && !within24
   const canCancel = !isCancelled
@@ -128,7 +128,7 @@ export function BookingRow({ booking, availability }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={localStatus.toLowerCase() === "confirmed" ? "default" : localStatus.toLowerCase() === "cancelled" ? "destructive" : "secondary"} className="capitalize">
+            <Badge variant={localStatus.toLowerCase() === "confirmed" ? "default" : localStatus.toLowerCase().startsWith("cancelled") ? "destructive" : "secondary"} className="capitalize">
               {localStatus}
             </Badge>
             {canAdjust && mode === "idle" && (

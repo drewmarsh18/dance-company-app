@@ -47,7 +47,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
   const monthKey = currentMonthKey()
   const thisMonth = bookings.filter((b) => b.date?.startsWith(monthKey))
   const completed = thisMonth.filter((b) => b.status.toLowerCase() !== "cancelled")
-  const cancelled = thisMonth.filter((b) => b.status.toLowerCase() === "cancelled")
+  const cancelled = thisMonth.filter((b) => b.status.toLowerCase().startsWith("cancelled"))
 
   // Revenue = sum of per-session price based on session type
   const revenue = completed.reduce((sum, b) => sum + sessionRevenue(b.sessionType), 0)
@@ -98,7 +98,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
           icon={<DollarSign className="size-4 text-green-600" />}
           label="Revenue this month"
           value={`$${revenue.toLocaleString()}`}
-          sub={`$${SINGLE_HOUR_PRICE}/session × ${completed.length} sessions`}
+          sub={`${completed.length} sessions · incl. late cancels`}
           highlight="green"
         />
         <KpiCard
@@ -172,7 +172,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
               <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">All-time bookings by status</p>
               <div className="flex flex-col gap-1.5">
                 <RosterRow label="Completed" value={allCompleted.length} />
-                <RosterRow label="Cancelled" value={bookings.filter((b) => b.status.toLowerCase() === "cancelled").length} />
+                <RosterRow label="Cancelled" value={bookings.filter((b) => b.status.toLowerCase().startsWith("cancelled")).length} />
                 <RosterRow label="Pending" value={bookings.filter((b) => b.status.toLowerCase() === "pending").length} />
               </div>
             </div>
@@ -222,7 +222,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
               return (
                 <ul className="flex flex-col gap-1.5">
                   {filtered.map((b) => {
-                    const isCancelled = b.status.toLowerCase() === "cancelled"
+                    const isCancelled = b.status.toLowerCase().startsWith("cancelled")
                     const isExpanded = expandedId === b.id
                     return (
                       <li key={b.id} className="rounded-md border text-sm overflow-hidden">

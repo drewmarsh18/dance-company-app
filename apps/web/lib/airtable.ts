@@ -325,7 +325,7 @@ export async function getUpcomingBookedSlots(
   })
   const map: Record<string, string[]> = {}
   for (const r of records) {
-    if ((r.fields.Status ?? "").toLowerCase() === "cancelled") continue
+    if ((r.fields.Status ?? "").toLowerCase().startsWith("cancelled")) continue
     const date = r.fields.Date
     const time = r.fields.Time
     if (!date || !time) continue

@@ -59,19 +59,19 @@ export default async function DashboardPage() {
     return new Date(`${date}T00:00:00`).getTime()
   }
   const upcoming = bookings.filter((b) => {
-    if (b.status.toLowerCase() === "cancelled") return false
+    if (b.status.toLowerCase().startsWith("cancelled")) return false
     const ms = bookingMs(b.date)
     return !Number.isNaN(ms) && ms >= todayMs
   })
   const past = bookings
     .filter((b) => {
-      if (b.status.toLowerCase() === "cancelled") return false
+      if (b.status.toLowerCase().startsWith("cancelled")) return false
       const ms = bookingMs(b.date)
       return !Number.isNaN(ms) && ms < todayMs
     })
     .sort((a, b) => bookingMs(b.date) - bookingMs(a.date))
   const cancelled = bookings
-    .filter((b) => b.status.toLowerCase() === "cancelled")
+    .filter((b) => b.status.toLowerCase().startsWith("cancelled"))
     .sort((a, b) => bookingMs(b.date) - bookingMs(a.date))
 
   // Availability powers the reschedule date picker but is non-critical.

@@ -301,7 +301,7 @@ function BookingHistoryList({ bookings }: { bookings: AdminBooking[] }) {
       )}
     <ul className="flex flex-col gap-1.5">
       {visible.map((b) => {
-        const isCancelled = b.status.toLowerCase() === "cancelled"
+        const isCancelled = b.status.toLowerCase().startsWith("cancelled")
         const isOpen = expanded === b.id
         const statusVariant =
           b.status.toLowerCase() === "confirmed"

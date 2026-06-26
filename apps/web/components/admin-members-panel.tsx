@@ -420,7 +420,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                         const statusVariant =
                           b.status.toLowerCase() === "confirmed"
                             ? "default"
-                            : b.status.toLowerCase() === "cancelled"
+                            : b.status.toLowerCase().startsWith("cancelled")
                               ? "destructive"
                               : "secondary"
                         return (
