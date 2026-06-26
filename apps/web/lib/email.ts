@@ -9,11 +9,8 @@ function getTransporter() {
     port: 465,
     secure: true,
     auth: {
-      type: "OAuth2",
       user: process.env.GMAIL_FROM,
-      clientId: process.env.GMAIL_CLIENT_ID,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET,
-      refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+      pass: process.env.GMAIL_APP_PASSWORD,
     },
   })
 }
@@ -27,7 +24,7 @@ export async function sendEmail({
   subject: string
   html: string
 }) {
-  if (!process.env.GMAIL_REFRESH_TOKEN) return
+  if (!process.env.GMAIL_APP_PASSWORD) return
   const transporter = getTransporter()
   await transporter.sendMail({
     from: `"College Dance Prep" <${process.env.GMAIL_FROM}>`,
