@@ -1,7 +1,9 @@
 import { betterAuth } from "better-auth"
+import { expo } from "@better-auth/expo"
 import { pool } from "@/lib/db"
 
 export const auth = betterAuth({
+  plugins: [expo()],
   database: pool,
   baseURL:
     process.env.BETTER_AUTH_URL ??
