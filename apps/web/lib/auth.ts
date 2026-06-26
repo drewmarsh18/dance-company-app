@@ -19,12 +19,16 @@ export const auth = betterAuth({
   },
   // Google stays wired up but only activates once its credentials are present,
   // so it's a one-step restore later (just add GOOGLE_CLIENT_ID/SECRET).
-  ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+  ...(process.env.GOOGLE_CLIENT_ID
     ? {
         socialProviders: {
           google: {
             clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+            // Allow ID tokens from native iOS/Android clients
+            ...(process.env.GOOGLE_IOS_CLIENT_ID
+              ? { extraClientIds: [process.env.GOOGLE_IOS_CLIENT_ID] }
+              : {}),
           },
         },
       }

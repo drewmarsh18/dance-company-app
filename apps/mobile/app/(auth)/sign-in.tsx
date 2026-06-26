@@ -19,7 +19,7 @@ import { COLORS, SPACING, RADIUS } from "@/constants/theme"
 // Required at module level for expo-auth-session to close the browser on redirect
 WebBrowser.maybeCompleteAuthSession()
 
-const GOOGLE_CLIENT_ID = "31400941000-34u7k1dkm668qhnpov03c7af8npdckcd.apps.googleusercontent.com"
+const GOOGLE_IOS_CLIENT_ID = "31400941000-8g9ud8c2pfgkb1590hb0606jg70jq152.apps.googleusercontent.com"
 
 export default function SignInScreen() {
   const router = useRouter()
@@ -30,7 +30,7 @@ export default function SignInScreen() {
   const [error, setError] = useState<string | null>(null)
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: GOOGLE_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
   })
 
   useEffect(() => {
