@@ -25,30 +25,23 @@ export const auth = betterAuth({
           google: {
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-            // Accept ID tokens from any configured client (web or native iOS/Android)
+            // Accept ID tokens from web or native iOS/Android client IDs.
+            // Google's tokeninfo endpoint validates signature, expiry, and issuer;
+            // we only need to check that the audience is one we own.
             verifyIdToken: async (token: string) => {
-              const { decodeProtectedHeader, jwtVerify } = await import("jose")
               try {
-                const { kid, alg: jwtAlg } = decodeProtectedHeader(token)
-                if (!kid || !jwtAlg) return false
-                const GOOGLE_CERTS_URL = "https://www.googleapis.com/oauth2/v3/certs"
-                const { createRemoteJWKSet } = await import("jose")
-                const JWKS = createRemoteJWKSet(new URL(GOOGLE_CERTS_URL))
+                const res = await fetch(
+                  `https://oauth2.googleapis.com/tokeninfo?id_token=${token}`,
+                )
+                if (!res.ok) return false
+                const payload = await res.json()
                 const allowedAudiences = [
                   process.env.GOOGLE_CLIENT_ID!,
-                  ...(process.env.GOOGLE_IOS_CLIENT_ID ? [process.env.GOOGLE_IOS_CLIENT_ID] : []),
+                  ...(process.env.GOOGLE_IOS_CLIENT_ID
+                    ? [process.env.GOOGLE_IOS_CLIENT_ID]
+                    : []),
                 ]
-                for (const audience of allowedAudiences) {
-                  try {
-                    await jwtVerify(token, JWKS, {
-                      algorithms: [jwtAlg as string],
-                      issuer: ["https://accounts.google.com", "accounts.google.com"],
-                      audience,
-                    })
-                    return true
-                  } catch {}
-                }
-                return false
+                return allowedAudiences.includes(payload.aud)
               } catch {
                 return false
               }
