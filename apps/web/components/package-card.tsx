@@ -5,14 +5,16 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { formatPrice, type DancePackage } from "@/lib/packages"
 import { Check } from "lucide-react"
-import { toast } from "sonner"
+import { useState } from "react"
+import { createCheckoutSession } from "@/app/actions/checkout"
 
 export function PackageCard({ pkg }: { pkg: DancePackage }) {
-  function handlePurchase() {
-    toast.info("Payments not enabled yet", {
-      description:
-        "Connect Stripe to enable secure checkout for this package.",
-    })
+  const [loading, setLoading] = useState(false)
+
+  async function handlePurchase() {
+    setLoading(true)
+    await createCheckoutSession(pkg.id)
+    setLoading(false)
   }
 
   return (
@@ -60,10 +62,11 @@ export function PackageCard({ pkg }: { pkg: DancePackage }) {
 
       <Button
         onClick={handlePurchase}
+        disabled={loading}
         variant={pkg.highlight ? "default" : "outline"}
         className="mt-6 w-full"
       >
-        Get {pkg.name}
+        {loading ? "Redirecting…" : `Get ${pkg.name}`}
       </Button>
     </Card>
   )

@@ -4,8 +4,6 @@ import { auth } from "@/lib/auth"
 import { PACKAGES, PER_PRIVATE, SINGLE_HOUR_PRICE, formatPrice } from "@/lib/packages"
 import { PackageCard } from "@/components/package-card"
 import { PerPrivateCard } from "@/components/per-private-card"
-import { Card } from "@/components/ui/card"
-import { Info } from "lucide-react"
 
 export default async function PackagesPage() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -54,16 +52,7 @@ export default async function PackagesPage() {
         </div>
       </section>
 
-      <Card className="mt-10 flex items-start gap-3 border-accent/40 bg-accent/10 p-4">
-        <Info className="mt-0.5 size-5 shrink-0 text-accent-foreground" />
-        <div className="text-sm leading-relaxed">
-          <p className="font-medium text-foreground">Checkout coming soon</p>
-          <p className="text-muted-foreground">
-            Secure payments activate once Stripe is connected. Until then, you can
-            browse plans and the booking flow stays fully functional.
-          </p>
-        </div>
-      </Card>
+
     </div>
   )
 }

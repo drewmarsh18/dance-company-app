@@ -4,13 +4,16 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { formatPrice, type PerPrivate } from "@/lib/packages"
 import { Clock } from "lucide-react"
-import { toast } from "sonner"
+import { useState } from "react"
+import { createCheckoutSession } from "@/app/actions/checkout"
 
 export function PerPrivateCard({ session }: { session: PerPrivate }) {
-  function handlePurchase() {
-    toast.info("Payments not enabled yet", {
-      description: "Connect Stripe to enable secure checkout for single sessions.",
-    })
+  const [loading, setLoading] = useState(false)
+
+  async function handlePurchase() {
+    setLoading(true)
+    await createCheckoutSession(session.id)
+    setLoading(false)
   }
 
   return (
@@ -33,8 +36,8 @@ export function PerPrivateCard({ session }: { session: PerPrivate }) {
         <span className="font-heading text-2xl font-bold tracking-tight">
           {formatPrice(session.price)}
         </span>
-        <Button variant="outline" onClick={handlePurchase}>
-          Book single
+        <Button variant="outline" onClick={handlePurchase} disabled={loading}>
+          {loading ? "Redirecting…" : "Book single"}
         </Button>
       </div>
     </Card>
