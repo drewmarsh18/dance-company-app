@@ -57,7 +57,9 @@ export async function adjustBooking(
     if (fields.notes !== undefined) update.Notes = fields.notes
 
     await appBase.update<BookingFields>(TABLES.bookings, bookingId, update)
-    revalidatePath("/portal")
+    // No revalidatePath here — the component updates optimistically in place,
+    // so triggering a server re-render would cause the card to jump positions
+    // in the sorted list, making it appear as a new card.
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to adjust." }
