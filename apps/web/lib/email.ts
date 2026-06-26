@@ -3,16 +3,20 @@ import nodemailer from "nodemailer"
 const REPLY_TO = "collegedanceprep@gmail.com"
 const YEAR = new Date().getFullYear()
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    type: "OAuth2",
-    user: process.env.GMAIL_FROM,
-    clientId: process.env.GMAIL_CLIENT_ID,
-    clientSecret: process.env.GMAIL_CLIENT_SECRET,
-    refreshToken: process.env.GMAIL_REFRESH_TOKEN,
-  },
-})
+function getTransporter() {
+  return nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: {
+      type: "OAuth2",
+      user: process.env.GMAIL_FROM,
+      clientId: process.env.GMAIL_CLIENT_ID,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET,
+      refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+    },
+  })
+}
 
 export async function sendEmail({
   to,
@@ -24,6 +28,7 @@ export async function sendEmail({
   html: string
 }) {
   if (!process.env.GMAIL_REFRESH_TOKEN) return
+  const transporter = getTransporter()
   await transporter.sendMail({
     from: `"College Dance Prep" <${process.env.GMAIL_FROM}>`,
     replyTo: REPLY_TO,
