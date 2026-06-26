@@ -19,8 +19,8 @@ export function PackageCard({ pkg }: { pkg: DancePackage }) {
     <Card
       className={
         pkg.highlight
-          ? "relative flex flex-col border-primary p-6 shadow-lg ring-1 ring-primary"
-          : "relative flex flex-col p-6"
+          ? "relative flex flex-col overflow-visible border-primary p-6 shadow-lg ring-1 ring-primary"
+          : "relative flex flex-col overflow-visible p-6"
       }
     >
       {pkg.highlight ? (

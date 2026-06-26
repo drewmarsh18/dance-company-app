@@ -38,8 +38,8 @@ export const PACKAGES: DancePackage[] = [
     expiryDays: 180,
     features: [
       "5 hourly private sessions",
-      "Book with any prep master",
-      "Session notes & feedback",
+      "Book with any Prep Master",
+      "Save $100 vs. individual sessions",
     ],
   },
   {
@@ -53,8 +53,8 @@ export const PACKAGES: DancePackage[] = [
     highlight: true,
     features: [
       "10 hourly private sessions",
-      "Priority booking windows",
-      "Progress tracking",
+      "Book with any Prep Master",
+      "Save $200 vs. individual sessions",
     ],
   },
   {
@@ -67,8 +67,8 @@ export const PACKAGES: DancePackage[] = [
     expiryDays: 365,
     features: [
       "15 hourly private sessions",
-      "Priority booking windows",
-      "Personalized training plan",
+      "Book with any Prep Master",
+      "Save $300 vs. individual sessions",
     ],
   },
   {
@@ -81,8 +81,8 @@ export const PACKAGES: DancePackage[] = [
     expiryDays: 365,
     features: [
       "20 hourly private sessions",
-      "Priority booking windows",
-      "Personalized training plan",
+      "Book with any Prep Master",
+      "Save $400 vs. individual sessions",
     ],
   },
   {
@@ -95,8 +95,8 @@ export const PACKAGES: DancePackage[] = [
     expiryDays: 365,
     features: [
       "25 hourly private sessions",
-      "Best per-session value",
-      "Audition-ready training plan",
+      "Book with any Prep Master",
+      "Save $500 vs. individual sessions",
     ],
   },
 ]
