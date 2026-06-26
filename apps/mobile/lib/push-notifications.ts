@@ -1,17 +1,12 @@
 import Constants from "expo-constants"
-import { Platform } from "react-native"
+import { Platform, NativeModules } from "react-native"
 import { authClient } from "@/lib/auth-client"
 
 const API_BASE = "https://dance-company-app.vercel.app"
 
 /** Returns true only when running in a native build with expo-notifications compiled in. */
 function isAvailable(): boolean {
-  try {
-    require("expo-notifications")
-    return true
-  } catch {
-    return false
-  }
+  return !!NativeModules.ExpoPushTokenManager
 }
 
 /** Register notification categories with approve/deny actions for prep masters. */
