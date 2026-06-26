@@ -8,6 +8,7 @@ import {
   appBase,
   getPrepMaster,
   getPrepMasterPhone,
+  getPrepMasters,
   getBookedSlots,
   getActivePlanForUser,
   getMostRecentInactivePlanForUser,
@@ -24,7 +25,7 @@ import { eq } from "drizzle-orm"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { isWithin24Hours } from "@/lib/utils"
-import { sendEmail, bookingConfirmationEmail, bookingCancelledEmail, prepMasterBookingRequestEmail } from "@/lib/email"
+import { sendEmail, bookingConfirmationEmail, bookingCancelledEmail, prepMasterBookingRequestEmail, bookingUpdatedEmail } from "@/lib/email"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
 const CONFIRM_SECRET = process.env.BOOKING_CONFIRM_SECRET ?? "cdp-confirm-secret"
@@ -180,6 +181,32 @@ export async function rescheduleBooking(
       title: "Booking rescheduled",
       body: `Your session with ${prepMasterName} has been moved to ${newDate} at ${newTime}.`,
       bookingId,
+    }).catch(() => {})
+
+    // Email both parties about the reschedule — fire and forget
+    const memberName = user.name ?? user.email ?? "Your member"
+    if (user.email) {
+      const { subject, html } = bookingUpdatedEmail({
+        recipientName: memberName,
+        updatedByName: memberName,
+        updatedByRole: "member",
+        date: newDate,
+        time: newTime,
+      })
+      sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Reschedule email to member failed:", e))
+    }
+    // Find prep master's email to notify them
+    getPrepMasters().then((all) => {
+      const pm = all.find((p) => p.name === prepMasterName)
+      if (!pm?.email) return
+      const { subject, html } = bookingUpdatedEmail({
+        recipientName: pm.name,
+        updatedByName: memberName,
+        updatedByRole: "member",
+        date: newDate,
+        time: newTime,
+      })
+      sendEmail({ to: pm.email, subject, html }).catch((e) => console.error("Reschedule email to PM failed:", e))
     }).catch(() => {})
 
     revalidatePath("/dashboard")

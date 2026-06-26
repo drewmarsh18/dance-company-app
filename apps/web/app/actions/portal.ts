@@ -4,6 +4,7 @@ import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { getSessionUserWithRole } from "@/lib/roles"
 import { TABLES, appBase, getPrepMasterByEmail, type BookingFields } from "@/lib/airtable"
+import { sendEmail, bookingUpdatedEmail } from "@/lib/email"
 
 async function assertPrepMaster() {
   const user = await getSessionUserWithRole()
@@ -57,6 +58,30 @@ export async function adjustBooking(
     if (fields.notes !== undefined) update.Notes = fields.notes
 
     await appBase.update<BookingFields>(TABLES.bookings, bookingId, update)
+
+    // Notify both parties of the change — fire and forget
+    const newDate = fields.date ?? records[0].fields.Date ?? ""
+    const newTime = fields.time ?? records[0].fields.Time ?? ""
+    const dancerEmail = records[0].fields["Client Email"]
+    if (dancerEmail) {
+      const { subject, html } = bookingUpdatedEmail({
+        recipientName: dancerEmail,
+        updatedByName: pm.name,
+        updatedByRole: "prep master",
+        date: newDate,
+        time: newTime,
+      })
+      sendEmail({ to: dancerEmail, subject, html }).catch((e) => console.error("Update email to dancer failed:", e))
+    }
+    const { subject, html } = bookingUpdatedEmail({
+      recipientName: pm.name,
+      updatedByName: pm.name,
+      updatedByRole: "prep master",
+      date: newDate,
+      time: newTime,
+    })
+    sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Update email to PM failed:", e))
+
     // No revalidatePath here — the component updates optimistically in place,
     // so triggering a server re-render would cause the card to jump positions
     // in the sorted list, making it appear as a new card.

@@ -173,3 +173,29 @@ export function bookingCancelledEmail({
     html: emailBase("Session cancelled", body),
   }
 }
+
+export function bookingUpdatedEmail({
+  recipientName,
+  updatedByName,
+  updatedByRole,
+  date,
+  time,
+}: {
+  recipientName: string
+  updatedByName: string
+  updatedByRole: "member" | "prep master"
+  date: string
+  time: string
+}) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${recipientName},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">Your session has been rescheduled by <strong>${updatedByName}</strong>. Here are the updated details:</p>
+    ${sessionTable(updatedByRole === "member" ? updatedByName : recipientName, date, time, "#fdf2f8", "#f9a8d4", "#9d174d", "#f3e8f0")}
+    <div style="font-size:13px;color:#6b7280;background:#f9fafb;border-left:3px solid #e91e8c;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.5">
+      If you have any questions about this change, reply to this email.
+    </div>`
+  return {
+    subject: `Session rescheduled — ${date} at ${time}`,
+    html: emailBase("Session rescheduled", body),
+  }
+}
