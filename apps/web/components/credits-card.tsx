@@ -78,9 +78,11 @@ export function CreditsCard({
                 <span className="flex items-center gap-2 font-medium">
                   <Package className="size-3.5 shrink-0 text-primary" />
                   {plan.planName}
-                  <span className="font-normal text-muted-foreground">
-                    {displayCount} {displayCount === 1 ? "credit" : "credits"} remaining
-                  </span>
+                  {isActive && (
+                    <span className="font-normal text-muted-foreground">
+                      {displayCount} {displayCount === 1 ? "credit" : "credits"} remaining
+                    </span>
+                  )}
                 </span>
                 <Badge
                   variant="outline"
