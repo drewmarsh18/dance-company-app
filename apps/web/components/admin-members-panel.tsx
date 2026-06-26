@@ -222,12 +222,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                   >
                     {status === "active" ? "Active" : status === "lead" ? "Lead" : "Inactive"}
                   </Badge>
-                  {activePlan && (
-                    <Badge variant="default" className="gap-1 hidden sm:flex">
-                      <Package className="size-3" />
-                      {activePlan.planName}
-                    </Badge>
-                  )}
+
                   <Badge variant="secondary" className="gap-1">
                     <Ticket className="size-3" />
                     {credits}
