@@ -11,14 +11,20 @@ import {
 import { useState } from "react"
 import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { signIn } from "@/lib/auth-client"
+import * as WebBrowser from "expo-web-browser"
+import { signIn, authClient } from "@/lib/auth-client"
 import { COLORS, SPACING, RADIUS } from "@/constants/theme"
+
+WebBrowser.maybeCompleteAuthSession()
+
+const APP_URL = "https://dance-company-app.vercel.app"
 
 export default function SignInScreen() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSignIn() {
@@ -33,13 +39,38 @@ export default function SignInScreen() {
       if (result.error) {
         setError(result.error.message ?? "Invalid email or password.")
       } else {
-        // Root index will pick up the session and redirect to the right tab
         router.replace("/")
       }
     } catch {
       setError("Something went wrong. Please try again.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setError(null)
+    setGoogleLoading(true)
+    try {
+      const result = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: `${APP_URL}/api/auth/callback/google`,
+      })
+      if (result?.error) {
+        setError(result.error.message ?? "Google sign-in failed.")
+      } else if (result?.data?.url) {
+        const browserResult = await WebBrowser.openAuthSessionAsync(
+          result.data.url,
+          "cdp://",
+        )
+        if (browserResult.type === "success") {
+          router.replace("/")
+        }
+      }
+    } catch {
+      setError("Google sign-in failed. Please try again.")
+    } finally {
+      setGoogleLoading(false)
     }
   }
 
@@ -50,7 +81,6 @@ export default function SignInScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.container}>
-          {/* Logo */}
           <View style={styles.logoWrap}>
             <Text style={styles.logo}>CDP</Text>
             <Text style={styles.logoSub}>College Dance Prep</Text>
@@ -64,6 +94,29 @@ export default function SignInScreen() {
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
+
+          {/* Google Sign-In */}
+          <TouchableOpacity
+            style={[styles.googleBtn, googleLoading && styles.btnDisabled]}
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading || loading}
+            activeOpacity={0.8}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color={COLORS.text} size="small" />
+            ) : (
+              <>
+                <Text style={styles.googleIcon}>G</Text>
+                <Text style={styles.googleBtnText}>Continue with Google</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
           <View style={styles.field}>
             <Text style={styles.label}>Email</Text>
@@ -137,6 +190,23 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   errorText: { fontSize: 13, color: COLORS.red, fontWeight: "500" },
+  googleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.sm,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  googleIcon: { fontSize: 16, fontWeight: "800", color: "#4285F4" },
+  googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, marginBottom: SPACING.md },
+  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
+  dividerText: { fontSize: 13, color: COLORS.textMuted },
   field: { marginBottom: SPACING.md },
   label: { fontSize: 13, fontWeight: "600", color: COLORS.textSecondary, marginBottom: 6 },
   input: {
