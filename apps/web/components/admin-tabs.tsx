@@ -56,7 +56,7 @@ export function AdminTabs({ members, bookings, workers, plans, packages }: Props
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <div className="flex gap-1 rounded-lg border bg-muted p-1 w-fit">
           {TABS.map((tab) => (
             <button
@@ -81,7 +81,7 @@ export function AdminTabs({ members, bookings, workers, plans, packages }: Props
               placeholder={SEARCH_PLACEHOLDERS[active]}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="flex h-9 w-64 rounded-md border border-input bg-background pl-9 pr-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex h-9 w-full sm:w-64 rounded-md border border-input bg-background pl-9 pr-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
         )}

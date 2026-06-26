@@ -178,7 +178,7 @@ function Greeting({ name }: { name: string }) {
   return (
     <div>
       <h1 className="font-heading text-3xl font-bold tracking-tight">
-        Welcome back, {name}.
+        Welcome, {name}.
       </h1>
       <p className="mt-1 text-muted-foreground">
         Here&apos;s what&apos;s happening with your training.

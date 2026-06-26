@@ -182,8 +182,12 @@ async function get<T>(table: string, id: string): Promise<AirtableRecord<T>> {
   })
 }
 
+async function destroy(table: string, id: string): Promise<void> {
+  await airtableFetch(`${encodeURIComponent(table)}/${id}`, { method: "DELETE" })
+}
+
 // Exposed so server actions can read/write the app tables directly.
-export const appBase = { list, create, update, get }
+export const appBase = { list, create, update, get, destroy }
 
 // --- Prep Masters (from the Workers table) -----------------------------------
 

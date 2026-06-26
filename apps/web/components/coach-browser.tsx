@@ -4,13 +4,14 @@ import { useMemo, useState } from "react"
 import type { PrepMaster } from "@/lib/airtable"
 import { CoachCard } from "@/components/coach-card"
 import { getUniversityColor } from "@/lib/university-colors"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Search } from "lucide-react"
 
 const ALL = "All universities"
 
 export function CoachBrowser({ coaches }: { coaches: PrepMaster[] }) {
   const [selected, setSelected] = useState(ALL)
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
 
   const universities = useMemo(() => {
     const set = new Set<string>()
@@ -20,18 +21,32 @@ export function CoachBrowser({ coaches }: { coaches: PrepMaster[] }) {
     return Array.from(set).sort((a, b) => a.localeCompare(b))
   }, [coaches])
 
-  const filtered = useMemo(
-    () =>
-      selected === ALL
-        ? coaches
-        : coaches.filter((c) => c.university === selected),
-    [coaches, selected],
-  )
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return coaches.filter((c) => {
+      if (selected !== ALL && c.university !== selected) return false
+      if (!q) return true
+      return c.name.toLowerCase().includes(q) || (c.university ?? "").toLowerCase().includes(q)
+    })
+  }, [coaches, selected, query])
 
   const activeColor = selected !== ALL ? getUniversityColor(selected) : null
 
   return (
     <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Search by name or university */}
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search by name or university…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex h-9 w-full rounded-full border border-input bg-background pl-9 pr-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
+
       {universities.length > 0 && (
         <div className="relative w-fit">
           <button
@@ -83,6 +98,7 @@ export function CoachBrowser({ coaches }: { coaches: PrepMaster[] }) {
           )}
         </div>
       )}
+      </div>
 
       {filtered.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">

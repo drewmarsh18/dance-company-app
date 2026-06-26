@@ -218,8 +218,8 @@ export async function adminRemovePlan(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     await assertAdmin()
-    // Mark plan inactive
-    await setPlanStatus(planId, "Inactive")
+    // Delete the plan record entirely so it stays gone after refresh
+    await appBase.destroy(TABLES.plans, planId)
     // Deduct the plan's sessions from the member's credits (floor at 0)
     const newCredits = Math.max(0, currentCredits - planSessions)
     await appBase.update<ClientFields>(TABLES.clients, memberId, {
