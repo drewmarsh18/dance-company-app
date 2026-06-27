@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { getPrepMasterByEmail, TABLES, appBase, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingUpdatedEmail } from "@/lib/email"
+import { isWithin24Hours } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -49,21 +50,42 @@ export async function PATCH(
   }
 
   if (body.action === "decline") {
+    const within24 = isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "")
     await appBase.update<BookingFields>(TABLES.bookings, id, {
       Status: "Declined",
       ...(body.declineReason ? { "Decline Reason": body.declineReason } : {}),
     })
+
     const dancerUserId = booking.fields["User ID"]
+
+    // Refund credit if outside 24-hour window
+    if (!within24 && dancerUserId) {
+      const safeId = dancerUserId.replace(/'/g, "\\'")
+      const clientRecords = await appBase.list<ClientFields>(TABLES.clients, {
+        filterByFormula: `{User ID} = '${safeId}'`,
+        maxRecords: 1,
+      })
+      const client = clientRecords[0]
+      if (client) {
+        const current = client.fields["Credits Remaining"] ?? 0
+        await appBase.update<ClientFields>(TABLES.clients, client.id, {
+          "Credits Remaining": current + 1,
+        })
+      }
+    }
+
     if (dancerUserId) {
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
         title: "Booking declined",
-        body: `${pm.name} has declined your session request on ${booking.fields.Date ?? ""} at ${booking.fields.Time ?? ""}. Your credit has been refunded.`,
+        body: within24
+          ? `${pm.name} has declined your session on ${booking.fields.Date ?? ""} at ${booking.fields.Time ?? ""}. No credit was refunded (within 24 hours).`
+          : `${pm.name} has declined your session on ${booking.fields.Date ?? ""} at ${booking.fields.Time ?? ""}. Your credit has been refunded.`,
         bookingId: id,
       }).catch(() => {})
     }
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, creditRefunded: !within24 })
   }
 
   // Edit date/time/prep master notes
