@@ -28,13 +28,15 @@ async function findClientRecord(userId: string) {
 
 // DELETE — cancel booking
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await getSessionUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
+  const body = await req.json().catch(() => ({})) as { reason?: string }
+
   const safeUserId = user.id.replace(/'/g, "\\'")
   const records = await appBase.list<BookingFields>(TABLES.bookings, {
     filterByFormula: `AND({User ID} = '${safeUserId}', RECORD_ID() = '${id}')`,
@@ -44,8 +46,11 @@ export async function DELETE(
   if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." })
 
   const within24 = isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "")
+  const existingNotes = booking.fields.Notes ? `${booking.fields.Notes}\n\n` : ""
+  const cancelNote = body.reason ? `Cancellation reason: ${body.reason}` : ""
   await appBase.update<BookingFields>(TABLES.bookings, id, {
     Status: within24 ? "Cancelled (Late)" : "Cancelled",
+    ...(cancelNote ? { Notes: `${existingNotes}${cancelNote}` } : {}),
   })
 
   if (!within24) {
