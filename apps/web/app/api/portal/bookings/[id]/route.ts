@@ -49,7 +49,7 @@ export async function PATCH(
   }
 
   if (body.action === "decline") {
-    await appBase.update<BookingFields>(TABLES.bookings, id, { Status: "Cancelled" })
+    await appBase.update<BookingFields>(TABLES.bookings, id, { Status: "Declined" })
     const dancerUserId = booking.fields["User ID"]
     if (dancerUserId) {
       createNotification({

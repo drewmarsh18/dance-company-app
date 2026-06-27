@@ -64,9 +64,11 @@ export function BookingDetailModal({
 
   if (!booking) return null
 
-  const isCancelled = booking.status.toLowerCase().startsWith("cancelled")
+  const isCancelled = booking.status.toLowerCase().startsWith("cancelled") || booking.status.toLowerCase() === "declined"
   const sc = booking.status.toLowerCase() === "confirmed"
     ? { bg: COLORS.primaryLight, text: COLORS.primary }
+    : booking.status.toLowerCase() === "declined"
+    ? { bg: COLORS.amberLight, text: COLORS.amber }
     : isCancelled
     ? { bg: COLORS.redLight, text: COLORS.red }
     : { bg: COLORS.grayLight, text: COLORS.textMuted }

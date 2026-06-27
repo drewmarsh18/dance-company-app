@@ -12,7 +12,7 @@ export async function GET() {
 
   const bookings = await getBookingsForPrepMaster(prepMaster.name)
   const today = new Date(); today.setHours(0, 0, 0, 0)
-  const isCancelled = (b: { status: string }) => b.status.toLowerCase().startsWith("cancelled")
+  const isCancelled = (b: { status: string }) => b.status.toLowerCase().startsWith("cancelled") || b.status.toLowerCase() === "declined"
 
   const upcoming = bookings
     .filter((b) => !isCancelled(b) && (!b.date || new Date(`${b.date}T00:00:00`) >= today))

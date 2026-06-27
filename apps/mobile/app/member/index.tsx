@@ -97,6 +97,7 @@ function BookingCard({ booking, dimmed, onPress }: { booking: Booking; dimmed?: 
   const styles = makeStyles(COLORS)
   const s = booking.status.toLowerCase()
   const sc = s === "confirmed" ? { bg: COLORS.primaryLight, text: COLORS.primary }
+    : s === "declined" ? { bg: COLORS.amberLight, text: COLORS.amber }
     : s.startsWith("cancelled") ? { bg: COLORS.redLight, text: COLORS.red }
     : { bg: COLORS.grayLight, text: COLORS.textMuted }
   const content = (

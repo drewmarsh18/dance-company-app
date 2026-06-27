@@ -27,7 +27,7 @@ export async function GET() {
 
     const upcoming = bookings
       .filter((b) => {
-        if (b.status.toLowerCase().startsWith("cancelled")) return false
+        if (b.status.toLowerCase().startsWith("cancelled") || b.status.toLowerCase() === "declined") return false
         const ms = bookingMs(b.date)
         return !Number.isNaN(ms) && ms >= todayMs
       })
@@ -35,14 +35,14 @@ export async function GET() {
 
     const past = bookings
       .filter((b) => {
-        if (b.status.toLowerCase().startsWith("cancelled")) return false
+        if (b.status.toLowerCase().startsWith("cancelled") || b.status.toLowerCase() === "declined") return false
         const ms = bookingMs(b.date)
         return !Number.isNaN(ms) && ms < todayMs
       })
       .sort((a, b) => bookingMs(b.date) - bookingMs(a.date))
 
     const cancelled = bookings
-      .filter((b) => b.status.toLowerCase().startsWith("cancelled"))
+      .filter((b) => b.status.toLowerCase().startsWith("cancelled") || b.status.toLowerCase() === "declined")
       .sort((a, b) => bookingMs(b.date) - bookingMs(a.date))
 
     return NextResponse.json({
