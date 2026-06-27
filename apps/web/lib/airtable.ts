@@ -67,6 +67,7 @@ export type BookingFields = {
   Time?: string
   Status?: string
   Notes?: string
+  "Prep Master Notes"?: string
   "Cancellation Reason"?: string
   "Decline Reason"?: string
   "Session Type"?: string
@@ -255,6 +256,7 @@ export type PrepMasterBooking = {
   time: string
   status: string
   notes: string
+  prepMasterNotes: string
   dancerName: string
   dancerEmail: string
   dancerPhone: string
@@ -284,6 +286,7 @@ export async function getBookingsForPrepMaster(
       time: r.fields.Time ?? "",
       status: r.fields.Status ?? "Pending",
       notes: r.fields.Notes ?? "",
+      prepMasterNotes: r.fields["Prep Master Notes"] ?? "",
       dancerName: client?.name ?? "",
       dancerEmail: client?.email ?? r.fields["Client Email"] ?? "",
       dancerPhone: client?.phone ?? "",

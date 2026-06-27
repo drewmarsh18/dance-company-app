@@ -31,7 +31,7 @@ export async function PATCH(
   const { pm, booking } = await getPmAndBooking(session.user.email, id)
   if (!pm || !booking) return NextResponse.json({ ok: false, error: "Booking not found." })
 
-  const body = await req.json() as { date?: string; time?: string; notes?: string; action?: "confirm" | "decline"; declineReason?: string }
+  const body = await req.json() as { date?: string; time?: string; prepMasterNotes?: string; action?: "confirm" | "decline"; declineReason?: string }
 
   if (body.action === "confirm") {
     await appBase.update<BookingFields>(TABLES.bookings, id, { Status: "Confirmed" })
@@ -66,16 +66,16 @@ export async function PATCH(
     return NextResponse.json({ ok: true })
   }
 
-  // Edit date/time/notes
+  // Edit date/time/prep master notes
   const update: Partial<BookingFields> = {}
   if (body.date) update.Date = body.date
   if (body.time) update.Time = body.time
-  if (body.notes !== undefined) update.Notes = body.notes
+  if (body.prepMasterNotes !== undefined) update["Prep Master Notes"] = body.prepMasterNotes
   await appBase.update<BookingFields>(TABLES.bookings, id, update)
 
   const newDate = body.date ?? booking.fields.Date ?? ""
   const newTime = body.time ?? booking.fields.Time ?? ""
-  const newNotes = body.notes !== undefined ? body.notes : (booking.fields.Notes || undefined)
+  const newNotes = body.prepMasterNotes !== undefined ? body.prepMasterNotes : (booking.fields["Prep Master Notes"] || undefined)
   const dancerEmail = booking.fields["Client Email"]
   const dancerUserId = booking.fields["User ID"]
 

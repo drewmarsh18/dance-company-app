@@ -15,7 +15,7 @@ import { useColors } from "@/lib/theme-context"
 const API_BASE = "https://dance-company-app.vercel.app"
 
 type PrepMasterBooking = {
-  id: string; date: string; time: string; status: string; notes: string
+  id: string; date: string; time: string; status: string; notes: string; prepMasterNotes: string
   dancerName: string; dancerEmail: string; dancerPhone: string; userId: string
 }
 
@@ -39,10 +39,10 @@ function BookingCard({ booking, dimmed, onUpdate }: {
   const [status, setStatus] = useState(booking.status)
   const [localDate, setLocalDate] = useState(booking.date)
   const [localTime, setLocalTime] = useState(booking.time)
-  const [localNotes, setLocalNotes] = useState(booking.notes)
+  const [localPrepMasterNotes, setLocalPrepMasterNotes] = useState(booking.prepMasterNotes)
   const [editDate, setEditDate] = useState(booking.date)
   const [editTime, setEditTime] = useState(booking.time)
-  const [editNotes, setEditNotes] = useState(booking.notes)
+  const [editPrepMasterNotes, setEditPrepMasterNotes] = useState(booking.prepMasterNotes)
   const [mode, setMode] = useState<"idle" | "edit" | "decline-reason">("idle")
   const [declineReason, setDeclineReason] = useState("")
   const [saving, setSaving] = useState(false)
@@ -61,7 +61,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
     setSaving(true)
     try {
       const body: Record<string, unknown> = action === "edit"
-        ? { date: editDate, time: editTime, notes: editNotes }
+        ? { date: editDate, time: editTime, prepMasterNotes: editPrepMasterNotes }
         : action === "decline"
         ? { action, declineReason: reason }
         : { action }
@@ -73,8 +73,8 @@ function BookingCard({ booking, dimmed, onUpdate }: {
       if (action === "confirm") { setStatus("Confirmed"); onUpdate(booking.id, { status: "Confirmed" }) }
       if (action === "decline") { setStatus("Declined"); onUpdate(booking.id, { status: "Declined" }); setMode("idle") }
       if (action === "edit") {
-        setLocalDate(editDate); setLocalTime(editTime); setLocalNotes(editNotes)
-        onUpdate(booking.id, { date: editDate, time: editTime, notes: editNotes })
+        setLocalDate(editDate); setLocalTime(editTime); setLocalPrepMasterNotes(editPrepMasterNotes)
+        onUpdate(booking.id, { date: editDate, time: editTime, prepMasterNotes: editPrepMasterNotes })
         setMode("idle")
       }
     } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Something went wrong.") }
@@ -106,7 +106,8 @@ function BookingCard({ booking, dimmed, onUpdate }: {
               {booking.dancerPhone && <View style={styles.infoRow}><Phone size={13} color={COLORS.textMuted} /><Text style={styles.infoText}>{booking.dancerPhone}</Text></View>}
             </View>
           )}
-          {localNotes && mode === "idle" && <View style={styles.infoRow}><StickyNote size={13} color={COLORS.textMuted} /><Text style={styles.infoText}>{localNotes}</Text></View>}
+          {booking.notes ? <View style={styles.infoRow}><StickyNote size={13} color={COLORS.textMuted} /><Text style={[styles.infoText, { fontStyle: "italic" }]}><Text style={{ fontWeight: "600" }}>Member: </Text>{booking.notes}</Text></View> : null}
+          {localPrepMasterNotes && mode === "idle" ? <View style={styles.infoRow}><StickyNote size={13} color={COLORS.primary} /><Text style={styles.infoText}><Text style={{ fontWeight: "600", color: COLORS.primary }}>You: </Text>{localPrepMasterNotes}</Text></View> : null}
 
           {mode === "idle" && !isCancelled && (
             <View style={styles.actionRow}>
@@ -173,13 +174,13 @@ function BookingCard({ booking, dimmed, onUpdate }: {
                     <TextInput style={styles.editInput} value={editTime} onChangeText={setEditTime} placeholder="e.g. 3:00 PM" placeholderTextColor={COLORS.textMuted} />
                   </View>
                 </View>
-                <Text style={styles.editLabel}>Notes</Text>
-                <TextInput style={[styles.editInput, { minHeight: 64, textAlignVertical: "top" }]} value={editNotes} onChangeText={setEditNotes} placeholder="Session notes…" placeholderTextColor={COLORS.textMuted} multiline />
+                <Text style={styles.editLabel}>Your notes</Text>
+                <TextInput style={[styles.editInput, { minHeight: 64, textAlignVertical: "top" }]} value={editPrepMasterNotes} onChangeText={setEditPrepMasterNotes} placeholder="Notes visible to the member…" placeholderTextColor={COLORS.textMuted} multiline />
                 <View style={styles.actionRow}>
                   <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary, saving && { opacity: 0.5 }]} onPress={() => callAction("edit")} disabled={saving} activeOpacity={0.8}>
                     {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnPrimaryText}>Save changes</Text>}
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionBtn, styles.actionBtnGhost]} onPress={() => { setEditDate(localDate); setEditTime(localTime); setEditNotes(localNotes); setMode("idle") }} activeOpacity={0.8}>
+                  <TouchableOpacity style={[styles.actionBtn, styles.actionBtnGhost]} onPress={() => { setEditDate(localDate); setEditTime(localTime); setEditPrepMasterNotes(localPrepMasterNotes); setMode("idle") }} activeOpacity={0.8}>
                     <Text style={styles.actionBtnGhostText}>Cancel</Text>
                   </TouchableOpacity>
                 </View>

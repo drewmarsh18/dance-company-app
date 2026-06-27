@@ -16,6 +16,7 @@ export type Booking = {
   status: string
   sessionType: string | null
   notes?: string
+  prepMasterNotes?: string
 }
 
 export function formatDate(dateStr: string) {
@@ -198,8 +199,15 @@ export function BookingDetailModal({
                 {booking.notes ? (
                   <View style={[styles.detailRow, { alignItems: "flex-start" }]}>
                     <StickyNote size={15} color={COLORS.textMuted} style={{ marginTop: 2 }} />
-                    <Text style={styles.detailLabel}>Notes</Text>
+                    <Text style={styles.detailLabel}>My notes</Text>
                     <Text style={[styles.detailValue, { flex: 1 }]}>{booking.notes}</Text>
+                  </View>
+                ) : null}
+                {booking.prepMasterNotes ? (
+                  <View style={[styles.detailRow, { alignItems: "flex-start" }]}>
+                    <StickyNote size={15} color={COLORS.primary} style={{ marginTop: 2 }} />
+                    <Text style={styles.detailLabel}>PM notes</Text>
+                    <Text style={[styles.detailValue, { flex: 1 }]}>{booking.prepMasterNotes}</Text>
                   </View>
                 ) : null}
               </View>
