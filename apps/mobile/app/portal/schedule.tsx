@@ -124,7 +124,7 @@ export default function PortalScheduleScreen() {
     finally { setClientsLoading(false) }
   }, [])
 
-  function openBooking() { setShowBook(true); loadClients() }
+  function openBooking() { if (!showBook) { setShowBook(true); loadClients() } else { setShowBook(false) } }
 
   async function handleBook() {
     if (!selectedClient || !selectedDate || !selectedTime) { Alert.alert("Missing fields", "Please select a client, date, and time."); return }
