@@ -221,7 +221,9 @@ export default function PortalScheduleScreen() {
             <Text style={styles.bookCardTitle}>Schedule for a past client</Text>
             <Text style={styles.bookCardSub}>Create a confirmed session with a member you've previously worked with.</Text>
           </View>
-          <ChevronDown size={18} color={COLORS.textMuted} style={{ transform: [{ rotate: showBook ? "180deg" : "0deg" }] }} />
+          <View style={{ transform: [{ rotate: showBook ? "180deg" : "0deg" }] }}>
+            <ChevronDown size={18} color={COLORS.textMuted} />
+          </View>
         </TouchableOpacity>
         {showBook && (
           <View style={styles.bookForm}>
@@ -254,7 +256,15 @@ export default function PortalScheduleScreen() {
             </View>
             <Text style={styles.fieldLabel}>Time</Text>
             <View style={styles.chipWrap}>
-              {BOOK_TIMES.map((t) => (
+              {BOOK_TIMES.filter((t) => {
+                const isToday = selectedDate === toIso(new Date())
+                if (!isToday) return true
+                const [timePart, period] = t.split(" ")
+                let h = Number(timePart.split(":")[0])
+                if (period === "PM" && h !== 12) h += 12
+                else if (period === "AM" && h === 12) h = 0
+                return h > new Date().getHours()
+              }).map((t) => (
                 <TouchableOpacity key={t} style={[styles.chip, selectedTime === t && styles.chipSelected]} onPress={() => setSelectedTime(t)} activeOpacity={0.7}>
                   <Text style={[styles.chipText, selectedTime === t && { color: COLORS.primary }]}>{t}</Text>
                 </TouchableOpacity>
@@ -275,7 +285,9 @@ export default function PortalScheduleScreen() {
         <View style={styles.card}>
           <TouchableOpacity style={styles.collapseHeader} onPress={() => setAvailExpanded((v) => !v)} activeOpacity={0.7}>
             <Text style={styles.collapseTitle}>Booking availability</Text>
-            <ChevronDown size={18} color={COLORS.textMuted} style={{ transform: [{ rotate: availExpanded ? "180deg" : "0deg" }] }} />
+            <View style={{ transform: [{ rotate: availExpanded ? "180deg" : "0deg" }] }}>
+              <ChevronDown size={18} color={COLORS.textMuted} />
+            </View>
           </TouchableOpacity>
           {availExpanded && (
             <>
