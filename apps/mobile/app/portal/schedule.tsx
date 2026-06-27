@@ -4,10 +4,22 @@ import {
   ActivityIndicator, Alert, RefreshControl,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { Check, ChevronRight, ChevronDown, Calendar, Clock } from "lucide-react-native"
+import { Check, ChevronDown, Calendar, Clock, CalendarPlus } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
+
+type Client = { userId: string; name: string; email: string }
+
+const BOOK_TIMES = [
+  "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
+  "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM",
+  "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM",
+]
+
+function toIso(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
 
 const API_BASE = "https://dance-company-app.vercel.app"
 
@@ -82,6 +94,14 @@ export default function PortalScheduleScreen() {
   const [saving, setSaving] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [availExpanded, setAvailExpanded] = useState(false)
+  const [showBook, setShowBook] = useState(false)
+  const [clients, setClients] = useState<Client[]>([])
+  const [clientsLoading, setClientsLoading] = useState(false)
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [selectedDate, setSelectedDate] = useState(toIso(new Date()))
+  const [selectedTime, setSelectedTime] = useState("")
+  const [bookNotes, setBookNotes] = useState("")
+  const [booking, setBooking] = useState(false)
   const [events, setEvents] = useState<CalEvent[]>([])
   const [calConnected, setCalConnected] = useState<boolean | null>(null)
   const [calLoading, setCalLoading] = useState(true)
@@ -93,6 +113,36 @@ export default function PortalScheduleScreen() {
       setWeek((data as { week: DayAvailability[] }).week)
     } catch { Alert.alert("Error", "Could not load availability.") }
   }, [])
+
+  const loadClients = useCallback(async () => {
+    setClientsLoading(true)
+    try {
+      const { data, error } = await authClient.$fetch(`${API_BASE}/api/portal/book`)
+      if (error || !data) throw new Error("Failed")
+      setClients((data as { clients: Client[] }).clients)
+    } catch { Alert.alert("Error", "Could not load past clients.") }
+    finally { setClientsLoading(false) }
+  }, [])
+
+  function openBooking() { setShowBook(true); loadClients() }
+
+  async function handleBook() {
+    if (!selectedClient || !selectedDate || !selectedTime) { Alert.alert("Missing fields", "Please select a client, date, and time."); return }
+    setBooking(true)
+    try {
+      const { data, error } = await authClient.$fetch(`${API_BASE}/api/portal/book`, {
+        method: "POST",
+        body: JSON.stringify({ dancerEmail: selectedClient.email, date: selectedDate, time: selectedTime, notes: bookNotes }),
+        headers: { "Content-Type": "application/json" },
+      })
+      if (error) throw new Error((error as any)?.message ?? "Failed")
+      const res = data as { ok: boolean; error?: string }
+      if (!res.ok) throw new Error(res.error ?? "Failed")
+      Alert.alert("Booked!", `Session with ${selectedClient.name} on ${selectedDate} at ${selectedTime} has been created.`)
+      setShowBook(false); setSelectedClient(null); setSelectedTime(""); setBookNotes("")
+    } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not create booking.") }
+    finally { setBooking(false) }
+  }
 
   const loadCalendar = useCallback(async () => {
     try {
@@ -163,6 +213,62 @@ export default function PortalScheduleScreen() {
           <Text style={styles.pageTitle}>Schedule</Text>
           <Text style={styles.pageSub}>Your calendar and booking availability.</Text>
         </View>
+
+        {/* Book a session */}
+        <TouchableOpacity style={styles.bookCard} onPress={openBooking} activeOpacity={0.7}>
+          <CalendarPlus size={18} color={COLORS.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bookCardTitle}>Schedule for a past client</Text>
+            <Text style={styles.bookCardSub}>Create a confirmed session with a member you've previously worked with.</Text>
+          </View>
+        </TouchableOpacity>
+        {showBook && (
+          <View style={styles.bookForm}>
+            <Text style={styles.bookFormTitle}>New session</Text>
+            <Text style={styles.fieldLabel}>Client</Text>
+            {clientsLoading ? <ActivityIndicator size="small" color={COLORS.primary} /> : clients.length === 0 ? (
+              <Text style={styles.emptyText}>No past clients found.</Text>
+            ) : (
+              <View style={styles.chipWrap}>
+                {clients.map((c) => (
+                  <TouchableOpacity key={c.userId} style={[styles.chip, selectedClient?.userId === c.userId && styles.chipSelected]} onPress={() => setSelectedClient(c)} activeOpacity={0.7}>
+                    <Text style={[styles.chipText, selectedClient?.userId === c.userId && { color: COLORS.primary }]}>{c.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <Text style={styles.fieldLabel}>Date</Text>
+            <View style={styles.dateRow}>
+              {Array.from({ length: 7 }, (_, i) => {
+                const d = new Date(); d.setDate(d.getDate() + i)
+                const iso = toIso(d)
+                const isSelected = selectedDate === iso
+                return (
+                  <TouchableOpacity key={iso} style={[styles.dateChip, isSelected && styles.dateChipSelected]} onPress={() => setSelectedDate(iso)} activeOpacity={0.7}>
+                    <Text style={[styles.dateChipDay, isSelected && { color: COLORS.primary }]}>{d.toLocaleDateString("en-US", { weekday: "short" })}</Text>
+                    <Text style={[styles.dateChipNum, isSelected && { color: COLORS.primary }]}>{d.getDate()}</Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+            <Text style={styles.fieldLabel}>Time</Text>
+            <View style={styles.chipWrap}>
+              {BOOK_TIMES.map((t) => (
+                <TouchableOpacity key={t} style={[styles.chip, selectedTime === t && styles.chipSelected]} onPress={() => setSelectedTime(t)} activeOpacity={0.7}>
+                  <Text style={[styles.chipText, selectedTime === t && { color: COLORS.primary }]}>{t}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.bookActions}>
+              <TouchableOpacity style={[styles.bookBtn, booking && { opacity: 0.6 }]} onPress={handleBook} disabled={booking} activeOpacity={0.8}>
+                {booking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.bookBtnText}>Confirm booking</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelBookBtn} onPress={() => setShowBook(false)} activeOpacity={0.8}>
+                <Text style={styles.cancelBookBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Collapsible availability */}
         <View style={styles.card}>
@@ -281,5 +387,26 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     eventTitle: { fontSize: 14, fontWeight: "600", color: COLORS.text },
     eventTimeRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
     eventTime: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+    bookCard: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md },
+    bookCardTitle: { fontSize: 15, fontWeight: "600", color: COLORS.text },
+    bookCardSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
+    bookForm: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: SPACING.sm },
+    bookFormTitle: { fontSize: 16, fontWeight: "700", color: COLORS.text },
+    fieldLabel: { fontSize: 11, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.5 },
+    emptyText: { fontSize: 13, color: COLORS.textMuted },
+    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
+    chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.background },
+    chipSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
+    chipText: { fontSize: 13, fontWeight: "600", color: COLORS.text },
+    dateRow: { flexDirection: "row", gap: 6 },
+    dateChip: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.background },
+    dateChipSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
+    dateChipDay: { fontSize: 9, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase" },
+    dateChipNum: { fontSize: 16, fontWeight: "700", color: COLORS.text },
+    bookActions: { flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm },
+    bookBtn: { flex: 1, backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, paddingVertical: 12, alignItems: "center" },
+    bookBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
+    cancelBookBtn: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, paddingVertical: 12, paddingHorizontal: SPACING.md, alignItems: "center" },
+    cancelBookBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.textMuted },
   })
 }
