@@ -221,6 +221,7 @@ export default function PortalScheduleScreen() {
             <Text style={styles.bookCardTitle}>Schedule for a past client</Text>
             <Text style={styles.bookCardSub}>Create a confirmed session with a member you've previously worked with.</Text>
           </View>
+          <ChevronDown size={18} color={COLORS.textMuted} style={{ transform: [{ rotate: showBook ? "180deg" : "0deg" }] }} />
         </TouchableOpacity>
         {showBook && (
           <View style={styles.bookForm}>
