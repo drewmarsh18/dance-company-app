@@ -5,7 +5,7 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import {
-  CalendarDays, Clock, Mail, Phone, StickyNote,
+  CalendarDays, Clock, Phone, StickyNote,
   Check, X, Pencil, ChevronDown, ChevronUp,
 } from "lucide-react-native"
 import { authClient, useSession } from "@/lib/auth-client"
@@ -100,12 +100,9 @@ function BookingCard({ booking, dimmed, onUpdate }: {
 
       {expanded && (
         <View style={styles.cardBody}>
-          {(booking.dancerEmail || booking.dancerPhone) && (
-            <View style={{ gap: 4 }}>
-              {booking.dancerEmail && <View style={styles.infoRow}><Mail size={13} color={COLORS.textMuted} /><Text style={styles.infoText}>{booking.dancerEmail}</Text></View>}
-              {booking.dancerPhone && <View style={styles.infoRow}><Phone size={13} color={COLORS.textMuted} /><Text style={styles.infoText}>{booking.dancerPhone}</Text></View>}
-            </View>
-          )}
+          {booking.dancerPhone ? (
+            <View style={styles.infoRow}><Phone size={13} color={COLORS.textMuted} /><Text style={styles.infoText}>{booking.dancerPhone}</Text></View>
+          ) : null}
           {booking.notes ? <View style={styles.infoRow}><StickyNote size={13} color={COLORS.textMuted} /><Text style={[styles.infoText, { fontStyle: "italic" }]}><Text style={{ fontWeight: "600" }}>Member: </Text>{booking.notes}</Text></View> : null}
           {localPrepMasterNotes && mode === "idle" ? <View style={styles.infoRow}><StickyNote size={13} color={COLORS.primary} /><Text style={styles.infoText}><Text style={{ fontWeight: "600", color: COLORS.primary }}>You: </Text>{localPrepMasterNotes}</Text></View> : null}
 
