@@ -1,41 +1,28 @@
 import { useEffect, useState, useCallback } from "react"
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
-import { Link } from "lucide-react-native"
+import { Link, Sun, Moon, Smartphone } from "lucide-react-native"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
-import { COLORS, SPACING, RADIUS, initials } from "@/constants/theme"
+import { SPACING, RADIUS, initials } from "@/constants/theme"
+import { useTheme } from "@/lib/theme-context"
+import type { ThemePreference } from "@/lib/theme-context"
 
 const API_BASE = "https://dance-company-app.vercel.app"
 
-type Profile = {
-  recordId: string
-  name: string
-  email: string
-  phone: string
-  goals: string
-  creditsRemaining: number
-}
+type Profile = { recordId: string; name: string; email: string; phone: string; goals: string; creditsRemaining: number }
 
 export default function MemberProfileScreen() {
   const { data: session } = useSession()
   const router = useRouter()
+  const { colors: COLORS, theme, setTheme } = useTheme()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [goals, setGoals] = useState("")
@@ -51,24 +38,13 @@ export default function MemberProfileScreen() {
       ])
       if (dashResult.error || !dashResult.data) throw new Error((dashResult.error as any)?.statusText ?? "Failed to load")
       const p = (dashResult.data as any).profile as Profile
-      setProfile(p)
-      setName(p.name)
-      setPhone(p.phone)
-      setGoals(p.goals)
-      setError(null)
-
+      setProfile(p); setName(p.name); setPhone(p.phone); setGoals(p.goals); setError(null)
       const accounts = (accountsResult.data as any) ?? []
-      setIsGoogleLinked(
-        Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"),
-      )
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.")
-    }
+      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
+    } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong.") }
   }, [])
 
-  useEffect(() => {
-    load().finally(() => setLoading(false))
-  }, [load])
+  useEffect(() => { load().finally(() => setLoading(false)) }, [load])
 
   async function handleSave() {
     if (!profile) return
@@ -82,42 +58,35 @@ export default function MemberProfileScreen() {
       if (err) throw new Error((err as any)?.statusText ?? "Failed to save")
       setDirty(false)
       Alert.alert("Saved", "Your profile has been updated.")
-    } catch (e) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Failed to save profile.")
-    } finally {
-      setSaving(false)
-    }
+    } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Failed to save profile.") }
+    finally { setSaving(false) }
   }
 
   async function handleConnectGoogle() {
     setGoogleLinking(true)
     try {
-      await authClient.signIn.social({
-        provider: "google",
-        callbackURL: "/dashboard",
-      })
-      // Re-check linked accounts after OAuth completes
+      await authClient.signIn.social({ provider: "google", callbackURL: "/dashboard" })
       const { data } = await authClient.$fetch(`${API_BASE}/api/auth/list-accounts`)
       const accounts = (data as any) ?? []
       setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
-    } catch (e) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google account.")
-    } finally {
-      setGoogleLinking(false)
-    }
+    } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google account.") }
+    finally { setGoogleLinking(false) }
   }
 
-  async function handleSignOut() {
-    await signOut()
-    router.replace("/(auth)/sign-in")
-  }
+  async function handleSignOut() { await signOut(); router.replace("/(auth)/sign-in") }
+
+  const styles = makeStyles(COLORS)
+
+  const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: any }[] = [
+    { value: "light", label: "Light", Icon: Sun },
+    { value: "dark", label: "Dark", Icon: Moon },
+    { value: "system", label: "System", Icon: Smartphone },
+  ]
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-        </View>
+        <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>
       </SafeAreaView>
     )
   }
@@ -127,29 +96,21 @@ export default function MemberProfileScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <Text style={styles.title}>Profile</Text>
+          {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
 
-          {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
-
-          {/* Avatar placeholder */}
           <View style={styles.avatarWrap}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {initials(name || session?.user?.name || "?")}
-              </Text>
+              <Text style={styles.avatarText}>{initials(name || session?.user?.name || "?")}</Text>
             </View>
             <Text style={styles.avatarEmail}>{profile?.email ?? session?.user?.email ?? ""}</Text>
           </View>
 
           <View style={styles.card}>
-            <Field label="Name" value={name} onChangeText={(v) => { setName(v); setDirty(true) }} />
+            <Field label="Name" value={name} onChangeText={(v) => { setName(v); setDirty(true) }} COLORS={COLORS} styles={styles} />
             <View style={styles.divider} />
-            <Field label="Phone" value={phone} onChangeText={(v) => { setPhone(v); setDirty(true) }} keyboardType="phone-pad" />
+            <Field label="Phone" value={phone} onChangeText={(v) => { setPhone(v); setDirty(true) }} keyboardType="phone-pad" COLORS={COLORS} styles={styles} />
             <View style={styles.divider} />
-            <Field label="Goals" value={goals} onChangeText={(v) => { setGoals(v); setDirty(true) }} multiline placeholder="e.g. Improve turns, prepare for audition…" />
+            <Field label="Goals" value={goals} onChangeText={(v) => { setGoals(v); setDirty(true) }} multiline placeholder="e.g. Improve turns, prepare for audition…" COLORS={COLORS} styles={styles} />
           </View>
 
           {dirty && (
@@ -158,21 +119,29 @@ export default function MemberProfileScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Connected accounts */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Connected accounts</Text>
+          {/* Appearance */}
+          <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Appearance</Text></View>
+          <View style={styles.themeRow}>
+            {THEME_OPTIONS.map(({ value, label, Icon }) => {
+              const active = theme === value
+              return (
+                <TouchableOpacity key={value} style={[styles.themeBtn, active && styles.themeBtnActive]} onPress={() => setTheme(value)} activeOpacity={0.7}>
+                  <Icon size={16} color={active ? COLORS.primary : COLORS.textMuted} />
+                  <Text style={[styles.themeBtnText, active && { color: COLORS.primary }]}>{label}</Text>
+                </TouchableOpacity>
+              )
+            })}
           </View>
+
+          {/* Connected accounts */}
+          <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Connected accounts</Text></View>
           <TouchableOpacity
             style={[styles.googleBtn, isGoogleLinked && styles.googleBtnLinked]}
             onPress={isGoogleLinked ? undefined : handleConnectGoogle}
             disabled={isGoogleLinked || googleLinking}
             activeOpacity={isGoogleLinked ? 1 : 0.8}
           >
-            {googleLinking ? (
-              <ActivityIndicator size="small" color={COLORS.text} />
-            ) : (
-              <Link size={18} color={isGoogleLinked ? COLORS.green : COLORS.text} />
-            )}
+            {googleLinking ? <ActivityIndicator size="small" color={COLORS.text} /> : <Link size={18} color={isGoogleLinked ? COLORS.green : COLORS.text} />}
             <Text style={[styles.googleBtnText, isGoogleLinked && { color: COLORS.green }]}>
               {isGoogleLinked ? "Google connected" : "Connect Google account"}
             </Text>
@@ -187,74 +156,55 @@ export default function MemberProfileScreen() {
   )
 }
 
-function Field({
-  label, value, onChangeText, multiline, placeholder, keyboardType,
-}: {
-  label: string
-  value: string
-  onChangeText: (v: string) => void
-  multiline?: boolean
-  placeholder?: string
-  keyboardType?: "default" | "phone-pad" | "email-address"
+function Field({ label, value, onChangeText, multiline, placeholder, keyboardType, COLORS, styles }: {
+  label: string; value: string; onChangeText: (v: string) => void
+  multiline?: boolean; placeholder?: string; keyboardType?: "default" | "phone-pad" | "email-address"
+  COLORS: any; styles: any
 }) {
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
         style={[styles.fieldInput, multiline && styles.fieldInputMulti]}
-        value={value}
-        onChangeText={onChangeText}
-        multiline={multiline}
-        placeholder={placeholder ?? ""}
-        placeholderTextColor={COLORS.textMuted}
-        keyboardType={keyboardType ?? "default"}
-        autoCorrect={false}
+        value={value} onChangeText={onChangeText} multiline={multiline}
+        placeholder={placeholder ?? ""} placeholderTextColor={COLORS.textMuted}
+        keyboardType={keyboardType ?? "default"} autoCorrect={false}
       />
     </View>
   )
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.background },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: SPACING.xl },
-  title: { fontSize: 26, fontWeight: "700", color: COLORS.text },
-  errorBox: { backgroundColor: COLORS.redLight, borderRadius: RADIUS.sm, padding: SPACING.sm },
-  errorText: { fontSize: 13, color: COLORS.red },
-  avatarWrap: { alignItems: "center", gap: SPACING.sm, paddingVertical: SPACING.sm },
-  avatar: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: COLORS.primaryLight, justifyContent: "center", alignItems: "center",
-  },
-  avatarText: { fontSize: 30, fontWeight: "700", color: COLORS.primary },
-  avatarEmail: { fontSize: 13, color: COLORS.textMuted },
-  card: {
-    backgroundColor: COLORS.surface, borderRadius: RADIUS.md,
-    borderWidth: 1, borderColor: COLORS.border, overflow: "hidden",
-  },
-  field: { padding: SPACING.md },
-  fieldLabel: { fontSize: 12, fontWeight: "600", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
-  fieldInput: { fontSize: 15, color: COLORS.text },
-  fieldInputMulti: { minHeight: 72, textAlignVertical: "top" },
-  divider: { height: 1, backgroundColor: COLORS.border },
-  btn: {
-    backgroundColor: COLORS.primary, borderRadius: RADIUS.sm,
-    padding: SPACING.md, alignItems: "center",
-  },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  sectionHeader: { marginTop: SPACING.sm },
-  sectionTitle: { fontSize: 13, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.6 },
-  googleBtn: {
-    flexDirection: "row", alignItems: "center", gap: SPACING.sm,
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm,
-    padding: SPACING.md, backgroundColor: COLORS.surface,
-  },
-  googleBtnLinked: { borderColor: COLORS.green, backgroundColor: COLORS.greenLight },
-  googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
-  signOutBtn: {
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm,
-    padding: SPACING.md, alignItems: "center",
-  },
-  signOutText: { fontSize: 15, fontWeight: "600", color: COLORS.textSecondary },
-})
+function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: COLORS.background },
+    center: { flex: 1, justifyContent: "center", alignItems: "center" },
+    scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: SPACING.xl },
+    title: { fontSize: 26, fontWeight: "700", color: COLORS.text },
+    errorBox: { backgroundColor: COLORS.redLight, borderRadius: RADIUS.sm, padding: SPACING.sm },
+    errorText: { fontSize: 13, color: COLORS.red },
+    avatarWrap: { alignItems: "center", gap: SPACING.sm, paddingVertical: SPACING.sm },
+    avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.primaryLight, justifyContent: "center", alignItems: "center" },
+    avatarText: { fontSize: 30, fontWeight: "700", color: COLORS.primary },
+    avatarEmail: { fontSize: 13, color: COLORS.textMuted },
+    card: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden" },
+    field: { padding: SPACING.md },
+    fieldLabel: { fontSize: 12, fontWeight: "600", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
+    fieldInput: { fontSize: 15, color: COLORS.text },
+    fieldInputMulti: { minHeight: 72, textAlignVertical: "top" },
+    divider: { height: 1, backgroundColor: COLORS.border },
+    btn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center" },
+    btnDisabled: { opacity: 0.6 },
+    btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+    sectionHeader: { marginTop: SPACING.sm },
+    sectionTitle: { fontSize: 13, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.6 },
+    themeRow: { flexDirection: "row", gap: SPACING.sm },
+    themeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
+    themeBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
+    themeBtnText: { fontSize: 13, fontWeight: "600", color: COLORS.textMuted },
+    googleBtn: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, backgroundColor: COLORS.surface },
+    googleBtnLinked: { borderColor: COLORS.green, backgroundColor: COLORS.greenLight },
+    googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
+    signOutBtn: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center" },
+    signOutText: { fontSize: 15, fontWeight: "600", color: COLORS.textSecondary },
+  })
+}

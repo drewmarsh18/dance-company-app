@@ -1,17 +1,11 @@
 import Constants from "expo-constants"
-import { Platform, NativeModules } from "react-native"
+import { Platform } from "react-native"
 import { authClient } from "@/lib/auth-client"
 
 const API_BASE = "https://dance-company-app.vercel.app"
 
-/** Returns true only when running in a native build with expo-notifications compiled in. */
-function isAvailable(): boolean {
-  return !!NativeModules.ExpoPushTokenManager
-}
-
 /** Register notification categories with approve/deny actions for prep masters. */
 export async function registerNotificationCategories(): Promise<void> {
-  if (!isAvailable()) return
   try {
     const Notifications = await import("expo-notifications")
 
@@ -42,64 +36,59 @@ export async function registerNotificationCategories(): Promise<void> {
 
 /** Request permission and register the Expo push token with the server. */
 export async function registerForPushNotifications(): Promise<string | null> {
-  if (!isAvailable()) {
-    console.warn("[Push] ExpoPushTokenManager not available — not a native build")
-    return null
-  }
-  try {
-    const Notifications = await import("expo-notifications")
+  const Notifications = await import("expo-notifications")
 
-    if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("default", {
-        name: "default",
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: "#e91e8c",
-      })
-    }
-
-    const { status: existingStatus } = await Notifications.getPermissionsAsync()
-    let finalStatus = existingStatus
-    if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync()
-      finalStatus = status
-    }
-    if (finalStatus !== "granted") {
-      console.warn("[Push] Permission not granted:", finalStatus)
-      return null
-    }
-
-    const projectId =
-      Constants.easConfig?.projectId ??
-      (Constants.expoConfig?.extra as any)?.eas?.projectId
-    if (!projectId) {
-      console.warn("[Push] No projectId found in Constants")
-      return null
-    }
-
-    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
-    const token = tokenData.data
-    console.log("[Push] Got token:", token)
-
-    const res = await authClient.$fetch(`${API_BASE}/api/push-token`, {
-      method: "POST",
-      body: JSON.stringify({ token }),
-      headers: { "Content-Type": "application/json" },
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#e91e8c",
     })
-    console.log("[Push] Token saved:", res)
-
-    return token
-  } catch (e) {
-    console.error("[Push] Registration failed:", e)
-    return null
   }
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync()
+  let finalStatus = existingStatus
+  if (existingStatus !== "granted") {
+    const { status } = await Notifications.requestPermissionsAsync()
+    finalStatus = status
+  }
+  if (finalStatus !== "granted") {
+    throw new Error(`Notification permission not granted (status: ${finalStatus}). Enable in Settings > Notifications.`)
+  }
+
+  const projectId =
+    Constants.easConfig?.projectId ??
+    (Constants.expoConfig?.extra as any)?.eas?.projectId
+  if (!projectId) {
+    throw new Error("No EAS projectId found in app config")
+  }
+
+  let token: string
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
+    token = tokenData.data
+  } catch (e: any) {
+    throw new Error(`Failed to get push token from Expo: ${e?.message ?? String(e)}`)
+  }
+
+  const { error } = await authClient.$fetch(`${API_BASE}/api/push-token`, {
+    method: "POST",
+    body: JSON.stringify({ token }),
+    headers: { "Content-Type": "application/json" },
+  }) as { error?: any }
+
+  if (error) {
+    throw new Error(`Server rejected token: ${error?.message ?? error?.statusText ?? JSON.stringify(error)}`)
+  }
+
+  return token
 }
 
 /** Subscribe to notification action responses (approve/deny booking). */
 export function addNotificationResponseListener(
   handler: (response: any) => void,
 ): { remove: () => void } {
-  if (!isAvailable()) return { remove: () => {} }
   try {
     const Notifications = require("expo-notifications")
     return Notifications.addNotificationResponseReceivedListener(handler)

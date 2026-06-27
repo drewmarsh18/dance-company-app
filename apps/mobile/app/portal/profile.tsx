@@ -1,10 +1,9 @@
-import { useState } from "react"
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
-import { Users, LogOut, ShieldCheck, Sun, Moon, Smartphone, Bell } from "lucide-react-native"
+import { Users, LogOut, ShieldCheck, Sun, Moon, Smartphone } from "lucide-react-native"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useTheme } from "@/lib/theme-context"
@@ -16,25 +15,6 @@ export default function PortalProfileScreen() {
   const { colors: COLORS, theme, setTheme } = useTheme()
   const name = session?.user?.name ?? ""
   const email = session?.user?.email ?? ""
-
-  const [testingPush, setTestingPush] = useState(false)
-
-  async function handleTestPush() {
-    setTestingPush(true)
-    try {
-      const { data } = await authClient.$fetch("https://dance-company-app.vercel.app/api/push-test", { method: "POST" })
-      const res = data as { ok: boolean; tokenCount?: number; error?: string }
-      if (res.ok) {
-        Alert.alert("Sent!", `Push notification sent to ${res.tokenCount} device(s). You should see it shortly.`)
-      } else {
-        Alert.alert("No token found", res.error ?? "Token not registered. Open the app fresh and grant notification permission, then try again.")
-      }
-    } catch (e) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Could not send test push.")
-    } finally {
-      setTestingPush(false)
-    }
-  }
 
   async function handleSignOut() {
     Alert.alert("Sign out", "Are you sure you want to sign out?", [
@@ -88,12 +68,6 @@ export default function PortalProfileScreen() {
           })}
         </View>
 
-        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Developer</Text></View>
-        <TouchableOpacity style={styles.testPushBtn} onPress={handleTestPush} disabled={testingPush} activeOpacity={0.8}>
-          {testingPush ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Bell size={16} color={COLORS.primary} />}
-          <Text style={styles.testPushText}>{testingPush ? "Sending…" : "Send test push notification"}</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
           <LogOut size={16} color={COLORS.textSecondary} />
           <Text style={styles.signOutText}>Sign out</Text>
@@ -124,8 +98,6 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     themeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
     themeBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
     themeBtnText: { fontSize: 13, fontWeight: "600", color: COLORS.textMuted },
-    testPushBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.primary, borderRadius: RADIUS.sm, padding: SPACING.md, backgroundColor: COLORS.primaryLight },
-    testPushText: { fontSize: 14, fontWeight: "600", color: COLORS.primary },
     signOutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, marginTop: SPACING.sm },
     signOutText: { fontSize: 15, fontWeight: "600", color: COLORS.textSecondary },
   })
