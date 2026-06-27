@@ -46,11 +46,9 @@ export async function DELETE(
   if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." })
 
   const within24 = isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "")
-  const existingNotes = booking.fields.Notes ? `${booking.fields.Notes}\n\n` : ""
-  const cancelNote = body.reason ? `Cancellation reason: ${body.reason}` : ""
   await appBase.update<BookingFields>(TABLES.bookings, id, {
     Status: within24 ? "Cancelled (Late)" : "Cancelled",
-    ...(cancelNote ? { Notes: `${existingNotes}${cancelNote}` } : {}),
+    ...(body.reason ? { "Cancellation Reason": body.reason } : {}),
   })
 
   if (!within24) {
