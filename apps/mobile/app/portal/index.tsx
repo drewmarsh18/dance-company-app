@@ -15,7 +15,7 @@ import { useColors } from "@/lib/theme-context"
 const API_BASE = "https://dance-company-app.vercel.app"
 
 type PrepMasterBooking = {
-  id: string; date: string; time: string; status: string; notes: string; prepMasterNotes: string
+  id: string; date: string; time: string; status: string; notes: string; prepMasterNotes: string; declineReason: string
   dancerName: string; dancerEmail: string; dancerPhone: string; userId: string
 }
 
@@ -104,7 +104,8 @@ function BookingCard({ booking, dimmed, onUpdate }: {
             <View style={styles.infoRow}><Phone size={13} color={COLORS.textMuted} /><Text style={styles.infoText}>{booking.dancerPhone}</Text></View>
           ) : null}
           {booking.notes ? <View style={styles.infoRow}><StickyNote size={13} color={COLORS.textMuted} /><Text style={[styles.infoText, { fontStyle: "italic" }]}><Text style={{ fontWeight: "600" }}>Member: </Text>{booking.notes}</Text></View> : null}
-          {localPrepMasterNotes && mode === "idle" ? <View style={styles.infoRow}><StickyNote size={13} color={COLORS.primary} /><Text style={styles.infoText}><Text style={{ fontWeight: "600", color: COLORS.primary }}>You: </Text>{localPrepMasterNotes}</Text></View> : null}
+          {localPrepMasterNotes && mode === "idle" ? <View style={styles.infoRow}><StickyNote size={13} color={COLORS.primary} /><Text style={styles.infoText}><Text style={{ fontWeight: "600", color: COLORS.primary }}>Your notes: </Text>{localPrepMasterNotes}</Text></View> : null}
+          {booking.declineReason && mode === "idle" ? <View style={styles.infoRow}><StickyNote size={13} color={COLORS.amber} /><Text style={styles.infoText}><Text style={{ fontWeight: "600", color: COLORS.amber }}>Decline reason: </Text>{booking.declineReason}</Text></View> : null}
 
           {mode === "idle" && !isCancelled && (
             <View style={styles.actionRow}>

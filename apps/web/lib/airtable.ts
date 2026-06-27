@@ -257,6 +257,7 @@ export type PrepMasterBooking = {
   status: string
   notes: string
   prepMasterNotes: string
+  declineReason: string
   dancerName: string
   dancerEmail: string
   dancerPhone: string
@@ -287,6 +288,7 @@ export async function getBookingsForPrepMaster(
       status: r.fields.Status ?? "Pending",
       notes: r.fields.Notes ?? "",
       prepMasterNotes: r.fields["Prep Master Notes"] ?? "",
+      declineReason: r.fields["Decline Reason"] ?? "",
       dancerName: client?.name ?? "",
       dancerEmail: client?.email ?? r.fields["Client Email"] ?? "",
       dancerPhone: client?.phone ?? "",
