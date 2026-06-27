@@ -42,7 +42,10 @@ export async function registerNotificationCategories(): Promise<void> {
 
 /** Request permission and register the Expo push token with the server. */
 export async function registerForPushNotifications(): Promise<string | null> {
-  if (!isAvailable()) return null
+  if (!isAvailable()) {
+    console.warn("[Push] ExpoPushTokenManager not available — not a native build")
+    return null
+  }
   try {
     const Notifications = await import("expo-notifications")
 
@@ -61,24 +64,33 @@ export async function registerForPushNotifications(): Promise<string | null> {
       const { status } = await Notifications.requestPermissionsAsync()
       finalStatus = status
     }
-    if (finalStatus !== "granted") return null
+    if (finalStatus !== "granted") {
+      console.warn("[Push] Permission not granted:", finalStatus)
+      return null
+    }
 
     const projectId =
       Constants.easConfig?.projectId ??
       (Constants.expoConfig?.extra as any)?.eas?.projectId
-    if (!projectId) return null
+    if (!projectId) {
+      console.warn("[Push] No projectId found in Constants")
+      return null
+    }
 
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
     const token = tokenData.data
+    console.log("[Push] Got token:", token)
 
-    await authClient.$fetch(`${API_BASE}/api/push-token`, {
+    const res = await authClient.$fetch(`${API_BASE}/api/push-token`, {
       method: "POST",
       body: JSON.stringify({ token }),
       headers: { "Content-Type": "application/json" },
     })
+    console.log("[Push] Token saved:", res)
 
     return token
-  } catch {
+  } catch (e) {
+    console.error("[Push] Registration failed:", e)
     return null
   }
 }
