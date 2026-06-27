@@ -284,7 +284,7 @@ export default function PortalScheduleScreen() {
         {/* Collapsible availability */}
         <View style={styles.card}>
           <TouchableOpacity style={styles.collapseHeader} onPress={() => setAvailExpanded((v) => !v)} activeOpacity={0.7}>
-            <Text style={styles.collapseTitle}>Booking availability</Text>
+            <Text style={styles.collapseTitle}>Edit Booking Availability</Text>
             <View style={{ transform: [{ rotate: availExpanded ? "180deg" : "0deg" }] }}>
               <ChevronDown size={18} color={COLORS.textMuted} />
             </View>
