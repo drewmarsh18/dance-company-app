@@ -31,7 +31,7 @@ export async function PATCH(
   const { pm, booking } = await getPmAndBooking(session.user.email, id)
   if (!pm || !booking) return NextResponse.json({ ok: false, error: "Booking not found." })
 
-  const body = await req.json() as { date?: string; time?: string; notes?: string; action?: "confirm" | "decline" }
+  const body = await req.json() as { date?: string; time?: string; notes?: string; action?: "confirm" | "decline"; declineReason?: string }
 
   if (body.action === "confirm") {
     await appBase.update<BookingFields>(TABLES.bookings, id, { Status: "Confirmed" })
@@ -49,7 +49,10 @@ export async function PATCH(
   }
 
   if (body.action === "decline") {
-    await appBase.update<BookingFields>(TABLES.bookings, id, { Status: "Declined" })
+    await appBase.update<BookingFields>(TABLES.bookings, id, {
+      Status: "Declined",
+      ...(body.declineReason ? { "Decline Reason": body.declineReason } : {}),
+    })
     const dancerUserId = booking.fields["User ID"]
     if (dancerUserId) {
       createNotification({

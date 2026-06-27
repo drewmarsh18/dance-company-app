@@ -43,7 +43,8 @@ function BookingCard({ booking, dimmed, onUpdate }: {
   const [editDate, setEditDate] = useState(booking.date)
   const [editTime, setEditTime] = useState(booking.time)
   const [editNotes, setEditNotes] = useState(booking.notes)
-  const [mode, setMode] = useState<"idle" | "edit">("idle")
+  const [mode, setMode] = useState<"idle" | "edit" | "decline-reason">("idle")
+  const [declineReason, setDeclineReason] = useState("")
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState(false)
 
@@ -56,11 +57,13 @@ function BookingCard({ booking, dimmed, onUpdate }: {
     : s === "pending" ? { bg: COLORS.amberLight, text: COLORS.amber }
     : { bg: COLORS.grayLight, text: COLORS.textMuted }
 
-  async function callAction(action: "confirm" | "decline" | "edit") {
+  async function callAction(action: "confirm" | "decline" | "edit", reason?: string) {
     setSaving(true)
     try {
       const body: Record<string, unknown> = action === "edit"
         ? { date: editDate, time: editTime, notes: editNotes }
+        : action === "decline"
+        ? { action, declineReason: reason }
         : { action }
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/portal/bookings/${booking.id}`,
         { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } })
@@ -68,7 +71,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
       const res = data as { ok: boolean; error?: string }
       if (!res.ok) throw new Error(res.error ?? "Failed")
       if (action === "confirm") { setStatus("Confirmed"); onUpdate(booking.id, { status: "Confirmed" }) }
-      if (action === "decline") { setStatus("Declined"); onUpdate(booking.id, { status: "Declined" }) }
+      if (action === "decline") { setStatus("Declined"); onUpdate(booking.id, { status: "Declined" }); setMode("idle") }
       if (action === "edit") {
         setLocalDate(editDate); setLocalTime(editTime); setLocalNotes(editNotes)
         onUpdate(booking.id, { date: editDate, time: editTime, notes: editNotes })
@@ -113,7 +116,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
                     {saving ? <ActivityIndicator size="small" color="#fff" /> : <><Check size={14} color="#fff" /><Text style={styles.actionBtnPrimaryText}>Confirm</Text></>}
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.actionBtn, styles.actionBtnDanger, saving && { opacity: 0.5 }]}
-                    onPress={() => Alert.alert("Decline booking?", "This will cancel the session.", [{ text: "Cancel", style: "cancel" }, { text: "Decline", style: "destructive", onPress: () => callAction("decline") }])}
+                    onPress={() => { setDeclineReason(""); setMode("decline-reason") }}
                     disabled={saving} activeOpacity={0.8}>
                     <X size={14} color={COLORS.red} /><Text style={styles.actionBtnDangerText}>Decline</Text>
                   </TouchableOpacity>
@@ -123,6 +126,37 @@ function BookingCard({ booking, dimmed, onUpdate }: {
                 <Pencil size={14} color={COLORS.textMuted} /><Text style={styles.actionBtnGhostText}>Edit</Text>
               </TouchableOpacity>
             </View>
+          )}
+
+          {mode === "decline-reason" && (
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+              <View style={styles.editPanel}>
+                <Text style={styles.editPanelTitle}>Reason for declining</Text>
+                <TextInput
+                  style={[styles.editInput, { minHeight: 72, textAlignVertical: "top" }]}
+                  value={declineReason}
+                  onChangeText={setDeclineReason}
+                  placeholder="e.g. Scheduling conflict, unavailable that day…"
+                  placeholderTextColor={COLORS.textMuted}
+                  multiline
+                  autoFocus
+                />
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.actionBtnDanger, saving && { opacity: 0.5 }]}
+                    onPress={() => {
+                      if (!declineReason.trim()) { Alert.alert("Required", "Please enter a reason for declining."); return }
+                      callAction("decline", declineReason.trim())
+                    }}
+                    disabled={saving} activeOpacity={0.8}>
+                    {saving ? <ActivityIndicator size="small" color={COLORS.red} /> : <><X size={14} color={COLORS.red} /><Text style={styles.actionBtnDangerText}>Confirm decline</Text></>}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtn, styles.actionBtnGhost]} onPress={() => setMode("idle")} activeOpacity={0.8}>
+                    <Text style={styles.actionBtnGhostText}>Go back</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </KeyboardAvoidingView>
           )}
 
           {mode === "edit" && (
@@ -219,7 +253,7 @@ export default function PortalDashboard() {
         )}
         {(data?.cancelled ?? []).length > 0 && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: COLORS.textMuted }]}>Cancelled sessions</Text>
+            <Text style={[styles.sectionTitle, { color: COLORS.textMuted }]}>Cancelled & Declined sessions</Text>
             {(data?.cancelled ?? []).map((b) => <BookingCard key={b.id} booking={b} dimmed onUpdate={handleUpdate} />)}
           </View>
         )}

@@ -68,6 +68,7 @@ export type BookingFields = {
   Status?: string
   Notes?: string
   "Cancellation Reason"?: string
+  "Decline Reason"?: string
   "Session Type"?: string
 }
 
