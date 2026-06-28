@@ -3,17 +3,18 @@
     "name": "College Dance Prep",
     "slug": "cdp",
     "scheme": "cdp",
-    "version": "1.0.0",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.collegedanceprep.app",
-      "buildNumber": "1",
+      "buildNumber": "5",
       "infoPlist": {
         "NSCameraUsageDescription": "Used for scanning barcodes.",
-        "NSPhotoLibraryUsageDescription": "Used for selecting profile photos."
+        "NSPhotoLibraryUsageDescription": "Used for selecting profile photos.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -43,6 +44,12 @@
           "sounds": []
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "de5c78bc-0077-4ec5-a31c-f4d746710f84"
+      }
+    }
   }
 }

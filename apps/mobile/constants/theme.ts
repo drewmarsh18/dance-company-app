@@ -1,4 +1,4 @@
-export const COLORS = {
+export const LIGHT_COLORS = {
   primary: "#e91e8c",
   primaryLight: "#fce7f3",
   background: "#ffffff",
@@ -17,12 +17,40 @@ export const COLORS = {
   grayLight: "#f3f4f6",
 }
 
+export const DARK_COLORS = {
+  primary: "#f472b6",
+  primaryLight: "#3b1a2e",
+  background: "#0f0f0f",
+  surface: "#1a1a1a",
+  border: "#2e2e2e",
+  text: "#f0f0f0",
+  textSecondary: "#a0a0a0",
+  textMuted: "#666666",
+  green: "#4ade80",
+  greenLight: "#052e16",
+  amber: "#fbbf24",
+  amberLight: "#1c1207",
+  red: "#f87171",
+  redLight: "#2d0a0a",
+  gray: "#9ca3af",
+  grayLight: "#1f1f1f",
+}
+
+export const COLORS = LIGHT_COLORS
+
 export const SPACING = {
   xs: 4,
   sm: 8,
   md: 16,
   lg: 24,
   xl: 32,
+}
+
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0][0].toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 export const RADIUS = {

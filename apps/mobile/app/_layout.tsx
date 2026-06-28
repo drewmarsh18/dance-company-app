@@ -9,13 +9,13 @@ import {
   handleNotificationResponse,
 } from "@/lib/push-notifications"
 import { useSession } from "@/lib/auth-client"
+import { ThemeProvider, useTheme } from "@/lib/theme-context"
 
-// Must be called at the root level so OAuth deep-link callbacks are
-// intercepted here before Expo Router tries to match them as routes.
 WebBrowser.maybeCompleteAuthSession()
 
-export default function RootLayout() {
+function RootLayoutInner() {
   const { data: session } = useSession()
+  const { isDark } = useTheme()
   const listenerRef = useRef<{ remove: () => void } | null>(null)
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function RootLayout() {
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? "light" : "dark"} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
@@ -43,5 +43,13 @@ export default function RootLayout() {
         <Stack.Screen name="portal" />
       </Stack>
     </>
+  )
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootLayoutInner />
+    </ThemeProvider>
   )
 }
