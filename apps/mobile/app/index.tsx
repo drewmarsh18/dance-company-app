@@ -23,10 +23,10 @@ export default function Index() {
         const role: string = (data as any).role ?? "dancer"
         if (role === "admin") router.replace("/admin")
         else if (role === "prep_master") router.replace("/portal")
-        else router.replace("/(auth)/role-select" as any)
+        else router.replace("/member")
       })
       .catch(() => {
-        router.replace("/(auth)/role-select" as any)
+        router.replace("/member")
       })
   }, [session, isPending])
 
