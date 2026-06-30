@@ -81,7 +81,7 @@ export async function POST(req: Request) {
   const record = await appBase.create<BookingFields>(TABLES.bookings, {
     "User ID": user.id,
     "Client Email": user.email,
-    "PrepMaster Name": prepMasterName,
+    "Prep Master Name": prepMasterName,
     Date: date,
     Time: time,
     Status: "Pending",

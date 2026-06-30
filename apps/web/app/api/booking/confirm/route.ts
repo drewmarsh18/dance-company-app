@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       // Notify dancer
       const dancerEmail = booking.fields["Client Email"]
       const dancerName = dancerEmail ?? "Member"
-      const pmName = booking.fields["PrepMaster Name"] ?? "your PrepMaster"
+      const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
       const date = booking.fields.Date ?? ""
       const time = booking.fields.Time ?? ""
       if (dancerEmail) {
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
 
       // Notify dancer
       if (dancerEmail) {
-        const pmName = booking.fields["PrepMaster Name"] ?? "your PrepMaster"
+        const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
         const date = booking.fields.Date ?? ""
         const time = booking.fields.Time ?? ""
         const { subject, html } = bookingCancelledEmail({

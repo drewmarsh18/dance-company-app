@@ -61,12 +61,12 @@ export async function getBookingsForUserId(userId: string): Promise<Booking[]> {
   })
   return records.map((r) => ({
     id: r.id,
-    prepMasterName: r.fields["PrepMaster Name"] ?? "",
+    prepMasterName: r.fields["Prep Master Name"] ?? "",
     date: r.fields.Date ?? "",
     time: r.fields.Time ?? "",
     status: r.fields.Status ?? "Pending",
     notes: r.fields.Notes ?? "",
-    prepMasterNotes: r.fields["PrepMaster Notes"] ?? "",
+    prepMasterNotes: r.fields["Prep Master Notes"] ?? "",
     sessionType: (r.fields["Session Type"] as string) ?? null,
   }))
 }
@@ -119,7 +119,7 @@ export async function cancelBooking(
     }
 
     const dateLabel = fmtDate(booking.fields.Date ?? "") || "your session"
-    const pmName = booking.fields["PrepMaster Name"] ?? "your PrepMaster"
+    const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
     createNotification({
       userId: user.id,
       type: "booking_cancelled",
@@ -166,7 +166,7 @@ export async function rescheduleBooking(
       return { ok: false, error: "Bookings within 24 hours cannot be rescheduled." }
     }
 
-    const prepMasterName = existing.fields["PrepMaster Name"] ?? ""
+    const prepMasterName = existing.fields["Prep Master Name"] ?? ""
     const booked = await getBookedSlots(prepMasterName, newDate)
     if (booked.includes(newTime)) {
       return { ok: false, error: "That time slot is already taken." }
@@ -289,7 +289,7 @@ export async function createBooking(input: {
     const record = await appBase.create<BookingFields>(TABLES.bookings, {
       "User ID": user.id,
       "Client Email": user.email,
-      "PrepMaster Name": input.prepMasterName,
+      "Prep Master Name": input.prepMasterName,
       Date: input.date,
       Time: input.time,
       Status: "Pending",

@@ -69,7 +69,7 @@ export async function POST(req: Request) {
   await appBase.create<BookingFields>(TABLES.bookings, {
     "Client Email": dancerEmail,
     "User ID": dancer?.id ?? "",
-    "PrepMaster Name": prepMaster.name,
+    "Prep Master Name": prepMaster.name,
     Date: date,
     Time: time,
     Status: "Confirmed",

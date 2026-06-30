@@ -35,7 +35,7 @@ export async function GET(
     const safeName = coach.name.replace(/'/g, "\\'")
 
     const bookings = await appBase.list<BookingFields>(TABLES.bookings, {
-      filterByFormula: `AND({PrepMaster Name} = '${safeName}', {Date} >= '${todayIso}', {Date} <= '${endIso}')`,
+      filterByFormula: `AND({Prep Master Name} = '${safeName}', {Date} >= '${todayIso}', {Date} <= '${endIso}')`,
       revalidate: 5,
     })
 

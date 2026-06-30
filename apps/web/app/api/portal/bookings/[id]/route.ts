@@ -14,7 +14,7 @@ async function getPmAndBooking(sessionEmail: string, bookingId: string) {
   if (!pm) return { pm: null, booking: null }
   const safe = pm.name.replace(/'/g, "\\'")
   const records = await appBase.list<BookingFields>(TABLES.bookings, {
-    filterByFormula: `AND({PrepMaster Name} = '${safe}', RECORD_ID() = '${bookingId}')`,
+    filterByFormula: `AND({Prep Master Name} = '${safe}', RECORD_ID() = '${bookingId}')`,
     maxRecords: 1,
   })
   return { pm, booking: records[0] ?? null }
@@ -88,12 +88,12 @@ export async function PATCH(
   const update: Partial<BookingFields> = {}
   if (body.date) update.Date = body.date
   if (body.time) update.Time = body.time
-  if (body.prepMasterNotes !== undefined) update["PrepMaster Notes"] = body.prepMasterNotes
+  if (body.prepMasterNotes !== undefined) update["Prep Master Notes"] = body.prepMasterNotes
   await appBase.update<BookingFields>(TABLES.bookings, id, update)
 
   const newDate = body.date ?? booking.fields.Date ?? ""
   const newTime = body.time ?? booking.fields.Time ?? ""
-  const newNotes = body.prepMasterNotes !== undefined ? body.prepMasterNotes : (booking.fields["PrepMaster Notes"] || undefined)
+  const newNotes = body.prepMasterNotes !== undefined ? body.prepMasterNotes : (booking.fields["Prep Master Notes"] || undefined)
   const dancerEmail = booking.fields["Client Email"]
   const dancerUserId = booking.fields["User ID"]
 

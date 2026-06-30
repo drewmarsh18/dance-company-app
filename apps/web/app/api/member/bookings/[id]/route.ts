@@ -61,7 +61,7 @@ export async function DELETE(
     }
   }
 
-  const pmName = booking.fields["PrepMaster Name"] ?? "your PrepMaster"
+  const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
   const dateLabel = booking.fields.Date ?? "your session"
 
   createNotification({
@@ -116,7 +116,7 @@ export async function PATCH(
 
   const newDate = body.date ?? booking.fields.Date ?? ""
   const newTime = body.time ?? booking.fields.Time ?? ""
-  const pmName = booking.fields["PrepMaster Name"] ?? ""
+  const pmName = booking.fields["Prep Master Name"] ?? ""
   const client = await findClientRecord(user.id)
   const memberName = client?.fields.Name ?? user.name ?? user.email ?? "Your member"
 

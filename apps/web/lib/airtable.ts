@@ -63,12 +63,12 @@ export type BookingFields = {
   Name?: string
   "Client Email"?: string
   "User ID"?: string
-  "PrepMaster Name"?: string
+  "Prep Master Name"?: string
   Date?: string
   Time?: string
   Status?: string
   Notes?: string
-  "PrepMaster Notes"?: string
+  "Prep Master Notes"?: string
   "Cancellation Reason"?: string
   "Decline Reason"?: string
   "Session Type"?: string
@@ -271,7 +271,7 @@ export async function getBookingsForPrepMaster(
 ): Promise<PrepMasterBooking[]> {
   const safeName = prepMasterName.replace(/'/g, "\\'")
   const records = await list<BookingFields>(TABLES.bookings, {
-    filterByFormula: `{PrepMaster Name} = '${safeName}'`,
+    filterByFormula: `{Prep Master Name} = '${safeName}'`,
     sort: [{ field: "Date", direction: "asc" }],
   })
 
@@ -289,7 +289,7 @@ export async function getBookingsForPrepMaster(
       time: r.fields.Time ?? "",
       status: r.fields.Status ?? "Pending",
       notes: r.fields.Notes ?? "",
-      prepMasterNotes: r.fields["PrepMaster Notes"] ?? "",
+      prepMasterNotes: r.fields["Prep Master Notes"] ?? "",
       declineReason: r.fields["Decline Reason"] ?? "",
       cancellationReason: r.fields["Cancellation Reason"] ?? "",
       dancerName: client?.name ?? "",
@@ -312,7 +312,7 @@ export async function getBookedSlots(
   const safeName = prepMasterName.replace(/'/g, "\\'")
   const safeDate = dateIso.replace(/'/g, "\\'")
   const records = await list<BookingFields>(TABLES.bookings, {
-    filterByFormula: `AND({PrepMaster Name} = '${safeName}', {Date} = '${safeDate}')`,
+    filterByFormula: `AND({Prep Master Name} = '${safeName}', {Date} = '${safeDate}')`,
     revalidate: 5,
   })
   return records
@@ -330,7 +330,7 @@ export async function getUpcomingBookedSlots(
 ): Promise<Record<string, string[]>> {
   const safeName = prepMasterName.replace(/'/g, "\\'")
   const records = await list<BookingFields>(TABLES.bookings, {
-    filterByFormula: `{PrepMaster Name} = '${safeName}'`,
+    filterByFormula: `{Prep Master Name} = '${safeName}'`,
     revalidate: 5,
   })
   const map: Record<string, string[]> = {}
@@ -513,7 +513,7 @@ export async function adminGetAllBookings(): Promise<AdminBooking[]> {
       clientEmail: r.fields["Client Email"] ?? "",
       dancerName: client?.name ?? "",
       userId: uid,
-      prepMasterName: r.fields["PrepMaster Name"] ?? "",
+      prepMasterName: r.fields["Prep Master Name"] ?? "",
       date: r.fields.Date ?? "",
       time: r.fields.Time ?? "",
       status: r.fields.Status ?? "Pending",

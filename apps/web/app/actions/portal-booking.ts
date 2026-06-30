@@ -95,7 +95,7 @@ export async function createBookingAsPrepMaster(input: {
     await appBase.create<BookingFields>(TABLES.bookings, {
       "Client Email": input.dancerEmail,
       "User ID": dancer?.id ?? "",
-      "PrepMaster Name": prepMaster.name,
+      "Prep Master Name": prepMaster.name,
       Date: input.date,
       Time: input.time,
       Status: "Confirmed",

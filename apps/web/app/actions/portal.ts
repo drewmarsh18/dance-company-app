@@ -30,7 +30,7 @@ export async function confirmBooking(
     if (!pm) return { ok: false, error: "Staff record not found." }
 
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
-      filterByFormula: `AND({PrepMaster Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
+      filterByFormula: `AND({Prep Master Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
       maxRecords: 1,
     })
     if (!records[0]) return { ok: false, error: "Booking not found." }
@@ -67,7 +67,7 @@ export async function adjustBooking(
     if (!pm) return { ok: false, error: "Staff record not found." }
 
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
-      filterByFormula: `AND({PrepMaster Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
+      filterByFormula: `AND({Prep Master Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
       maxRecords: 1,
     })
     if (!records[0]) return { ok: false, error: "Booking not found." }
@@ -159,7 +159,7 @@ export async function declineBooking(
     if (!pm) return { ok: false, error: "Staff record not found." }
 
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
-      filterByFormula: `AND({PrepMaster Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
+      filterByFormula: `AND({Prep Master Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
       maxRecords: 1,
     })
     if (!records[0]) return { ok: false, error: "Booking not found." }
