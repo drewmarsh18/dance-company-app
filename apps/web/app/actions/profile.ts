@@ -49,7 +49,7 @@ async function findClientByEmail(email: string) {
 async function findClientByParentEmail(parentEmail: string) {
   const safe = parentEmail.trim().toLowerCase().replace(/'/g, "\\'")
   const records = await appBase.list<ClientFields>(TABLES.clients, {
-    filterByFormula: `LOWER({"Parent Email"}) = '${safe}'`,
+    filterByFormula: `LOWER({Parent Email}) = '${safe}'`,
     maxRecords: 1,
     revalidate: 0,
   })
@@ -102,6 +102,7 @@ export async function getOrCreateProfile({
         parentEmail: byParentEmail.fields["Parent Email"] ?? user.email,
         effectiveUserId: byParentEmail.fields["User ID"] ?? "",
         isParentView: true,
+        isNewProfile: false,
       }
     }
   }

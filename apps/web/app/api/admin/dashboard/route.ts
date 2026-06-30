@@ -20,12 +20,20 @@ export async function GET() {
     return NextResponse.json({ error: "Airtable not configured" }, { status: 503 })
   }
 
-  const [members, bookings, workers, plans] = await Promise.all([
-    adminGetAllMembers(),
-    adminGetAllBookings(),
-    adminGetAllWorkers(),
-    adminGetAllPlans(),
-  ])
+  try {
+    const [members, bookings, workers, plans] = await Promise.all([
+      adminGetAllMembers(),
+      adminGetAllBookings(),
+      adminGetAllWorkers(),
+      adminGetAllPlans(),
+    ])
 
-  return NextResponse.json({ members, bookings, workers, plans, packages: PACKAGES })
+    return NextResponse.json({ members, bookings, workers, plans, packages: PACKAGES })
+  } catch (err) {
+    console.error("[admin/dashboard] error:", err)
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to load dashboard" },
+      { status: 500 },
+    )
+  }
 }

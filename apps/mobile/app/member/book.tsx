@@ -311,7 +311,7 @@ export default function BookScreen() {
     setSelectedCoach(coach); setDetailLoading(true)
     try {
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/booking/coaches/${coach.id}`)
-      if (error || !data) throw new Error("Failed to load availability")
+      if (error || !data) throw new Error((data as any)?.error ?? "Failed to load availability")
       setDetail(data as CoachDetail); setStep("booking")
     } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not load availability.") }
     finally { setDetailLoading(false) }

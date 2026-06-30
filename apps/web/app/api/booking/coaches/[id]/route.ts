@@ -16,38 +16,46 @@ export async function GET(
   const coach = await getPrepMaster(id)
   if (!coach) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  // Availability template
-  const saved = await getAvailabilityForEmail(coach.email)
-  const week = buildWeekTemplate(saved)
+  try {
+    // Availability template
+    const saved = await getAvailabilityForEmail(coach.email)
+    const week = buildWeekTemplate(saved)
 
-  // Booked slots for the next 28 days (one Airtable query, grouped by date)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const end = new Date(today)
-  end.setDate(end.getDate() + 28)
+    // Booked slots for the next 28 days (one Airtable query, grouped by date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const end = new Date(today)
+    end.setDate(end.getDate() + 28)
 
-  const toIso = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+    const toIso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
-  const todayIso = toIso(today)
-  const endIso = toIso(end)
-  const safeName = coach.name.replace(/'/g, "\\'")
+    const todayIso = toIso(today)
+    const endIso = toIso(end)
+    const safeName = coach.name.replace(/'/g, "\\'")
 
-  const bookings = await appBase.list<BookingFields>(TABLES.bookings, {
-    filterByFormula: `AND({PrepMaster Name} = '${safeName}', {Date} >= '${todayIso}', {Date} <= '${endIso}')`,
-    revalidate: 5,
-  })
+    const bookings = await appBase.list<BookingFields>(TABLES.bookings, {
+      filterByFormula: `AND({PrepMaster Name} = '${safeName}', {Date} >= '${todayIso}', {Date} <= '${endIso}')`,
+      revalidate: 5,
+    })
 
-  const bookedSlots: Record<string, string[]> = {}
-  for (const b of bookings) {
-    const status = (b.fields.Status ?? "").toLowerCase()
-    if (status.startsWith("cancelled")) continue
-    const date = b.fields.Date ?? ""
-    const time = b.fields.Time ?? ""
-    if (!date || !time) continue
-    if (!bookedSlots[date]) bookedSlots[date] = []
-    bookedSlots[date].push(time)
+    const bookedSlots: Record<string, string[]> = {}
+    for (const b of bookings) {
+      const status = (b.fields.Status ?? "").toLowerCase()
+      if (status.startsWith("cancelled")) continue
+      const date = b.fields.Date ?? ""
+      const time = b.fields.Time ?? ""
+      if (!date || !time) continue
+      if (!bookedSlots[date]) bookedSlots[date] = []
+      bookedSlots[date].push(time)
+    }
+
+    return NextResponse.json({ coach, week, bookedSlots })
+  } catch (err) {
+    console.error("[coaches/[id]] error:", err)
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to load availability" },
+      { status: 500 },
+    )
   }
-
-  return NextResponse.json({ coach, week, bookedSlots })
 }
