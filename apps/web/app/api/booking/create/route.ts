@@ -16,6 +16,7 @@ import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingConfirmationEmail, prepMasterBookingRequestEmail } from "@/lib/email"
 import { sendSms } from "@/lib/sms"
+import { fmtDate, fmtTime } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -106,10 +107,11 @@ export async function POST(req: Request) {
   // In-app notification
   createNotification({
     userId: user.id,
-    type: "booking_confirmed",
-    title: "Booking confirmed",
-    body: `Your session with ${prepMasterName} on ${date} at ${time} is confirmed.`,
+    type: "booking_pending",
+    title: "Booking requested",
+    body: `Your session with ${prepMasterName} on ${fmtDate(date)} at ${fmtTime(time)} is pending confirmation.`,
     bookingId: record.id,
+    pushData: { route: "/member/bookings" },
   }).catch(() => {})
 
   const dancerDisplayName = client.fields.Name ?? user.name ?? "Dancer"
