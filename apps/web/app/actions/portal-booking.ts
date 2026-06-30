@@ -14,6 +14,7 @@ import {
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
+import { fmtDate, fmtTime } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -30,11 +31,11 @@ export type PastClient = {
   email: string
 }
 
-/** Returns the unique past clients of the logged-in prep master. */
+/** Returns the unique past clients of the logged-in PrepMaster. */
 export async function getPastClients(): Promise<PastClient[]> {
   const sessionUser = await getSessionUser()
   const prepMaster = await getPrepMasterByEmail(sessionUser.email)
-  if (!prepMaster) throw new Error("No prep master record found for this account.")
+  if (!prepMaster) throw new Error("No PrepMaster record found for this account.")
 
   const bookings = await getBookingsForPrepMaster(prepMaster.name)
   const seen = new Set<string>()
@@ -61,16 +62,16 @@ export async function createBookingAsPrepMaster(input: {
   try {
     const sessionUser = await getSessionUser()
     const prepMaster = await getPrepMasterByEmail(sessionUser.email)
-    if (!prepMaster) return { ok: false, error: "No prep master record found for this account." }
+    if (!prepMaster) return { ok: false, error: "No PrepMaster record found for this account." }
 
-    // Verify this dancer has a prior booking with this prep master
+    // Verify this dancer has a prior booking with this PrepMaster
     const history = await getBookingsForPrepMaster(prepMaster.name)
     const knownEmails = new Set(history.map((b) => b.dancerEmail.toLowerCase()))
     if (!knownEmails.has(input.dancerEmail.toLowerCase())) {
       return { ok: false, error: "You can only book sessions for members you have previously worked with." }
     }
 
-    // Validate the slot is within the prep master's availability
+    // Validate the slot is within the PrepMaster's availability
     const week = await getAvailabilityForEmail(prepMaster.email)
     const openSlots = slotsForDate(input.date, week)
     if (openSlots.length > 0 && !openSlots.includes(input.time)) {
@@ -94,7 +95,7 @@ export async function createBookingAsPrepMaster(input: {
     await appBase.create<BookingFields>(TABLES.bookings, {
       "Client Email": input.dancerEmail,
       "User ID": dancer?.id ?? "",
-      "Prep Master Name": prepMaster.name,
+      "PrepMaster Name": prepMaster.name,
       Date: input.date,
       Time: input.time,
       Status: "Confirmed",
@@ -106,7 +107,8 @@ export async function createBookingAsPrepMaster(input: {
         userId: dancer.id,
         type: "booking_confirmed",
         title: "Session booked",
-        body: `${prepMaster.name} has booked a session with you on ${input.date} at ${input.time}.`,
+        body: `${prepMaster.name} has booked a session with you on ${fmtDate(input.date)} at ${fmtTime(input.time)}.`,
+        pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }
 

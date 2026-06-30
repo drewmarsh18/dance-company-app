@@ -16,6 +16,7 @@ export function ProfileForm({ profile }: { profile: ClientProfile }) {
   const [name, setName] = useState(profile.name)
   const [phone, setPhone] = useState(profile.phone)
   const [goals, setGoals] = useState(profile.goals)
+  const [parentEmail, setParentEmail] = useState(profile.parentEmail ?? "")
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -25,6 +26,7 @@ export function ProfileForm({ profile }: { profile: ClientProfile }) {
         name,
         phone,
         goals,
+        parentEmail: parentEmail.trim() || undefined,
       })
       if (result.ok) {
         toast.success("Profile updated")
@@ -75,6 +77,20 @@ export function ProfileForm({ profile }: { profile: ClientProfile }) {
           rows={4}
           placeholder="What are you working toward? Auditions, technique, choreography…"
         />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="parentEmail">Parent email</Label>
+        <Input
+          id="parentEmail"
+          type="email"
+          value={parentEmail}
+          onChange={(e) => setParentEmail(e.target.value)}
+          placeholder="parent@example.com"
+        />
+        <p className="text-xs text-muted-foreground">
+          If a parent manages your account, add their email here. They can sign in and view your bookings and credits.
+        </p>
       </div>
 
       <Button type="submit" disabled={isPending} className="w-fit">

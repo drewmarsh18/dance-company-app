@@ -27,7 +27,7 @@ export async function POST(req: Request) {
               ? `${pkg.name} — ${pkg.sessions} hourly private sessions`
               : `${perPrivate!.name} private session`,
             description: pkg
-              ? `${pkg.sessions} one-on-one prep sessions with your choice of Prep Master`
+              ? `${pkg.sessions} one-on-one prep sessions with your choice of PrepMaster`
               : `${perPrivate!.minutes}-minute one-on-one prep session`,
           },
         },

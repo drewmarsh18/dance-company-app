@@ -59,3 +59,14 @@ export const RADIUS = {
   lg: 16,
   full: 999,
 }
+
+export const FONTS = {
+  /** Geist — body text, matches web sans-serif */
+  sans: "Geist_400Regular",
+  sansMedium: "Geist_500Medium",
+  sansSemiBold: "Geist_600SemiBold",
+  sansBold: "Geist_700Bold",
+  /** Sora — headings, matches web font-heading */
+  heading: "Sora_600SemiBold",
+  headingBold: "Sora_700Bold",
+}

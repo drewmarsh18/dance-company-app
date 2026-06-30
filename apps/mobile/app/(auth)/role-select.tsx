@@ -36,7 +36,7 @@ export default function RoleSelectScreen() {
             <ShieldCheck size={28} color={COLORS.primary} />
           </View>
           <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>I'm a Prep Master</Text>
+            <Text style={styles.cardTitle}>I'm a PrepMaster</Text>
             <Text style={styles.cardSub}>Verify your identity to access the portal</Text>
           </View>
         </TouchableOpacity>

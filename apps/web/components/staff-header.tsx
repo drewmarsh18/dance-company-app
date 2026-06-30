@@ -111,7 +111,7 @@ export function StaffHeader({
                   />
                   <ViewOption
                     icon={<LayoutDashboard className="size-4" />}
-                    label="Prep Master"
+                    label="PrepMaster"
                     description="Portal & availability"
                     href="/portal"
                     active={currentView === "portal"}

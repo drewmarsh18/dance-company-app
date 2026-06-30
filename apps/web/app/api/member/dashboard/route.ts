@@ -16,10 +16,11 @@ export async function GET() {
 
   try {
     const resolvedUser = { id: session.user.id, email: session.user.email, name: session.user.name ?? "" }
-    const [profile, bookings, plans] = await Promise.all([
-      getOrCreateProfile({ resolvedUser }),
-      getBookingsForUserId(session.user.id),
-      getMyPlans(session.user.id),
+    const profile = await getOrCreateProfile({ resolvedUser })
+    const memberId = profile.effectiveUserId || session.user.id
+    const [bookings, plans] = await Promise.all([
+      getBookingsForUserId(memberId),
+      getMyPlans(memberId),
     ])
 
     const todayMs = new Date(new Date().toDateString()).getTime()
@@ -53,6 +54,8 @@ export async function GET() {
         phone: profile.phone,
         goals: profile.goals,
         creditsRemaining: profile.creditsRemaining,
+        parentEmail: profile.parentEmail,
+        isParentView: profile.isParentView,
       },
       plans,
       upcoming,

@@ -11,7 +11,7 @@ import { LogOut } from "lucide-react"
 
 const links = [
   { href: "/dashboard", label: "Home" },
-  { href: "/dashboard/coaches", label: "Prep Masters" },
+  { href: "/dashboard/coaches", label: "PrepMasters" },
   { href: "/dashboard/packages", label: "Packages" },
   { href: "/dashboard/profile", label: "Profile" },
 ]

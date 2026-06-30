@@ -4,7 +4,7 @@ import { randomUUID } from "crypto"
 import { db } from "@/lib/db"
 import { notification } from "@/lib/db/schema"
 import { eq, desc, and } from "drizzle-orm"
-import { getSessionUserWithRole } from "@/lib/roles"
+import { getSessionUserWithRole, homePathForRole } from "@/lib/roles"
 import { sendPushToUser } from "@/lib/push"
 
 export type AppNotification = {
@@ -14,6 +14,7 @@ export type AppNotification = {
   body: string
   read: boolean
   bookingId: string | null
+  link: string
   createdAt: Date
 }
 
@@ -27,7 +28,11 @@ export async function getMyNotifications(): Promise<AppNotification[]> {
     .where(eq(notification.userId, user.id))
     .orderBy(desc(notification.createdAt))
     .limit(30)
-  return rows
+  const basePath = homePathForRole(user.role)
+  return rows.map((row) => ({
+    ...row,
+    link: row.bookingId ? `${basePath}?booking=${row.bookingId}` : basePath,
+  }))
 }
 
 /** Count unread notifications for the current user. */

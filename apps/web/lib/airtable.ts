@@ -1,8 +1,8 @@
 import "server-only"
 
 // Airtable backend client — single base ("CDP Payroll", AIRTABLE_BASE_ID).
-//  - Workers  -> prep master roster. Holds "Hourly Rate", which is NEVER
-//                returned to the app (not to dancers, not to prep masters).
+//  - Workers  -> PrepMaster roster. Holds "Hourly Rate", which is NEVER
+//                returned to the app (not to dancers, not to PrepMasters).
 //  - Members  -> dancer / client profiles.
 //  - Bookings -> session reservations. Contains NO pricing.
 // Auth (users/sessions) lives in Neon via Better Auth.
@@ -52,6 +52,7 @@ export type ClientFields = {
   Phone?: string
   Goals?: string
   "Credits Remaining"?: number
+  "Parent Email"?: string
 }
 
 export type { SessionType } from "@/lib/session-types"
@@ -62,12 +63,12 @@ export type BookingFields = {
   Name?: string
   "Client Email"?: string
   "User ID"?: string
-  "Prep Master Name"?: string
+  "PrepMaster Name"?: string
   Date?: string
   Time?: string
   Status?: string
   Notes?: string
-  "Prep Master Notes"?: string
+  "PrepMaster Notes"?: string
   "Cancellation Reason"?: string
   "Decline Reason"?: string
   "Session Type"?: string
@@ -191,9 +192,9 @@ async function destroy(table: string, id: string): Promise<void> {
 // Exposed so server actions can read/write the app tables directly.
 export const appBase = { list, create, update, get, destroy }
 
-// --- Prep Masters (from the Workers table) -----------------------------------
+// --- PrepMasters (from the Workers table) -----------------------------------
 
-// What the app exposes for a prep master. Deliberately omits Hourly Rate and
+// What the app exposes for a PrepMaster. Deliberately omits Hourly Rate and
 // every other payroll/sensitive field.
 export type PrepMaster = {
   id: string
@@ -206,7 +207,7 @@ export type PrepMaster = {
 function toPrepMaster(r: AirtableRecord<WorkerFields>): PrepMaster {
   return {
     id: r.id,
-    name: r.fields["Full Name"] ?? "Unnamed Prep Master",
+    name: r.fields["Full Name"] ?? "Unnamed PrepMaster",
     email: r.fields.Email ?? "",
     region: r.fields.Region ?? "",
     university: r.fields.University ?? "",
@@ -270,7 +271,7 @@ export async function getBookingsForPrepMaster(
 ): Promise<PrepMasterBooking[]> {
   const safeName = prepMasterName.replace(/'/g, "\\'")
   const records = await list<BookingFields>(TABLES.bookings, {
-    filterByFormula: `{Prep Master Name} = '${safeName}'`,
+    filterByFormula: `{PrepMaster Name} = '${safeName}'`,
     sort: [{ field: "Date", direction: "asc" }],
   })
 
@@ -288,7 +289,7 @@ export async function getBookingsForPrepMaster(
       time: r.fields.Time ?? "",
       status: r.fields.Status ?? "Pending",
       notes: r.fields.Notes ?? "",
-      prepMasterNotes: r.fields["Prep Master Notes"] ?? "",
+      prepMasterNotes: r.fields["PrepMaster Notes"] ?? "",
       declineReason: r.fields["Decline Reason"] ?? "",
       cancellationReason: r.fields["Cancellation Reason"] ?? "",
       dancerName: client?.name ?? "",
@@ -311,7 +312,7 @@ export async function getBookedSlots(
   const safeName = prepMasterName.replace(/'/g, "\\'")
   const safeDate = dateIso.replace(/'/g, "\\'")
   const records = await list<BookingFields>(TABLES.bookings, {
-    filterByFormula: `AND({Prep Master Name} = '${safeName}', {Date} = '${safeDate}')`,
+    filterByFormula: `AND({PrepMaster Name} = '${safeName}', {Date} = '${safeDate}')`,
     revalidate: 5,
   })
   return records
@@ -321,7 +322,7 @@ export async function getBookedSlots(
 }
 
 /**
- * Returns a map of date (YYYY-MM-DD) -> booked time slots for a prep master,
+ * Returns a map of date (YYYY-MM-DD) -> booked time slots for a PrepMaster,
  * across all their bookings. Used to grey out taken slots in the booking flow.
  */
 export async function getUpcomingBookedSlots(
@@ -329,7 +330,7 @@ export async function getUpcomingBookedSlots(
 ): Promise<Record<string, string[]>> {
   const safeName = prepMasterName.replace(/'/g, "\\'")
   const records = await list<BookingFields>(TABLES.bookings, {
-    filterByFormula: `{Prep Master Name} = '${safeName}'`,
+    filterByFormula: `{PrepMaster Name} = '${safeName}'`,
     revalidate: 5,
   })
   const map: Record<string, string[]> = {}
@@ -442,7 +443,7 @@ export async function createMemberPlan(fields: {
   }
 }
 
-// --- Admin-only helpers (never call from dancer/prep master code paths) ------
+// --- Admin-only helpers (never call from dancer/PrepMaster code paths) ------
 
 export type AdminMember = {
   id: string
@@ -512,7 +513,7 @@ export async function adminGetAllBookings(): Promise<AdminBooking[]> {
       clientEmail: r.fields["Client Email"] ?? "",
       dancerName: client?.name ?? "",
       userId: uid,
-      prepMasterName: r.fields["Prep Master Name"] ?? "",
+      prepMasterName: r.fields["PrepMaster Name"] ?? "",
       date: r.fields.Date ?? "",
       time: r.fields.Time ?? "",
       status: r.fields.Status ?? "Pending",

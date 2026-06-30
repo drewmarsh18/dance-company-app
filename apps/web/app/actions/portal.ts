@@ -5,6 +5,7 @@ import { getSessionUserWithRole } from "@/lib/roles"
 import { TABLES, appBase, getPrepMasterByEmail, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { sendEmail, bookingUpdatedEmail } from "@/lib/email"
 import { createNotification } from "@/app/actions/notifications"
+import { fmtDate, fmtTime } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -29,7 +30,7 @@ export async function confirmBooking(
     if (!pm) return { ok: false, error: "Staff record not found." }
 
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
-      filterByFormula: `AND({Prep Master Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
+      filterByFormula: `AND({PrepMaster Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
       maxRecords: 1,
     })
     if (!records[0]) return { ok: false, error: "Booking not found." }
@@ -45,6 +46,7 @@ export async function confirmBooking(
         title: "Booking confirmed",
         body: `${pm.name} has confirmed your session on ${records[0].fields.Date ?? ""} at ${records[0].fields.Time ?? ""}.`,
         bookingId,
+        pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }
 
@@ -65,7 +67,7 @@ export async function adjustBooking(
     if (!pm) return { ok: false, error: "Staff record not found." }
 
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
-      filterByFormula: `AND({Prep Master Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
+      filterByFormula: `AND({PrepMaster Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
       maxRecords: 1,
     })
     if (!records[0]) return { ok: false, error: "Booking not found." }
@@ -102,16 +104,18 @@ export async function adjustBooking(
         title: "Session rescheduled",
         body: `${pm.name} has rescheduled your session to ${newDate} at ${newTime}.`,
         bookingId,
+        pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }
 
-    // In-app notification → prep master (themselves, as a confirmation)
+    // In-app notification → PrepMaster (themselves, as a confirmation)
     createNotification({
       userId: user.id,
       type: "booking_updated",
       title: "Session updated",
       body: `You rescheduled the session on ${newDate} at ${newTime}.`,
       bookingId,
+      pushData: { route: "/portal" },
     }).catch(() => {})
 
     // Email both parties — fire and forget
@@ -119,7 +123,7 @@ export async function adjustBooking(
       const { subject, html } = bookingUpdatedEmail({
         recipientName: dancerName,
         updatedByName: pm.name,
-        updatedByRole: "prep master",
+        updatedByRole: "PrepMaster",
         date: newDate,
         time: newTime,
         notes: newNotes,
@@ -129,7 +133,7 @@ export async function adjustBooking(
     const { subject, html } = bookingUpdatedEmail({
       recipientName: pm.name,
       updatedByName: pm.name,
-      updatedByRole: "prep master",
+      updatedByRole: "PrepMaster",
       date: newDate,
       time: newTime,
       notes: newNotes,
@@ -147,6 +151,7 @@ export async function adjustBooking(
 
 export async function declineBooking(
   bookingId: string,
+  reason: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const user = await assertPrepMaster()
@@ -154,22 +159,28 @@ export async function declineBooking(
     if (!pm) return { ok: false, error: "Staff record not found." }
 
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
-      filterByFormula: `AND({Prep Master Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
+      filterByFormula: `AND({PrepMaster Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
       maxRecords: 1,
     })
     if (!records[0]) return { ok: false, error: "Booking not found." }
 
-    await appBase.update<BookingFields>(TABLES.bookings, bookingId, { Status: "Cancelled" })
+    await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
+      Status: "Cancelled",
+      "Decline Reason": reason,
+    })
 
     // Notify member in-app
     const dancerUserId = records[0].fields["User ID"]
+    const dateLabel = fmtDate(records[0].fields.Date ?? "")
+    const timeLabel = fmtTime(records[0].fields.Time ?? "")
     if (dancerUserId) {
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
         title: "Booking declined",
-        body: `${pm.name} has declined your session request on ${records[0].fields.Date ?? ""} at ${records[0].fields.Time ?? ""}. Your credit has been refunded.`,
+        body: `${pm.name} has declined your session on ${dateLabel} at ${timeLabel}. Your credit has been refunded.`,
         bookingId,
+        pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }
 

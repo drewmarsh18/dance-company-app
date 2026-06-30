@@ -97,12 +97,12 @@ export function bookingConfirmationEmail({
     <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(dancerName)},</p>
     <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">Your booking request has been submitted! Here are the details:</p>
     ${sessionTable([
-      { label: "Prep Master", value: prepMasterName },
+      { label: "PrepMaster", value: prepMasterName },
       { label: "Date", value: date },
       { label: "Time", value: time },
     ])}
     <div style="font-size:13px;color:#6b7280;background:#f9fafb;border-left:3px solid #e91e8c;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.5">
-      Your booking is pending confirmation from your Prep Master. You will receive an email notification once they have confirmed your booking request.
+      Your booking is pending confirmation from your PrepMaster. You will receive an email notification once they have confirmed your booking request.
     </div>`
   return {
     subject: `Booking request received — ${date} at ${time}`,
@@ -186,7 +186,7 @@ export function bookingCancelledEmail({
     <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(dancerName)},</p>
     <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">Your session has been cancelled. Here's a summary:</p>
     ${sessionTable([
-      { label: "Prep Master", value: prepMasterName },
+      { label: "PrepMaster", value: prepMasterName },
       { label: "Date", value: date },
       { label: "Time", value: time },
     ])}
@@ -207,14 +207,14 @@ export function bookingUpdatedEmail({
 }: {
   recipientName: string
   updatedByName: string
-  updatedByRole: "member" | "prep master"
+  updatedByRole: "member" | "PrepMaster"
   date: string
   time: string
   notes?: string
 }) {
   const counterpart = updatedByRole === "member" ? updatedByName : updatedByName
   const rows = [
-    { label: updatedByRole === "prep master" ? "Prep Master" : "Member", value: counterpart },
+    { label: updatedByRole === "PrepMaster" ? "PrepMaster" : "Member", value: counterpart },
     { label: "Date", value: date },
     { label: "Time", value: time },
     ...(notes ? [{ label: "Notes", value: notes }] : []),

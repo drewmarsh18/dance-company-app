@@ -13,7 +13,7 @@ import { Search } from "lucide-react"
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "members", label: "Members" },
-  { id: "prep-masters", label: "Prep Masters" },
+  { id: "prep-masters", label: "PrepMasters" },
 ] as const
 
 type TabId = (typeof TABS)[number]["id"]
@@ -22,7 +22,7 @@ const SEARCHABLE_TABS = new Set<TabId>(["members", "prep-masters"])
 
 const SEARCH_PLACEHOLDERS: Partial<Record<TabId, string>> = {
   members: "Search members…",
-  "prep-masters": "Search Prep Masters…",
+  "prep-masters": "Search PrepMasters…",
 }
 
 type Props = {

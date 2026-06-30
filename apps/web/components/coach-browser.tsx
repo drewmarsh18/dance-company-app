@@ -102,7 +102,7 @@ export function CoachBrowser({ coaches }: { coaches: PrepMaster[] }) {
 
       {filtered.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
-          No Prep Masters for {selected}.
+          No PrepMasters for {selected}.
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

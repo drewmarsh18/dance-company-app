@@ -53,8 +53,8 @@ export default function AdminProfileScreen() {
           <TouchableOpacity style={styles.row} onPress={() => router.replace("/portal")} activeOpacity={0.7}>
             <View style={styles.rowIcon}><LayoutDashboard size={18} color={COLORS.primary} /></View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>Prep Master portal</Text>
-              <Text style={styles.rowSub}>See the app as a Prep Master</Text>
+              <Text style={styles.rowTitle}>PrepMaster portal</Text>
+              <Text style={styles.rowSub}>See the app as a PrepMaster</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -95,7 +95,7 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     avatarWrap: { alignItems: "center", gap: SPACING.sm, paddingTop: SPACING.lg },
     avatar: { width: 80, height: 80, borderRadius: RADIUS.full, backgroundColor: COLORS.primaryLight, alignItems: "center", justifyContent: "center" },
     avatarText: { fontSize: 28, fontWeight: "700", color: COLORS.primary },
-    name: { fontSize: 20, fontWeight: "700", color: COLORS.text },
+    name: { fontSize: 20, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_700Bold" },
     email: { fontSize: 14, color: COLORS.textMuted },
     roleBadge: { backgroundColor: COLORS.primaryLight, paddingHorizontal: 12, paddingVertical: 4, borderRadius: RADIUS.full },
     roleText: { fontSize: 12, fontWeight: "600", color: COLORS.primary },

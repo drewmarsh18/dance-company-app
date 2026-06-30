@@ -33,7 +33,7 @@ export default function MemberPlansScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Choose your training plan</Text>
-          <Text style={styles.subtitle}>Every plan includes private one-on-one sessions with your choice of Prep Master. Bundle hourly privates to drop your rate from $119 to $99 per session.</Text>
+          <Text style={styles.subtitle}>Every plan includes private one-on-one sessions with your choice of PrepMaster. Bundle hourly privates to drop your rate from $119 to $99 per session.</Text>
         </View>
 
         <View style={styles.section}>
@@ -83,19 +83,15 @@ export default function MemberPlansScreen() {
             const isLoading = loading === s.id
             return (
               <View key={s.id} style={styles.perPrivateCard}>
-                <View style={styles.perPrivateLeft}>
-                  <View style={styles.clockIcon}><Clock size={20} color={COLORS.textSecondary} /></View>
-                  <View>
-                    <Text style={styles.perPrivateName}>{s.name}</Text>
-                    <Text style={styles.perPrivateSub}>{s.minutes}-minute private session</Text>
-                  </View>
+                <View style={styles.clockIcon}><Clock size={20} color={COLORS.textSecondary} /></View>
+                <View style={styles.perPrivateInfo}>
+                  <Text style={styles.perPrivateName}>{s.name}</Text>
+                  <Text style={styles.perPrivateSub} numberOfLines={1}>{s.minutes}-minute private session</Text>
                 </View>
-                <View style={styles.perPrivateRight}>
-                  <Text style={styles.perPrivatePrice}>${s.price}</Text>
-                  <TouchableOpacity style={[styles.btn, styles.btnOutline, styles.btnSm, isLoading && styles.btnDisabled]} onPress={() => startCheckout(s.id, setLoading)} disabled={!!loading} activeOpacity={0.7}>
-                    {isLoading ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Text style={styles.btnTextOutline}>Book single</Text>}
-                  </TouchableOpacity>
-                </View>
+                <Text style={styles.perPrivatePrice}>${s.price}</Text>
+                <TouchableOpacity style={[styles.btn, styles.btnOutline, styles.btnSm, isLoading && styles.btnDisabled]} onPress={() => startCheckout(s.id, setLoading)} disabled={!!loading} activeOpacity={0.7}>
+                  {isLoading ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Text style={styles.btnTextOutline}>Book single</Text>}
+                </TouchableOpacity>
               </View>
             )
           })}
@@ -110,10 +106,10 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     safe: { flex: 1, backgroundColor: COLORS.background },
     scroll: { padding: SPACING.md, gap: SPACING.lg, paddingBottom: SPACING.xl },
     header: { gap: SPACING.sm, alignItems: "center", paddingTop: SPACING.sm },
-    title: { fontSize: 24, fontWeight: "700", color: COLORS.text, textAlign: "center" },
+    title: { fontSize: 24, fontWeight: "700", color: COLORS.text, textAlign: "center", fontFamily: "Sora_700Bold" },
     subtitle: { fontSize: 13, color: COLORS.textMuted, textAlign: "center", lineHeight: 20 },
     section: { gap: SPACING.sm },
-    sectionTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text },
+    sectionTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_600SemiBold" },
     sectionSub: { fontSize: 13, color: COLORS.textMuted },
     packageGrid: { gap: SPACING.md },
     packageCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: SPACING.sm },
@@ -121,7 +117,7 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     popularBadge: { alignSelf: "center", backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 4, borderRadius: RADIUS.full, marginBottom: 2 },
     popularText: { fontSize: 11, fontWeight: "700", color: "#fff" },
     packageTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    packageName: { fontSize: 18, fontWeight: "700", color: COLORS.text },
+    packageName: { fontSize: 18, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_600SemiBold" },
     savingsBadge: { backgroundColor: COLORS.grayLight, paddingHorizontal: 10, paddingVertical: 3, borderRadius: RADIUS.full },
     savingsText: { fontSize: 12, fontWeight: "600", color: COLORS.textSecondary },
     packageType: { fontSize: 12, color: COLORS.textMuted },
@@ -140,12 +136,11 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     btnText: { fontSize: 14, fontWeight: "600" },
     btnTextPrimary: { color: "#fff" },
     btnTextOutline: { color: COLORS.text, fontSize: 13, fontWeight: "600" },
-    perPrivateCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: SPACING.sm },
-    perPrivateLeft: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, flex: 1 },
-    clockIcon: { width: 44, height: 44, borderRadius: RADIUS.full, backgroundColor: COLORS.grayLight, alignItems: "center", justifyContent: "center" },
-    perPrivateName: { fontSize: 16, fontWeight: "700", color: COLORS.text },
+    perPrivateCard: { flexDirection: "row", alignItems: "center", backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, gap: SPACING.sm },
+    clockIcon: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: COLORS.grayLight, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+    perPrivateInfo: { flex: 1, minWidth: 0 },
+    perPrivateName: { fontSize: 15, fontWeight: "700", color: COLORS.text },
     perPrivateSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
-    perPrivateRight: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
-    perPrivatePrice: { fontSize: 22, fontWeight: "700", color: COLORS.text },
+    perPrivatePrice: { fontSize: 20, fontWeight: "700", color: COLORS.text, flexShrink: 0 },
   })
 }

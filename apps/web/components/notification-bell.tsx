@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { Bell, CalendarDays, CalendarX, CalendarClock, CheckCheck } from "lucide-react"
 import { getMyNotifications, markNotificationRead, markAllRead, type AppNotification } from "@/app/actions/notifications"
 
@@ -27,6 +28,7 @@ export function NotificationBell({ initialCount }: { initialCount: number }) {
   const [loaded, setLoaded] = useState(false)
   const [, startTransition] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -51,6 +53,16 @@ export function NotificationBell({ initialCount }: { initialCount: number }) {
     await markNotificationRead(id)
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n))
     setUnread((v) => Math.max(0, v - 1))
+  }
+
+  async function handleNotificationClick(n: AppNotification) {
+    setOpen(false)
+    if (!n.read) {
+      markNotificationRead(n.id).catch(() => {})
+      setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x))
+      setUnread((v) => Math.max(0, v - 1))
+    }
+    router.push(n.link)
   }
 
   async function handleMarkAll() {
@@ -98,7 +110,7 @@ export function NotificationBell({ initialCount }: { initialCount: number }) {
               notifications.map((n) => (
                 <button
                   key={n.id}
-                  onClick={() => !n.read && handleMarkRead(n.id)}
+                  onClick={() => handleNotificationClick(n)}
                   className={`flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 ${n.read ? "opacity-60" : ""}`}
                 >
                   <div className="mt-0.5">

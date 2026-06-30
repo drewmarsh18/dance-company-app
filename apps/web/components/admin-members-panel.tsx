@@ -198,7 +198,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
 
         return (
           <Card key={member.id}>
-            <CardHeader className="pb-3">
+            <CardHeader className="cursor-pointer pb-3" onClick={() => setExpanded(isOpen ? null : member.id)}>
               <div className="flex items-center justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold">
@@ -231,7 +231,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                     variant="ghost"
                     size="icon"
                     aria-label={isOpen ? "Collapse" : "Expand"}
-                    onClick={() => setExpanded(isOpen ? null : member.id)}
+                    onClick={(e) => { e.stopPropagation(); setExpanded(isOpen ? null : member.id) }}
                   >
                     {isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
                   </Button>
@@ -429,7 +429,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                             className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
                           >
                             <div className="min-w-0">
-                              <span className="font-medium">{b.prepMasterName || "Prep Master"}</span>
+                              <span className="font-medium">{b.prepMasterName || "PrepMaster"}</span>
                               <span className="ml-2 text-muted-foreground">
                                 {b.date}{b.time ? ` · ${b.time}` : ""}
                               </span>

@@ -53,7 +53,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
   // Revenue = sum of per-session price based on session type
   const revenue = completed.reduce((sum, b) => sum + sessionRevenue(b.sessionType), 0)
 
-  // Pay owed = sum over each completed booking of that prep master's hourly rate
+  // Pay owed = sum over each completed booking of that PrepMaster's hourly rate
   const workerRateMap = new Map(workers.map((w) => [w.name, w.hourlyRate]))
   const payOwed = completed.reduce((sum, b) => sum + (workerRateMap.get(b.prepMasterName) ?? 0), 0)
   const margin = revenue - payOwed
@@ -62,7 +62,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
   const allCompleted = bookings.filter((b) => b.status.toLowerCase() !== "cancelled")
   const allRevenue = allCompleted.reduce((sum, b) => sum + sessionRevenue(b.sessionType), 0)
 
-  // Top Prep Masters this month by completed booking count
+  // Top PrepMasters this month by completed booking count
   const pmCounts = new Map<string, number>()
   for (const b of completed) {
     if (b.prepMasterName) pmCounts.set(b.prepMasterName, (pmCounts.get(b.prepMasterName) ?? 0) + 1)
@@ -119,12 +119,12 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Top Prep Masters this month */}
+        {/* Top PrepMasters this month */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Award className="size-4 text-primary" />
-              Top Prep Masters this month
+              Top PrepMasters this month
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -168,8 +168,8 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <RosterRow label="Total members" value={activeMembers} />
-            <RosterRow label="Active Prep Masters" value={activePMs} />
-            <RosterRow label="Inactive Prep Masters" value={workers.filter((w) => !w.active).length} />
+            <RosterRow label="Active PrepMasters" value={activePMs} />
+            <RosterRow label="Inactive PrepMasters" value={workers.filter((w) => !w.active).length} />
             <div className="mt-2 border-t pt-3">
               <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">All-time bookings by status</p>
               <div className="flex flex-col gap-1.5">
@@ -243,7 +243,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search member or Prep Master…"
+                placeholder="Search member or PrepMaster…"
                 value={sheetSearch}
                 onChange={(e) => setSheetSearch(e.target.value)}
                 className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

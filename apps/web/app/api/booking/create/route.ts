@@ -63,12 +63,12 @@ export async function POST(req: Request) {
   // Validate slot is within availability
   const prepMaster = await getPrepMaster(prepMasterId)
   if (!prepMaster) {
-    return NextResponse.json({ ok: false, error: "This Prep Master is no longer available." })
+    return NextResponse.json({ ok: false, error: "This PrepMaster is no longer available." })
   }
   const week = await getAvailabilityForEmail(prepMaster.email)
   const openSlots = slotsForDate(date, week)
   if (!openSlots.includes(time)) {
-    return NextResponse.json({ ok: false, error: "That time is outside this Prep Master's availability." })
+    return NextResponse.json({ ok: false, error: "That time is outside this PrepMaster's availability." })
   }
 
   // Prevent double-booking
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
   const record = await appBase.create<BookingFields>(TABLES.bookings, {
     "User ID": user.id,
     "Client Email": user.email,
-    "Prep Master Name": prepMasterName,
+    "PrepMaster Name": prepMasterName,
     Date: date,
     Time: time,
     Status: "Pending",

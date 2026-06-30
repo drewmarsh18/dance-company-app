@@ -40,7 +40,7 @@ export default function PortalProfileScreen() {
           <Text style={styles.avatarEmail}>{email}</Text>
           <View style={styles.roleBadge}>
             <ShieldCheck size={12} color={COLORS.primary} />
-            <Text style={styles.roleBadgeText}>Prep Master</Text>
+            <Text style={styles.roleBadgeText}>PrepMaster</Text>
           </View>
         </View>
 

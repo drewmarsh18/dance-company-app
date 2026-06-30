@@ -41,14 +41,14 @@ export async function GET(req: NextRequest) {
       // Notify dancer
       const dancerEmail = booking.fields["Client Email"]
       const dancerName = dancerEmail ?? "Member"
-      const pmName = booking.fields["Prep Master Name"] ?? "your Prep Master"
+      const pmName = booking.fields["PrepMaster Name"] ?? "your PrepMaster"
       const date = booking.fields.Date ?? ""
       const time = booking.fields.Time ?? ""
       if (dancerEmail) {
         const { sendEmail: _send, bookingConfirmationEmail } = await import("@/lib/email")
         const { subject, html } = bookingConfirmationEmail({ dancerName, prepMasterName: pmName, date, time })
         // Override subject/body to say "confirmed"
-        await sendEmail({ to: dancerEmail, subject: `Booking confirmed — ${date} at ${time}`, html: html.replace("Booking request received", "Booking confirmed").replace("Your booking request has been submitted!", "Great news — your session has been confirmed!").replace("Your booking is pending confirmation from your Prep Master. You will receive an email notification once they have confirmed your booking request.", "See you there! Need to cancel? Please do so at least 24 hours in advance to get your credit back.") })
+        await sendEmail({ to: dancerEmail, subject: `Booking confirmed — ${date} at ${time}`, html: html.replace("Booking request received", "Booking confirmed").replace("Your booking request has been submitted!", "Great news — your session has been confirmed!").replace("Your booking is pending confirmation from your PrepMaster. You will receive an email notification once they have confirmed your booking request.", "See you there! Need to cancel? Please do so at least 24 hours in advance to get your credit back.") })
       }
 
       return new NextResponse(
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
 
       // Notify dancer
       if (dancerEmail) {
-        const pmName = booking.fields["Prep Master Name"] ?? "your Prep Master"
+        const pmName = booking.fields["PrepMaster Name"] ?? "your PrepMaster"
         const date = booking.fields.Date ?? ""
         const time = booking.fields.Time ?? ""
         const { subject, html } = bookingCancelledEmail({

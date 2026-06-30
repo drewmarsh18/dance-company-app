@@ -18,7 +18,7 @@ export default function AdminLayout() {
       >
         <Tabs.Screen name="index" options={{ title: "Overview", tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size} /> }} />
         <Tabs.Screen name="members" options={{ title: "Members", tabBarIcon: ({ color, size }) => <Users color={color} size={size} /> }} />
-        <Tabs.Screen name="prep-masters" options={{ title: "Prep Masters", tabBarIcon: ({ color, size }) => <Star color={color} size={size} /> }} />
+        <Tabs.Screen name="prep-masters" options={{ title: "PrepMasters", tabBarIcon: ({ color, size }) => <Star color={color} size={size} /> }} />
         <Tabs.Screen name="profile" options={{ title: "Profile", tabBarIcon: ({ color, size }) => <CircleUserRound color={color} size={size} /> }} />
       </Tabs>
     </AdminProvider>

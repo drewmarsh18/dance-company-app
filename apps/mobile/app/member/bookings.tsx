@@ -23,7 +23,7 @@ function BookingCard({ booking, onPress }: { booking: Booking; onPress?: () => v
   const inner = (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md }}>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>{booking.prepMasterName || "Prep Master"}</Text>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>{booking.prepMasterName || "PrepMaster"}</Text>
         <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{formatDate(booking.date)}{booking.time ? ` · ${formatTime(booking.time)}` : ""}</Text>
         {booking.sessionType ? <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{booking.sessionType}</Text> : null}
       </View>
@@ -121,7 +121,7 @@ export default function MemberBookingsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={["top"]}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm }}>
-        <Text style={{ fontSize: 26, fontWeight: "700", color: COLORS.text }}>My Bookings</Text>
+        <Text style={{ fontSize: 26, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_700Bold" }}>My Bookings</Text>
         <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full }} onPress={() => router.push("/member/book" as any)} activeOpacity={0.7}>
           <Plus size={16} color="#fff" />
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>New Booking</Text>

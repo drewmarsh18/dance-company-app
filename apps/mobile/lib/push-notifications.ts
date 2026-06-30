@@ -97,8 +97,12 @@ export function addNotificationResponseListener(
   }
 }
 
-/** Handle a notification action response (approve/deny booking). */
-export async function handleNotificationResponse(response: any): Promise<void> {
+/** Handle a notification tap or action response.
+ *  Pass a `navigate` callback so the caller (RootLayout) can drive routing. */
+export async function handleNotificationResponse(
+  response: any,
+  navigate?: (route: string) => void,
+): Promise<void> {
   const actionId = response?.actionIdentifier
   const data = response?.notification?.request?.content?.data as Record<string, unknown> | undefined
 
@@ -108,5 +112,8 @@ export async function handleNotificationResponse(response: any): Promise<void> {
       : (data?.denyUrl as string)
     if (!url) return
     try { await fetch(url) } catch {}
+  } else if (navigate && data?.route) {
+    // Default tap — go to the booking's home screen
+    navigate(data.route as string)
   }
 }

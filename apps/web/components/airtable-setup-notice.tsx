@@ -14,14 +14,14 @@ export function AirtableSetupNotice() {
         <p>
           You&apos;re signed in, but the app can&apos;t reach Airtable yet. Add
           your <code className="rounded bg-muted px-1">AIRTABLE_BASE_ID</code> to
-          the project environment variables to activate Prep Masters, Clients,
+          the project environment variables to activate PrepMasters, Clients,
           and Bookings.
         </p>
         <div>
           <p className="font-medium text-foreground">Expected tables &amp; fields:</p>
           <ul className="mt-2 flex flex-col gap-2">
             <li>
-              <span className="font-medium text-foreground">Prep Masters</span> —
+              <span className="font-medium text-foreground">PrepMasters</span> —
               Name, Email, Pay Rate, Specialties, Bio, Photo, Active
             </li>
             <li>
@@ -30,7 +30,7 @@ export function AirtableSetupNotice() {
             </li>
             <li>
               <span className="font-medium text-foreground">Bookings</span> —
-              Client Email, User ID, Prep Master, Prep Master Name, Date, Time,
+              Client Email, User ID, PrepMaster, PrepMaster Name, Date, Time,
               Status, Notes
             </li>
           </ul>

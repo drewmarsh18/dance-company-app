@@ -118,7 +118,7 @@ export function BookingRow({ booking, availability }: Props) {
               </span>
             </div>
             <div>
-              <p className="font-medium">{booking.prepMasterName || "Prep Master"}</p>
+              <p className="font-medium">{booking.prepMasterName || "PrepMaster"}</p>
               <p className="text-sm text-muted-foreground">
                 {displayFormatted}{localTime ? <> · <LocalTime slot={localTime} dateIso={localDate} /></> : ""}
               </p>

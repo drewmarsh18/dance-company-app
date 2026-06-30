@@ -58,7 +58,7 @@ export default async function BookPage({
           <Button asChild variant="ghost" size="sm">
             <Link href="/dashboard/coaches">
               <ArrowLeft className="size-4" />
-              All Prep Masters
+              All PrepMasters
             </Link>
           </Button>
         </div>
@@ -114,7 +114,7 @@ function NoCreditsNotice() {
           </p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
             Booking a private session costs 1 credit. Purchase a package to keep
-            training with your Prep Masters.
+            training with your PrepMasters.
           </p>
         </div>
         <Button asChild>
@@ -142,7 +142,7 @@ function NoAvailabilityNotice({ name }: { name: string }) {
           </p>
         </div>
         <Button asChild variant="outline">
-          <Link href="/dashboard/coaches">Browse other Prep Masters</Link>
+          <Link href="/dashboard/coaches">Browse other PrepMasters</Link>
         </Button>
       </CardContent>
     </Card>

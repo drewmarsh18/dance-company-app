@@ -83,7 +83,7 @@ export async function invitePrepMaster(input: {
     return { ok: true }
   } catch (err) {
     const message =
-      err instanceof Error ? err.message : "Failed to invite Prep Master."
+      err instanceof Error ? err.message : "Failed to invite PrepMaster."
     return { ok: false, error: message }
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { X, CalendarClock, Calendar, Clock, Package, StickyNote } from "lucide-react-native"
+import { X, CalendarClock, Calendar, Clock, Package, StickyNote, ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
@@ -32,12 +32,154 @@ export function formatTime(timeStr: string) {
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
 }
 
+// --- Availability helpers (mirrors apps/web/lib/availability.ts) ---
+type DayAvailability = { dayOfWeek: number; enabled: boolean; startTime: string; endTime: string }
+
+function to12Hour(hhmm: string): string {
+  const [hStr, mStr] = hhmm.split(":")
+  let h = Number(hStr)
+  const m = mStr ?? "00"
+  const period = h >= 12 ? "PM" : "AM"
+  if (h === 0) h = 12
+  else if (h > 12) h -= 12
+  return `${h}:${m} ${period}`
+}
+
+function generateHourlySlots(startTime: string, endTime: string): string[] {
+  const start = Number(startTime.split(":")[0])
+  const end = Number(endTime.split(":")[0])
+  const slots: string[] = []
+  for (let h = start; h < end; h++) {
+    slots.push(to12Hour(`${String(h).padStart(2, "0")}:00`))
+  }
+  return slots
+}
+
+function slotsForDate(dateIso: string, week: DayAvailability[]): string[] {
+  const day = new Date(`${dateIso}T00:00:00`).getDay()
+  const config = week.find((w) => w.dayOfWeek === day)
+  if (!config || !config.enabled) return []
+  return generateHourlySlots(config.startTime, config.endTime)
+}
+// ---
+
+const WEEK_DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
+function MiniCalendar({
+  selectedDate, onSelect, year, month, onPrev, onNext, COLORS, styles,
+}: {
+  selectedDate: string; onSelect: (d: string) => void
+  year: number; month: number; onPrev: () => void; onNext: () => void
+  COLORS: any; styles: any
+}) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells: (number | null)[] = []
+  for (let i = 0; i < firstDay; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+  while (cells.length % 7 !== 0) cells.push(null)
+  function pad2(n: number) { return String(n).padStart(2, "0") }
+
+  return (
+    <View style={styles.calendarWrap}>
+      <View style={styles.calNavRow}>
+        <TouchableOpacity onPress={onPrev} hitSlop={8} style={styles.calNavBtn}>
+          <ChevronLeft size={18} color={COLORS.text} />
+        </TouchableOpacity>
+        <Text style={styles.calMonthLabel}>{MONTH_NAMES[month]} {year}</Text>
+        <TouchableOpacity onPress={onNext} hitSlop={8} style={styles.calNavBtn}>
+          <ChevronRight size={18} color={COLORS.text} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.calGrid}>
+        {WEEK_DAYS.map((wd) => (
+          <View key={wd} style={styles.calDayHeader}>
+            <Text style={styles.calDayHeaderText}>{wd}</Text>
+          </View>
+        ))}
+        {cells.map((day, i) => {
+          if (!day) return <View key={`e-${i}`} style={styles.calCell} />
+          const dateStr = `${year}-${pad2(month + 1)}-${pad2(day)}`
+          const cellDate = new Date(year, month, day)
+          const isPast = cellDate < today
+          const isSelected = dateStr === selectedDate
+          const isToday = cellDate.getTime() === today.getTime()
+          return (
+            <TouchableOpacity
+              key={dateStr}
+              style={[styles.calCell, isSelected && styles.calCellSelected, isToday && !isSelected && styles.calCellToday]}
+              onPress={() => !isPast && onSelect(dateStr)}
+              activeOpacity={isPast ? 1 : 0.7}
+              disabled={isPast}
+            >
+              <Text style={[styles.calCellText, isPast && styles.calCellPast, isSelected && styles.calCellTextSelected]}>
+                {day}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
+      </View>
+    </View>
+  )
+}
+
+function TimeDropdown({
+  value, options, loading, onSelect, COLORS, styles,
+}: {
+  value: string; options: string[]; loading: boolean
+  onSelect: (t: string) => void; COLORS: any; styles: any
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.dropdownTrigger}
+        onPress={() => !loading && options.length > 0 && setOpen(true)}
+        activeOpacity={0.7}
+        disabled={loading || options.length === 0}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        ) : (
+          <Text style={value ? styles.dropdownValue : styles.dropdownPlaceholder}>
+            {value || (options.length === 0 ? "No times available this day" : "Select a time")}
+          </Text>
+        )}
+        {!loading && options.length > 0 && <ChevronDown size={16} color={COLORS.textMuted} />}
+      </TouchableOpacity>
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <TouchableOpacity style={styles.dropdownOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
+          <View style={styles.dropdownList}>
+            <ScrollView bounces={false}>
+              {options.map((opt) => {
+                const selected = opt === value
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[styles.dropdownItem, selected && styles.dropdownItemSelected]}
+                    onPress={() => { onSelect(opt); setOpen(false) }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.dropdownItemText, selected && styles.dropdownItemTextSelected]}>{opt}</Text>
+                    {selected && <Check size={14} color={COLORS.primary} />}
+                  </TouchableOpacity>
+                )
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  )
+}
+
 export function BookingDetailModal({
-  booking,
-  onClose,
-  onCancelled,
-  onRescheduled,
-  onRefresh,
+  booking, onClose, onCancelled, onRescheduled, onRefresh,
 }: {
   booking: Booking | null
   onClose: () => void
@@ -53,15 +195,60 @@ export function BookingDetailModal({
   const [editNotes, setEditNotes] = useState("")
   const [cancelReason, setCancelReason] = useState("")
   const [loading, setLoading] = useState(false)
+  const [calYear, setCalYear] = useState(new Date().getFullYear())
+  const [calMonth, setCalMonth] = useState(new Date().getMonth())
+  const [availWeek, setAvailWeek] = useState<DayAvailability[]>([])
+  const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({})
+  const [availLoading, setAvailLoading] = useState(false)
 
   useEffect(() => {
     if (booking) {
       setEditDate(booking.date)
-      setEditTime(booking.time)
+      setEditTime(booking.time && /am|pm/i.test(booking.time) ? booking.time : formatTime(booking.time))
       setEditNotes(booking.notes ?? "")
       setMode("view")
+      setAvailWeek([])
+      setBookedSlots({})
+      if (booking.date) {
+        const d = new Date(`${booking.date}T00:00:00`)
+        if (!isNaN(d.getTime())) { setCalYear(d.getFullYear()); setCalMonth(d.getMonth()) }
+      }
     }
   }, [booking])
+
+  // Fetch PrepMaster availability when entering reschedule mode
+  async function loadAvailability() {
+    if (!booking?.prepMasterName || availWeek.length > 0) return
+    setAvailLoading(true)
+    try {
+      const { data: coachesData } = await authClient.$fetch(`${API_BASE}/api/booking/coaches`)
+      const coaches = (coachesData as any)?.coaches ?? []
+      const coach = coaches.find((c: any) =>
+        c.name?.toLowerCase() === booking.prepMasterName.toLowerCase()
+      )
+      if (!coach?.id) return
+      const { data: detail } = await authClient.$fetch(`${API_BASE}/api/booking/coaches/${coach.id}`)
+      if (detail) {
+        setAvailWeek((detail as any).week ?? [])
+        setBookedSlots((detail as any).bookedSlots ?? {})
+      }
+    } catch { /* availability unavailable — dropdown will show generic message */ }
+    finally { setAvailLoading(false) }
+  }
+
+  function enterReschedule() {
+    setMode("reschedule")
+    loadAvailability()
+  }
+
+  // Compute available time slots for the selected date
+  const availableSlots: string[] = editDate && availWeek.length > 0
+    ? slotsForDate(editDate, availWeek).filter((s) => {
+        const taken = bookedSlots[editDate] ?? []
+        // Exclude currently-booked slot only if it's a different booking (allow keeping same time)
+        return !taken.includes(s) || (booking?.date === editDate && booking?.time === s)
+      })
+    : []
 
   if (!booking) return null
 
@@ -80,23 +267,24 @@ export function BookingDetailModal({
     return (sessionDate.getTime() - Date.now()) < 24 * 60 * 60 * 1000
   }
 
+  function prevMonth() {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) }
+    else setCalMonth(m => m - 1)
+  }
+  function nextMonth() {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1) }
+    else setCalMonth(m => m + 1)
+  }
+
   async function handleCancel() {
-    const within24 = isWithin24Hours()
     Alert.alert(
       "Cancel booking",
-      within24
+      isWithin24Hours()
         ? "This session is within 24 hours. If canceled, your credit will not be refunded."
         : "Your session credit will be returned to your account.",
       [
         { text: "Keep booking", style: "cancel" },
-        {
-          text: "Continue",
-          style: "destructive",
-          onPress: () => {
-            setCancelReason("")
-            setMode("cancel-reason")
-          },
-        },
+        { text: "Continue", style: "destructive", onPress: () => { setCancelReason(""); setMode("cancel-reason") } },
       ]
     )
   }
@@ -116,7 +304,7 @@ export function BookingDetailModal({
   }
 
   async function handleReschedule() {
-    if (!editDate || !editTime) { Alert.alert("Missing info", "Please enter both a date and time."); return }
+    if (!editDate || !editTime) { Alert.alert("Missing info", "Please choose both a date and time."); return }
     setLoading(true)
     try {
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/member/bookings/${booking.id}`, {
@@ -133,13 +321,15 @@ export function BookingDetailModal({
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={styles.modalSafe} edges={["top"]}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>{mode === "reschedule" ? "Reschedule" : mode === "cancel-reason" ? "Cancel booking" : "Session details"}</Text>
+          <Text style={styles.modalTitle}>
+            {mode === "reschedule" ? "Reschedule" : mode === "cancel-reason" ? "Cancel booking" : "Session details"}
+          </Text>
           <TouchableOpacity onPress={onClose} hitSlop={8}><X size={22} color={COLORS.text} /></TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={styles.modalScroll}>
           {mode === "cancel-reason" ? (
             <>
-              <Text style={styles.rescheduleNote}>Please let us know why you're cancelling this session. This helps your Prep Master prepare.</Text>
+              <Text style={styles.rescheduleNote}>Please let us know why you're cancelling this session. This helps your PrepMaster prepare.</Text>
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Cancellation reason</Text>
                 <TextInput
@@ -167,7 +357,7 @@ export function BookingDetailModal({
               <View style={styles.detailCard}>
                 <View style={styles.detailRow}>
                   <CalendarClock size={15} color={COLORS.primary} />
-                  <Text style={styles.detailLabel}>Prep Master</Text>
+                  <Text style={styles.detailLabel}>PrepMaster</Text>
                   <Text style={styles.detailValue}>{booking.prepMasterName || "—"}</Text>
                 </View>
                 <View style={styles.detailRow}>
@@ -213,7 +403,7 @@ export function BookingDetailModal({
               </View>
               {!isCancelled && (
                 <View style={styles.actionButtons}>
-                  <TouchableOpacity style={styles.rescheduleBtn} onPress={() => setMode("reschedule")} activeOpacity={0.7}>
+                  <TouchableOpacity style={styles.rescheduleBtn} onPress={enterReschedule} activeOpacity={0.7}>
                     <Text style={styles.rescheduleBtnText}>Reschedule</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel} activeOpacity={0.7} disabled={loading}>
@@ -224,21 +414,66 @@ export function BookingDetailModal({
             </>
           ) : (
             <>
-              <Text style={styles.rescheduleNote}>Enter a new date and time. The booking will be reset to Pending until your Prep Master confirms.</Text>
+              <Text style={styles.rescheduleNote}>
+                Pick a new date and time. Times shown reflect {booking.prepMasterName}'s availability. The booking will reset to Pending until they confirm.
+              </Text>
+
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>New date (YYYY-MM-DD)</Text>
-                <TextInput style={styles.formInput} value={editDate} onChangeText={setEditDate} placeholder="2026-07-15" placeholderTextColor={COLORS.textMuted} autoCapitalize="none" />
+                <View style={styles.pickerLabelRow}>
+                  <Calendar size={14} color={COLORS.primary} />
+                  <Text style={styles.formLabel}>Date</Text>
+                  {editDate ? <Text style={styles.pickerSelected}>{formatDate(editDate)}</Text> : null}
+                </View>
+                <MiniCalendar
+                  selectedDate={editDate}
+                  onSelect={(d) => { setEditDate(d); setEditTime("") }}
+                  year={calYear}
+                  month={calMonth}
+                  onPrev={prevMonth}
+                  onNext={nextMonth}
+                  COLORS={COLORS}
+                  styles={styles}
+                />
               </View>
+
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>New time (e.g. 3:00 PM)</Text>
-                <TextInput style={styles.formInput} value={editTime} onChangeText={setEditTime} placeholder="3:00 PM" placeholderTextColor={COLORS.textMuted} autoCapitalize="none" />
+                <View style={styles.pickerLabelRow}>
+                  <Clock size={14} color={COLORS.primary} />
+                  <Text style={styles.formLabel}>Time</Text>
+                </View>
+                <TimeDropdown
+                  value={editTime}
+                  options={availableSlots}
+                  loading={availLoading || (!!editDate && availWeek.length === 0 && availLoading)}
+                  onSelect={setEditTime}
+                  COLORS={COLORS}
+                  styles={styles}
+                />
+                {!availLoading && editDate && availWeek.length > 0 && availableSlots.length === 0 && (
+                  <Text style={styles.noSlotsNote}>{booking.prepMasterName} has no availability on this day. Please pick a different date.</Text>
+                )}
               </View>
+
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Notes (optional)</Text>
-                <TextInput style={[styles.formInput, styles.formTextarea]} value={editNotes} onChangeText={setEditNotes} placeholder="Any notes for your session…" placeholderTextColor={COLORS.textMuted} multiline numberOfLines={3} />
+                <TextInput
+                  style={[styles.formInput, styles.formTextarea]}
+                  value={editNotes}
+                  onChangeText={setEditNotes}
+                  placeholder="Any notes for your session…"
+                  placeholderTextColor={COLORS.textMuted}
+                  multiline
+                  numberOfLines={3}
+                />
               </View>
+
               <View style={styles.actionButtons}>
-                <TouchableOpacity style={styles.rescheduleBtn} onPress={handleReschedule} activeOpacity={0.7} disabled={loading}>
+                <TouchableOpacity
+                  style={[styles.rescheduleBtn, (!editDate || !editTime) && { opacity: 0.5 }]}
+                  onPress={handleReschedule}
+                  activeOpacity={0.7}
+                  disabled={loading || !editDate || !editTime}
+                >
                   <Text style={styles.rescheduleBtnText}>{loading ? "Saving…" : "Save changes"}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.ghostBtn} onPress={() => setMode("view")} activeOpacity={0.7}>
@@ -274,9 +509,36 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     ghostBtn: { borderRadius: RADIUS.md, padding: SPACING.md, alignItems: "center", borderWidth: 1, borderColor: COLORS.border },
     ghostBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
     rescheduleNote: { fontSize: 13, color: COLORS.textMuted, lineHeight: 18 },
-    formGroup: { gap: 6 },
+    noSlotsNote: { fontSize: 12, color: COLORS.amber, lineHeight: 17 },
+    formGroup: { gap: 8 },
     formLabel: { fontSize: 13, fontWeight: "600", color: COLORS.text },
     formInput: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.sm, fontSize: 14, color: COLORS.text },
     formTextarea: { minHeight: 80, textAlignVertical: "top" },
+    pickerLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    pickerSelected: { fontSize: 13, color: COLORS.primary, fontWeight: "600", marginLeft: 4 },
+    // Calendar
+    calendarWrap: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.sm },
+    calNavRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+    calNavBtn: { padding: 4 },
+    calMonthLabel: { fontSize: 14, fontWeight: "700", color: COLORS.text },
+    calGrid: { flexDirection: "row", flexWrap: "wrap" },
+    calDayHeader: { width: "14.285714%", alignItems: "center", paddingVertical: 4 },
+    calDayHeaderText: { fontSize: 11, fontWeight: "600", color: COLORS.textMuted },
+    calCell: { width: "14.285714%", alignItems: "center", paddingVertical: 6 },
+    calCellSelected: { backgroundColor: COLORS.primary, borderRadius: RADIUS.full },
+    calCellToday: { borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.primary },
+    calCellText: { fontSize: 13, color: COLORS.text, fontWeight: "500" },
+    calCellPast: { color: COLORS.textMuted, opacity: 0.4 },
+    calCellTextSelected: { color: "#fff", fontWeight: "700" },
+    // Dropdown
+    dropdownTrigger: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.sm, paddingVertical: 12 },
+    dropdownValue: { fontSize: 14, color: COLORS.text, fontWeight: "500" },
+    dropdownPlaceholder: { fontSize: 14, color: COLORS.textMuted },
+    dropdownOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: SPACING.lg },
+    dropdownList: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, maxHeight: 320, overflow: "hidden" },
+    dropdownItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: SPACING.md, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+    dropdownItemSelected: { backgroundColor: COLORS.primaryLight },
+    dropdownItemText: { fontSize: 15, color: COLORS.text },
+    dropdownItemTextSelected: { color: COLORS.primary, fontWeight: "600" },
   })
 }

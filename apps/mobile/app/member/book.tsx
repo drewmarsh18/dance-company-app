@@ -67,7 +67,7 @@ function CoachStep({ coaches, onSelect }: { coaches: Coach[]; onSelect: (c: Coac
         {filtered.length === 0 ? (
           <View style={styles.emptyBox}>
             <Users size={32} color={COLORS.textMuted} />
-            <Text style={styles.emptyTitle}>No prep masters found</Text>
+            <Text style={styles.emptyTitle}>No PrepMasters found</Text>
           </View>
         ) : (
           filtered.map((coach) => {
@@ -111,9 +111,16 @@ function BookingStep({
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [notes, setNotes] = useState("")
+  const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60" | null>(null)
   const activePlans = useMemo(() => plans.filter((p) => planDisplayStatus(p) === "Active"), [plans])
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(activePlans.length === 1 ? activePlans[0].id : null)
   const showPlanPicker = activePlans.length > 1
+
+  const DURATIONS: { value: "private-30" | "private-45" | "private-60"; label: string }[] = [
+    { value: "private-30", label: "30 min" },
+    { value: "private-45", label: "45 min" },
+    { value: "private-60", label: "60 min" },
+  ]
 
   const currentSunday = useMemo(() => { const s = weekStart(today); s.setDate(s.getDate() + weekOffset * 7); return s }, [today, weekOffset])
   const weekDays = useMemo(() => buildWeekDays(currentSunday), [currentSunday])
@@ -147,11 +154,11 @@ function BookingStep({
 
   const effectivePlan = activePlans.find((p) => p.id === selectedPlanId) ?? (activePlans.length === 1 ? activePlans[0] : null)
   const noStructuredCredits = activePlans.length === 0 && credits > 0
-  const canConfirm = selectedDate && selectedTime && (effectivePlan || noStructuredCredits) && !confirming
+  const canConfirm = selectedDate && selectedTime && selectedDuration && (effectivePlan || noStructuredCredits) && !confirming
 
   function handleConfirm() {
-    if (!selectedDate || !selectedTime) return
-    onConfirm({ date: selectedDate, time: selectedTime, notes, planId: effectivePlan?.id, planSessions: effectivePlan?.sessions, sessionType: effectivePlan ? planSessionType(effectivePlan.planName) : "pack-hour" })
+    if (!selectedDate || !selectedTime || !selectedDuration) return
+    onConfirm({ date: selectedDate, time: selectedTime, notes, planId: effectivePlan?.id, planSessions: effectivePlan?.sessions, sessionType: selectedDuration })
   }
 
   const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
@@ -221,16 +228,31 @@ function BookingStep({
           </View>
         </View>
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>{showPlanPicker ? "3" : "2"}. Anything we should know?</Text>
+          <Text style={styles.sectionLabel}>{showPlanPicker ? "3" : "2"}. Session length</Text>
+          <View style={{ flexDirection: "row", gap: SPACING.sm }}>
+            {DURATIONS.map((d) => (
+              <TouchableOpacity
+                key={d.value}
+                style={[styles.durationBtn, selectedDuration === d.value && styles.durationBtnActive]}
+                onPress={() => setSelectedDuration(d.value)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.durationBtnText, selectedDuration === d.value && { color: COLORS.primary }]}>{d.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>{showPlanPicker ? "4" : "3"}. Anything we should know?</Text>
           <TextInput style={styles.notesInput} placeholder="Goals for the session, focus areas, choreography you're working on…" placeholderTextColor={COLORS.textMuted} value={notes} onChangeText={setNotes} multiline numberOfLines={3} textAlignVertical="top" />
         </View>
         <View style={styles.confirmBar}>
           {selectedDate && selectedTime ? (
             <View style={{ flex: 1 }}>
-              <Text style={styles.confirmDate}>{new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} · {selectedTime}</Text>
+              <Text style={styles.confirmDate}>{new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} · {selectedTime}{selectedDuration ? ` · ${DURATIONS.find((d) => d.value === selectedDuration)?.label}` : ""}</Text>
               <Text style={styles.confirmWith}>with {detail.coach.name}</Text>
             </View>
-          ) : <Text style={[styles.confirmWith, { flex: 1 }]}>Select a date and time to continue.</Text>}
+          ) : <Text style={[styles.confirmWith, { flex: 1 }]}>Select a date, time, and length to continue.</Text>}
           <TouchableOpacity style={[styles.confirmBtn, !canConfirm && { opacity: 0.4 }]} onPress={handleConfirm} disabled={!canConfirm} activeOpacity={0.8}>
             {confirming ? <ActivityIndicator size="small" color="#fff" /> : <><Check size={16} color="#fff" /><Text style={styles.confirmBtnText}>Confirm</Text></>}
           </TouchableOpacity>
@@ -262,7 +284,7 @@ export default function BookScreen() {
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/booking/coaches`)
       if (error || !data) throw new Error("Failed to load coaches")
       setCoaches((data as { coaches: Coach[] }).coaches)
-    } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not load prep masters.") }
+    } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not load PrepMasters.") }
     finally { setCoachesLoading(false) }
   }, [])
 
@@ -326,7 +348,7 @@ export default function BookScreen() {
     finally { setConfirming(false) }
   }, [selectedCoach, credits, router])
 
-  const title = step === "coaches" ? "Choose a Prep Master" : selectedCoach?.name ?? "Book a Session"
+  const title = step === "coaches" ? "Choose a PrepMaster" : selectedCoach?.name ?? "Book a Session"
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -399,5 +421,8 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     confirmWith: { fontSize: 12, color: COLORS.textMuted },
     confirmBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: 18, paddingVertical: 10, borderRadius: RADIUS.full },
     confirmBtnText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+    durationBtn: { flex: 1, alignItems: "center", paddingVertical: 12, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
+    durationBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
+    durationBtnText: { fontSize: 14, fontWeight: "700", color: COLORS.text },
   })
 }

@@ -39,7 +39,7 @@ function CreditsCard({ plans, credits }: { plans: MemberPlan[]; credits: number 
   const activeSingleCount = activePlans.filter((p) => p.sessions === 1).length
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { gap: SPACING.sm }]}>
       <View style={styles.cardHeaderRow}>
         <View style={styles.cardHeaderLeft}>
           <Ticket size={16} color={COLORS.primary} />
@@ -66,8 +66,8 @@ function CreditsCard({ plans, credits }: { plans: MemberPlan[]; credits: number 
           const isActive = status === "Active"
           const displayCount = !isActive ? plan.sessions : plan.sessions === 1 ? 1 : Math.max(0, credits - activeSingleCount)
           const expiryDate = plan.expiresAt ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null
-          const statusBg = status === "Active" ? COLORS.greenLight : COLORS.amberLight
-          const statusFg = status === "Active" ? COLORS.green : COLORS.amber
+          const statusBg = isActive ? COLORS.greenLight : COLORS.amberLight
+          const statusFg = isActive ? COLORS.green : COLORS.amber
           return (
             <View key={plan.id} style={styles.planItem}>
               <View style={styles.planRow}>
@@ -103,7 +103,7 @@ function BookingCard({ booking, dimmed, onPress }: { booking: Booking; dimmed?: 
   const content = (
     <View style={[styles.bookingCard, dimmed && { opacity: 0.65 }]}>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={styles.bookingCoach}>{booking.prepMasterName || "Prep Master"}</Text>
+        <Text style={styles.bookingCoach}>{booking.prepMasterName || "PrepMaster"}</Text>
         <Text style={styles.bookingDate}>{formatDate(booking.date)}{booking.time ? ` · ${formatTime(booking.time)}` : ""}</Text>
         {booking.sessionType ? <Text style={styles.bookingType}>{booking.sessionType}</Text> : null}
       </View>
@@ -185,7 +185,7 @@ export default function MemberHomeScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}>
         <View style={styles.header}>
-          <Text style={styles.greeting}>Welcome, {firstName}.</Text>
+          <Text style={styles.greeting}>Welcome, {firstName}!</Text>
           <Text style={styles.greetingSub}>Here's your training overview.</Text>
         </View>
         {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
@@ -195,7 +195,7 @@ export default function MemberHomeScreen() {
             <CalendarPlus size={18} color={COLORS.primary} />
             <View>
               <Text style={styles.bookCtaTitle}>Ready to train?</Text>
-              <Text style={styles.bookCtaSub}>Browse prep masters and book your next session.</Text>
+              <Text style={styles.bookCtaSub}>Browse PrepMasters and book your next session.</Text>
             </View>
           </View>
           <View style={styles.bookCtaBtn}><Text style={styles.bookCtaBtnText}>Book</Text></View>
@@ -206,7 +206,7 @@ export default function MemberHomeScreen() {
             <View style={styles.emptyCard}>
               <CalendarClock size={32} color={COLORS.textMuted} />
               <Text style={styles.emptyTitle}>No upcoming sessions</Text>
-              <Text style={styles.emptySub}>Book a private session with a prep master to get started.</Text>
+              <Text style={styles.emptySub}>Book a private session with a PrepMaster to get started.</Text>
             </View>
           ) : upcoming.map((b) => (
             <BookingCard key={b.id} booking={b} onPress={() => setSelectedBooking(b)} />
@@ -251,7 +251,7 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
     scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: SPACING.xl },
     header: { gap: 4 },
-    greeting: { fontSize: 26, fontWeight: "700", color: COLORS.text },
+    greeting: { fontSize: 26, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_700Bold" },
     greetingSub: { fontSize: 14, color: COLORS.textMuted },
     errorBox: { backgroundColor: COLORS.redLight, borderRadius: RADIUS.sm, padding: SPACING.sm },
     errorText: { fontSize: 13, color: COLORS.red },
@@ -280,7 +280,7 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     bookCtaBtnText: { fontSize: 13, fontWeight: "700", color: "#fff" },
     section: { gap: SPACING.sm },
     sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    sectionTitle: { fontSize: 17, fontWeight: "700", color: COLORS.text },
+    sectionTitle: { fontSize: 17, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_600SemiBold" },
     seeAll: { flexDirection: "row", alignItems: "center", gap: 2 },
     seeAllText: { fontSize: 13, color: COLORS.primary, fontWeight: "600" },
     emptyCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.xl, alignItems: "center", gap: SPACING.sm },

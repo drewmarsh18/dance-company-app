@@ -13,7 +13,7 @@ import type { ThemePreference } from "@/lib/theme-context"
 
 const API_BASE = "https://dance-company-app.vercel.app"
 
-type Profile = { recordId: string; name: string; email: string; phone: string; goals: string; creditsRemaining: number }
+type Profile = { recordId: string; name: string; email: string; phone: string; goals: string; creditsRemaining: number; parentEmail?: string; isParentView?: boolean }
 
 export default function MemberProfileScreen() {
   const { data: session } = useSession()
@@ -26,6 +26,7 @@ export default function MemberProfileScreen() {
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [goals, setGoals] = useState("")
+  const [parentEmail, setParentEmail] = useState("")
   const [dirty, setDirty] = useState(false)
   const [googleLinking, setGoogleLinking] = useState(false)
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
@@ -38,7 +39,7 @@ export default function MemberProfileScreen() {
       ])
       if (dashResult.error || !dashResult.data) throw new Error((dashResult.error as any)?.statusText ?? "Failed to load")
       const p = (dashResult.data as any).profile as Profile
-      setProfile(p); setName(p.name); setPhone(p.phone); setGoals(p.goals); setError(null)
+      setProfile(p); setName(p.name); setPhone(p.phone); setGoals(p.goals); setParentEmail(p.parentEmail ?? ""); setError(null)
       const accounts = (accountsResult.data as any) ?? []
       setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
     } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong.") }
@@ -52,7 +53,7 @@ export default function MemberProfileScreen() {
     try {
       const { error: err } = await authClient.$fetch(`${API_BASE}/api/member/profile`, {
         method: "PATCH",
-        body: JSON.stringify({ recordId: profile.recordId, name, phone, goals }),
+        body: JSON.stringify({ recordId: profile.recordId, name, phone, goals, parentEmail: parentEmail.trim() || null }),
         headers: { "Content-Type": "application/json" },
       })
       if (err) throw new Error((err as any)?.statusText ?? "Failed to save")
@@ -111,7 +112,10 @@ export default function MemberProfileScreen() {
             <Field label="Phone" value={phone} onChangeText={(v) => { setPhone(v); setDirty(true) }} keyboardType="phone-pad" COLORS={COLORS} styles={styles} />
             <View style={styles.divider} />
             <Field label="Goals" value={goals} onChangeText={(v) => { setGoals(v); setDirty(true) }} multiline placeholder="e.g. Improve turns, prepare for audition…" COLORS={COLORS} styles={styles} />
+            <View style={styles.divider} />
+            <Field label="Parent Email" value={parentEmail} onChangeText={(v) => { setParentEmail(v); setDirty(true) }} keyboardType="email-address" placeholder="parent@example.com" COLORS={COLORS} styles={styles} />
           </View>
+          {!!parentEmail && <Text style={[styles.avatarEmail, { marginTop: -8, fontSize: 11 }]}>Parent can sign in to view this account.</Text>}
 
           {dirty && (
             <TouchableOpacity style={[styles.btn, saving && styles.btnDisabled]} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
@@ -179,7 +183,7 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     safe: { flex: 1, backgroundColor: COLORS.background },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
     scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: SPACING.xl },
-    title: { fontSize: 26, fontWeight: "700", color: COLORS.text },
+    title: { fontSize: 26, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_700Bold" },
     errorBox: { backgroundColor: COLORS.redLight, borderRadius: RADIUS.sm, padding: SPACING.sm },
     errorText: { fontSize: 13, color: COLORS.red },
     avatarWrap: { alignItems: "center", gap: SPACING.sm, paddingVertical: SPACING.sm },

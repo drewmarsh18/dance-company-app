@@ -57,7 +57,7 @@ export default function VerifyPrepMasterScreen() {
             <ShieldCheck size={40} color={COLORS.primary} />
           </View>
           <Text style={styles.successTitle}>Verified!</Text>
-          <Text style={styles.successSub}>Welcome, {verifiedName}. You've been granted Prep Master access.</Text>
+          <Text style={styles.successSub}>Welcome, {verifiedName}. You've been granted PrepMaster access.</Text>
           <TouchableOpacity style={styles.btn} onPress={() => router.replace("/portal")} activeOpacity={0.8}>
             <Text style={styles.btnText}>Go to Portal</Text>
           </TouchableOpacity>
@@ -72,7 +72,7 @@ export default function VerifyPrepMasterScreen() {
         <View style={styles.centerContainer}>
           <Text style={styles.failTitle}>Verification Failed</Text>
           <Text style={styles.failSub}>
-            We couldn't match your name and university to a CDP Prep Master on file. Please double-check your details or contact CDP admin to get set up.
+            We couldn't match your name and university to a CDP PrepMaster on file. Please double-check your details or contact CDP admin to get set up.
           </Text>
           <TouchableOpacity style={styles.btn} onPress={() => setState("form")} activeOpacity={0.8}>
             <Text style={styles.btnText}>Try again</Text>
@@ -98,7 +98,7 @@ export default function VerifyPrepMasterScreen() {
             <Text style={styles.logo}>CDP</Text>
           </View>
 
-          <Text style={styles.heading}>Prep Master Verification</Text>
+          <Text style={styles.heading}>PrepMaster Verification</Text>
           <Text style={styles.sub}>
             Enter your full name and university exactly as they appear in our records.
           </Text>
@@ -139,7 +139,7 @@ export default function VerifyPrepMasterScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.replace("/member")} activeOpacity={0.8}>
-            <Text style={styles.secondaryBtnText}>I'm a member, not a Prep Master</Text>
+            <Text style={styles.secondaryBtnText}>I'm a member, not a PrepMaster</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

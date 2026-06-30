@@ -10,7 +10,7 @@ export default async function AdminPage() {
       <div>
         <h1 className="font-heading text-3xl font-bold tracking-tight">Admin</h1>
         <p className="mt-1 text-muted-foreground">
-          Manage member accounts, Prep Masters, and company performance.
+          Manage member accounts, PrepMasters, and company performance.
         </p>
       </div>
       <Suspense>

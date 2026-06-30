@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth"
 import { getPrepMasterByEmail, TABLES, appBase, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingUpdatedEmail } from "@/lib/email"
-import { isWithin24Hours } from "@/lib/utils"
+import { isWithin24Hours, fmtDate, fmtTime } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -14,7 +14,7 @@ async function getPmAndBooking(sessionEmail: string, bookingId: string) {
   if (!pm) return { pm: null, booking: null }
   const safe = pm.name.replace(/'/g, "\\'")
   const records = await appBase.list<BookingFields>(TABLES.bookings, {
-    filterByFormula: `AND({Prep Master Name} = '${safe}', RECORD_ID() = '${bookingId}')`,
+    filterByFormula: `AND({PrepMaster Name} = '${safe}', RECORD_ID() = '${bookingId}')`,
     maxRecords: 1,
   })
   return { pm, booking: records[0] ?? null }
@@ -42,15 +42,15 @@ export async function PATCH(
         userId: dancerUserId,
         type: "booking_confirmed",
         title: "Booking confirmed",
-        body: `${pm.name} has confirmed your session on ${booking.fields.Date ?? ""} at ${booking.fields.Time ?? ""}.`,
+        body: `${pm.name} has confirmed your session on ${fmtDate(booking.fields.Date ?? "")} at ${fmtTime(booking.fields.Time ?? "")}.`,
         bookingId: id,
+        pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }
     return NextResponse.json({ ok: true })
   }
 
   if (body.action === "decline") {
-    const within24 = isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "")
     await appBase.update<BookingFields>(TABLES.bookings, id, {
       Status: "Declined",
       ...(body.declineReason ? { "Decline Reason": body.declineReason } : {}),
@@ -58,8 +58,8 @@ export async function PATCH(
 
     const dancerUserId = booking.fields["User ID"]
 
-    // Refund credit if outside 24-hour window
-    if (!within24 && dancerUserId) {
+    // Always refund credit when PrepMaster declines — member shouldn't be penalized
+    if (dancerUserId) {
       const safeId = dancerUserId.replace(/'/g, "\\'")
       const clientRecords = await appBase.list<ClientFields>(TABLES.clients, {
         filterByFormula: `{User ID} = '${safeId}'`,
@@ -72,32 +72,28 @@ export async function PATCH(
           "Credits Remaining": current + 1,
         })
       }
-    }
-
-    if (dancerUserId) {
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
         title: "Booking declined",
-        body: within24
-          ? `${pm.name} has declined your session on ${booking.fields.Date ?? ""} at ${booking.fields.Time ?? ""}. No credit was refunded (within 24 hours).`
-          : `${pm.name} has declined your session on ${booking.fields.Date ?? ""} at ${booking.fields.Time ?? ""}. Your credit has been refunded.`,
+        body: `${pm.name} has declined your session on ${fmtDate(booking.fields.Date ?? "")} at ${fmtTime(booking.fields.Time ?? "")}. Your credit has been refunded.`,
         bookingId: id,
+        pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }
-    return NextResponse.json({ ok: true, creditRefunded: !within24 })
+    return NextResponse.json({ ok: true, creditRefunded: true })
   }
 
-  // Edit date/time/prep master notes
+  // Edit date/time/PrepMaster notes
   const update: Partial<BookingFields> = {}
   if (body.date) update.Date = body.date
   if (body.time) update.Time = body.time
-  if (body.prepMasterNotes !== undefined) update["Prep Master Notes"] = body.prepMasterNotes
+  if (body.prepMasterNotes !== undefined) update["PrepMaster Notes"] = body.prepMasterNotes
   await appBase.update<BookingFields>(TABLES.bookings, id, update)
 
   const newDate = body.date ?? booking.fields.Date ?? ""
   const newTime = body.time ?? booking.fields.Time ?? ""
-  const newNotes = body.prepMasterNotes !== undefined ? body.prepMasterNotes : (booking.fields["Prep Master Notes"] || undefined)
+  const newNotes = body.prepMasterNotes !== undefined ? body.prepMasterNotes : (booking.fields["PrepMaster Notes"] || undefined)
   const dancerEmail = booking.fields["Client Email"]
   const dancerUserId = booking.fields["User ID"]
 
@@ -116,8 +112,9 @@ export async function PATCH(
       userId: dancerUserId,
       type: "booking_updated",
       title: "Session rescheduled",
-      body: `${pm.name} has rescheduled your session to ${newDate} at ${newTime}.`,
+      body: `${pm.name} has rescheduled your session to ${fmtDate(newDate)} at ${fmtTime(newTime)}.`,
       bookingId: id,
+      pushData: { route: "/member/bookings" },
     }).catch(() => {})
   }
 
@@ -125,7 +122,7 @@ export async function PATCH(
     const { subject, html } = bookingUpdatedEmail({
       recipientName: dancerName,
       updatedByName: pm.name,
-      updatedByRole: "prep master",
+      updatedByRole: "PrepMaster",
       date: newDate,
       time: newTime,
       notes: newNotes,

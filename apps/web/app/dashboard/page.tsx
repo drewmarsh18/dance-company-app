@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic"
 
+import { redirect } from "next/navigation"
 import Link from "next/link"
 import { isAirtableConfigured } from "@/lib/airtable"
 import { getOrCreateProfile, getMyPlans } from "@/app/actions/profile"
@@ -31,6 +32,9 @@ export default async function DashboardPage() {
       </div>
     )
   }
+
+  const profileCheck = await getOrCreateProfile()
+  if (profileCheck.isNewProfile) redirect("/onboarding")
 
   let credits = 0
   let bookings: Booking[] = []

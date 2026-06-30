@@ -65,6 +65,13 @@ export function BookingFlow({
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [notes, setNotes] = useState("")
   const [selectedOption, setSelectedOption] = useState<CreditOption | null>(null)
+  const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60" | null>(null)
+
+  const DURATIONS: { value: "private-30" | "private-45" | "private-60"; label: string; sub: string }[] = [
+    { value: "private-30", label: "30 min", sub: "Quick focus session" },
+    { value: "private-45", label: "45 min", sub: "Standard session" },
+    { value: "private-60", label: "60 min", sub: "Full session" },
+  ]
 
   // Build credit options — every active plan is a selectable option
   const creditOptions = useMemo<CreditOption[]>(() => {
@@ -109,7 +116,7 @@ export function BookingFlow({
   }, [weekDays, week, bookedSlots, today])
 
   const canGoBack = weekOffset > 0
-  const canSubmit = selectedDate && selectedTime && (effectiveOption || noStructuredCredits) && !isPending
+  const canSubmit = selectedDate && selectedTime && selectedDuration && (effectiveOption || noStructuredCredits) && !isPending
 
   function selectSlot(iso: string, slot: string) {
     setSelectedDate(iso)
@@ -135,7 +142,7 @@ export function BookingFlow({
         notes,
         planId: plan?.id,
         planSessions: plan?.sessions,
-        sessionType: plan ? planSessionType(plan.planName) : "pack-hour",
+        sessionType: selectedDuration ?? (plan ? planSessionType(plan.planName) : "pack-hour"),
       })
       if (result.ok) {
         toast.success("Session booked!", {
@@ -314,10 +321,34 @@ export function BookingFlow({
         </div>
       </section>
 
+      {/* Session duration */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <StepBadge n={2 + stepOffset} done={!!selectedDuration} />
+          <h2 className="font-heading text-lg font-bold tracking-tight">Session length</h2>
+        </div>
+        <div className="flex gap-2">
+          {DURATIONS.map((d) => (
+            <button
+              key={d.value}
+              type="button"
+              onClick={() => setSelectedDuration(d.value)}
+              className={cn(
+                "flex flex-1 flex-col items-center rounded-lg border px-3 py-3 text-sm transition-colors",
+                selectedDuration === d.value ? "border-primary bg-primary/5" : "bg-card hover:border-primary/50",
+              )}
+            >
+              <span className={cn("font-bold text-base", selectedDuration === d.value ? "text-primary" : "text-foreground")}>{d.label}</span>
+              <span className="text-xs text-muted-foreground">{d.sub}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* Notes */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <StepBadge n={2 + stepOffset} done={false} />
+          <StepBadge n={3 + stepOffset} done={false} />
           <h2 className="font-heading text-lg font-bold tracking-tight">Anything we should know?</h2>
         </div>
         <div className="flex flex-col gap-2">
@@ -344,9 +375,10 @@ export function BookingFlow({
                   day: "numeric",
                 })}{" "}
                 · {selectedTime}
+                {selectedDuration && ` · ${DURATIONS.find((d) => d.value === selectedDuration)?.label}`}
               </p>
             ) : (
-              <p className="text-muted-foreground">Select a date and time to continue.</p>
+              <p className="text-muted-foreground">Select a date, time, and session length to continue.</p>
             )}
             <p className="text-muted-foreground">with {prepMasterName}</p>
           </div>

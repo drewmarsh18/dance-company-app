@@ -120,7 +120,7 @@ export default function AdminOverviewScreen() {
           </View>
         </View>
         <View style={styles.card}>
-          <View style={styles.cardHeader}><Award size={16} color={COLORS.primary} /><Text style={styles.cardTitle}>Top Prep Masters this month</Text></View>
+          <View style={styles.cardHeader}><Award size={16} color={COLORS.primary} /><Text style={styles.cardTitle}>Top PrepMasters this month</Text></View>
           {topPMs.length === 0 ? <Text style={styles.empty}>No completed sessions yet this month.</Text> : topPMs.map(([name, count], i) => (
             <View key={name} style={styles.rosterRow}>
               <Text style={styles.rosterLabel}>#{i + 1} {name}</Text>
@@ -131,8 +131,8 @@ export default function AdminOverviewScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}><Users size={16} color={COLORS.primary} /><Text style={styles.cardTitle}>Roster snapshot</Text></View>
           <RosterRow label="Total members" value={members.length} />
-          <RosterRow label="Active Prep Masters" value={workers.filter((w) => w.active).length} />
-          <RosterRow label="Inactive Prep Masters" value={workers.filter((w) => !w.active).length} />
+          <RosterRow label="Active PrepMasters" value={workers.filter((w) => w.active).length} />
+          <RosterRow label="Inactive PrepMasters" value={workers.filter((w) => !w.active).length} />
           <View style={styles.divider} />
           <Text style={styles.sectionLabel}>ALL-TIME BOOKINGS BY STATUS</Text>
           <RosterRow label="Completed" value={allCompleted.length} />
@@ -199,7 +199,7 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
     scroll: { padding: SPACING.md, gap: SPACING.md, paddingBottom: SPACING.xl },
     header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-    month: { fontSize: 22, fontWeight: "700", color: COLORS.text },
+    month: { fontSize: 22, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_700Bold" },
     subtitle: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
     liveBadge: { backgroundColor: COLORS.greenLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.full },
     liveText: { fontSize: 12, fontWeight: "600", color: COLORS.green },

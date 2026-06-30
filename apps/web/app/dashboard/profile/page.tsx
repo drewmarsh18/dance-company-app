@@ -59,7 +59,7 @@ function Header() {
         Your profile
       </h1>
       <p className="mt-1 text-muted-foreground">
-        Keep your details up to date so your Prep Masters know your goals.
+        Keep your details up to date so your PrepMasters know your goals.
       </p>
     </div>
   )

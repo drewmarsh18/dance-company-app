@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   }
 
   const prepMaster = await getPrepMasterByEmail(session.user.email)
-  if (!prepMaster) return NextResponse.json({ ok: false, error: "No prep master record found." })
+  if (!prepMaster) return NextResponse.json({ ok: false, error: "No PrepMaster record found." })
 
   const history = await getBookingsForPrepMaster(prepMaster.name)
   const knownEmails = new Set(history.map((b) => b.dancerEmail.toLowerCase()))
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
   await appBase.create<BookingFields>(TABLES.bookings, {
     "Client Email": dancerEmail,
     "User ID": dancer?.id ?? "",
-    "Prep Master Name": prepMaster.name,
+    "PrepMaster Name": prepMaster.name,
     Date: date,
     Time: time,
     Status: "Confirmed",

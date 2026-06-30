@@ -98,10 +98,10 @@ export function InviteManager({ initialInvites }: { initialInvites: Invite[] }) 
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserPlus className="size-5 text-primary" />
-            Invite a Prep Master
+            Invite a PrepMaster
           </CardTitle>
           <CardDescription>
-            Enter the Google email the Prep Master will sign in with. They will
+            Enter the Google email the PrepMaster will sign in with. They will
             only see their own appointments — never any pricing.
           </CardDescription>
         </CardHeader>
@@ -139,10 +139,10 @@ export function InviteManager({ initialInvites }: { initialInvites: Invite[] }) 
 
       <Card>
         <CardHeader>
-          <CardTitle>Prep Masters</CardTitle>
+          <CardTitle>PrepMasters</CardTitle>
           <CardDescription>
             {invites.length === 0
-              ? "No Prep Masters invited yet."
+              ? "No PrepMasters invited yet."
               : `${invites.length} invited`}
           </CardDescription>
         </CardHeader>

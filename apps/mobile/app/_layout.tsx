@@ -2,20 +2,37 @@ import { useEffect, useRef } from "react"
 import { Stack } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import * as WebBrowser from "expo-web-browser"
+import * as SplashScreen from "expo-splash-screen"
+import { useFonts } from "expo-font"
+import {
+  Sora_400Regular,
+  Sora_500Medium,
+  Sora_600SemiBold,
+  Sora_700Bold,
+} from "@expo-google-fonts/sora"
+import {
+  Geist_400Regular,
+  Geist_500Medium,
+  Geist_600SemiBold,
+  Geist_700Bold,
+} from "@expo-google-fonts/geist"
 import {
   registerForPushNotifications,
   registerNotificationCategories,
   addNotificationResponseListener,
   handleNotificationResponse,
 } from "@/lib/push-notifications"
+import { useRouter } from "expo-router"
 import { useSession } from "@/lib/auth-client"
 import { ThemeProvider, useTheme } from "@/lib/theme-context"
 
 WebBrowser.maybeCompleteAuthSession()
+SplashScreen.preventAutoHideAsync()
 
 function RootLayoutInner() {
   const { data: session } = useSession()
   const { isDark } = useTheme()
+  const router = useRouter()
   const listenerRef = useRef<{ remove: () => void } | null>(null)
 
   useEffect(() => {
@@ -28,7 +45,9 @@ function RootLayoutInner() {
   }, [session?.user?.id])
 
   useEffect(() => {
-    listenerRef.current = addNotificationResponseListener(handleNotificationResponse)
+    listenerRef.current = addNotificationResponseListener((response) =>
+      handleNotificationResponse(response, (route) => router.push(route as any))
+    )
     return () => listenerRef.current?.remove()
   }, [])
 
@@ -47,6 +66,23 @@ function RootLayoutInner() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Sora_400Regular,
+    Sora_500Medium,
+    Sora_600SemiBold,
+    Sora_700Bold,
+    Geist_400Regular,
+    Geist_500Medium,
+    Geist_600SemiBold,
+    Geist_700Bold,
+  })
+
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync()
+  }, [fontsLoaded])
+
+  if (!fontsLoaded) return null
+
   return (
     <ThemeProvider>
       <RootLayoutInner />

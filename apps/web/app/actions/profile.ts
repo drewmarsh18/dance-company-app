@@ -18,6 +18,12 @@ export type ClientProfile = {
   phone: string
   goals: string
   creditsRemaining: number
+  parentEmail: string
+  /** The User ID to use for data queries — differs from auth user.id when logged in as a parent */
+  effectiveUserId: string
+  isParentView: boolean
+  /** True only on the very first login — used to redirect new members to onboarding */
+  isNewProfile: boolean
 }
 
 async function findClientRecord(userId: string) {
@@ -34,6 +40,16 @@ async function findClientByEmail(email: string) {
   const safe = email.trim().toLowerCase().replace(/'/g, "\\'")
   const records = await appBase.list<ClientFields>(TABLES.clients, {
     filterByFormula: `LOWER({Email}) = '${safe}'`,
+    maxRecords: 1,
+    revalidate: 0,
+  })
+  return records[0] ?? null
+}
+
+async function findClientByParentEmail(parentEmail: string) {
+  const safe = parentEmail.trim().toLowerCase().replace(/'/g, "\\'")
+  const records = await appBase.list<ClientFields>(TABLES.clients, {
+    filterByFormula: `LOWER({"Parent Email"}) = '${safe}'`,
     maxRecords: 1,
     revalidate: 0,
   })
@@ -70,6 +86,27 @@ export async function getOrCreateProfile({
     }
   }
 
+  // Check if this user is a parent linked to a member account
+  let isParentView = false
+  if (!record) {
+    const byParentEmail = await findClientByParentEmail(user.email ?? "")
+    if (byParentEmail) {
+      isParentView = true
+      return {
+        recordId: byParentEmail.id,
+        name: byParentEmail.fields.Name ?? "",
+        email: byParentEmail.fields.Email ?? "",
+        phone: byParentEmail.fields.Phone ?? "",
+        goals: byParentEmail.fields.Goals ?? "",
+        creditsRemaining: byParentEmail.fields["Credits Remaining"] ?? 0,
+        parentEmail: byParentEmail.fields["Parent Email"] ?? user.email,
+        effectiveUserId: byParentEmail.fields["User ID"] ?? "",
+        isParentView: true,
+      }
+    }
+  }
+
+  let isNewProfile = false
   if (!record && !noCreate) {
     record = await appBase.create<ClientFields>(TABLES.clients, {
       Name: user.name,
@@ -77,6 +114,7 @@ export async function getOrCreateProfile({
       "User ID": user.id,
       "Credits Remaining": 0,
     })
+    isNewProfile = true
   }
 
   return {
@@ -86,6 +124,10 @@ export async function getOrCreateProfile({
     phone: record?.fields.Phone ?? "",
     goals: record?.fields.Goals ?? "",
     creditsRemaining: record?.fields["Credits Remaining"] ?? 0,
+    parentEmail: record?.fields["Parent Email"] ?? "",
+    effectiveUserId: record?.fields["User ID"] ?? user.id,
+    isParentView,
+    isNewProfile,
   }
 }
 
@@ -96,16 +138,18 @@ export async function getMyPlans(resolvedUserId?: string): Promise<MemberPlan[]>
 
 export async function updateProfile(input: {
   recordId: string
-  name: string
+  name?: string
   phone: string
   goals: string
+  parentEmail?: string
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     await getSessionUser()
     await appBase.update<ClientFields>(TABLES.clients, input.recordId, {
-      Name: input.name,
+      ...(input.name ? { Name: input.name } : {}),
       Phone: input.phone,
       Goals: input.goals,
+      ...(input.parentEmail !== undefined ? { "Parent Email": input.parentEmail } : {}),
     })
     revalidatePath("/dashboard/profile")
     return { ok: true }

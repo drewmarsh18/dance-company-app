@@ -8,11 +8,11 @@ export async function PATCH(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { recordId, name, phone, goals } = body
+  const { recordId, name, phone, goals, parentEmail } = body
 
   if (!recordId) return NextResponse.json({ error: "recordId required" }, { status: 400 })
 
-  const result = await updateProfile({ recordId, name: name ?? "", phone: phone ?? "", goals: goals ?? "" })
+  const result = await updateProfile({ recordId, name: name ?? "", phone: phone ?? "", goals: goals ?? "", parentEmail: parentEmail ?? undefined })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 })
 
   return NextResponse.json({ ok: true })

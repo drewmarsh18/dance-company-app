@@ -31,7 +31,7 @@ export default async function PortalLayout({ children }: { children: ReactNode }
     <div className="min-h-screen">
       <StaffHeader
         user={{ name: user.name, email: user.email, image: user.image }}
-        roleLabel={isAdmin ? "Admin" : "Prep Master"}
+        roleLabel={isAdmin ? "Admin" : "PrepMaster"}
         homeHref="/portal"
         isAdmin={isAdmin}
         notificationBell={<NotificationBell initialCount={unreadCount} />}
@@ -41,7 +41,7 @@ export default async function PortalLayout({ children }: { children: ReactNode }
           <div className="mx-auto max-w-5xl flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm text-primary font-medium">
               <ShieldCheck className="size-4" />
-              Previewing as Prep Master
+              Previewing as PrepMaster
             </div>
             <Link href="/admin" className="text-xs text-primary underline underline-offset-2 hover:no-underline">
               Back to Admin

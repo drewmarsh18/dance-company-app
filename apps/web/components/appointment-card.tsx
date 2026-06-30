@@ -30,7 +30,8 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
   const [editDate, setEditDate] = useState(booking.date)
   const [editTime, setEditTime] = useState(booking.time)
   const [editNotes, setEditNotes] = useState(booking.notes)
-  const [mode, setMode] = useState<"idle" | "edit">("idle")
+  const [mode, setMode] = useState<"idle" | "edit" | "confirm-decline">("idle")
+  const [declineReason, setDeclineReason] = useState("")
   const [isPending, startTransition] = useTransition()
 
   const isPendingStatus = status.toLowerCase() === "pending"
@@ -49,9 +50,13 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
   }
 
   function handleDecline() {
+    if (!declineReason.trim()) {
+      toast.error("Please enter a reason before declining.")
+      return
+    }
     startTransition(async () => {
-      const result = await declineBooking(booking.id)
-      if (result.ok) { setStatus("Cancelled"); toast.success("Session declined.") }
+      const result = await declineBooking(booking.id, declineReason.trim())
+      if (result.ok) { setStatus("Cancelled"); setMode("idle"); toast.success("Session declined.") }
       else toast.error(result.error)
     })
   }
@@ -132,7 +137,7 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
                 <Button size="sm" disabled={isPending} onClick={handleConfirm}>
                   <Check className="mr-1.5 size-4" />Confirm
                 </Button>
-                <Button size="sm" variant="outline" disabled={isPending} onClick={handleDecline}
+                <Button size="sm" variant="outline" disabled={isPending} onClick={() => { setDeclineReason(""); setMode("confirm-decline") }}
                   className="text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10">
                   <X className="mr-1.5 size-4" />Decline
                 </Button>
@@ -145,6 +150,34 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
             )}
           </div>
         </div>
+
+        {/* Decline reason panel */}
+        {mode === "confirm-decline" && (
+          <>
+            <Separator />
+            <div className="flex flex-col gap-3">
+              <p className="text-sm font-medium text-destructive">Decline this booking?</p>
+              <p className="text-xs text-muted-foreground">The member's credit will be refunded. Please provide a reason so they can rebook.</p>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`decline-reason-${booking.id}`}>Reason</Label>
+                <Textarea
+                  id={`decline-reason-${booking.id}`}
+                  placeholder="e.g. Schedule conflict, please rebook for next week…"
+                  rows={3}
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="destructive" disabled={isPending || !declineReason.trim()} onClick={handleDecline}>
+                  {isPending ? "Declining…" : "Confirm decline"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setMode("idle")}>Keep booking</Button>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Edit panel */}
         {mode === "edit" && (

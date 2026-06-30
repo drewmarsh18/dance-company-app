@@ -62,11 +62,11 @@ export const verification = pgTable("verification", {
 })
 
 // --- App data ---------------------------------------------------------------
-// Prep Masters (staff), Clients, and Bookings are stored in Airtable, which
+// PrepMasters (staff), Clients, and Bookings are stored in Airtable, which
 // acts as the backend of record. See lib/airtable.ts for those operations.
 
-// Tracks which emails have been invited to join as prep masters (staff).
-// Anyone who signs in with an email present here is treated as a prep master.
+// Tracks which emails have been invited to join as PrepMasters (staff).
+// Anyone who signs in with an email present here is treated as a PrepMaster.
 export const prepMasterInvite = pgTable("prep_master_invite", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
@@ -96,7 +96,7 @@ export const notification = pgTable(
   }),
 )
 
-// Stores Google Calendar OAuth tokens per prep master so we can create
+// Stores Google Calendar OAuth tokens per PrepMaster so we can create
 // calendar events on their behalf when a dancer books a session.
 export const googleCalendarToken = pgTable("google_calendar_token", {
   id: text("id").primaryKey(),
@@ -129,8 +129,8 @@ export const pushToken = pgTable(
   }),
 )
 
-// A prep master's weekly recurring availability. One row per (email, weekday).
-// Keyed by the prep master's email, which is both their login email and their
+// A PrepMaster's weekly recurring availability. One row per (email, weekday).
+// Keyed by the PrepMaster's email, which is both their login email and their
 // Workers-table email, so dancers can look up availability when booking.
 export const prepMasterAvailability = pgTable(
   "prep_master_availability",

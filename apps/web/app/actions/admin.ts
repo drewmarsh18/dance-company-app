@@ -139,7 +139,7 @@ export async function updatePrepMaster(
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Failed to update Prep Master.",
+      error: err instanceof Error ? err.message : "Failed to update PrepMaster.",
     }
   }
 }
@@ -182,7 +182,7 @@ export async function addPrepMaster(input: {
     // Create the Airtable Worker record
     const worker = await adminCreateWorker({ ...input, email })
 
-    // Create or reactivate the DB invite so they can sign in as a Prep Master
+    // Create or reactivate the DB invite so they can sign in as a PrepMaster
     const existing = await db
       .select({ id: prepMasterInvite.id, status: prepMasterInvite.status })
       .from(prepMasterInvite)
@@ -211,7 +211,7 @@ export async function addPrepMaster(input: {
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Failed to add Prep Master.",
+      error: err instanceof Error ? err.message : "Failed to add PrepMaster.",
     }
   }
 }

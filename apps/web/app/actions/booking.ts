@@ -24,7 +24,7 @@ import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
-import { isWithin24Hours } from "@/lib/utils"
+import { isWithin24Hours, fmtDate, fmtTime } from "@/lib/utils"
 import { sendEmail, bookingConfirmationEmail, bookingCancelledEmail, prepMasterBookingRequestEmail, bookingUpdatedEmail } from "@/lib/email"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
@@ -61,12 +61,12 @@ export async function getBookingsForUserId(userId: string): Promise<Booking[]> {
   })
   return records.map((r) => ({
     id: r.id,
-    prepMasterName: r.fields["Prep Master Name"] ?? "",
+    prepMasterName: r.fields["PrepMaster Name"] ?? "",
     date: r.fields.Date ?? "",
     time: r.fields.Time ?? "",
     status: r.fields.Status ?? "Pending",
     notes: r.fields.Notes ?? "",
-    prepMasterNotes: r.fields["Prep Master Notes"] ?? "",
+    prepMasterNotes: r.fields["PrepMaster Notes"] ?? "",
     sessionType: (r.fields["Session Type"] as string) ?? null,
   }))
 }
@@ -118,14 +118,15 @@ export async function cancelBooking(
       }
     }
 
-    const dateLabel = booking.fields.Date ?? "your session"
-    const pmName = booking.fields["Prep Master Name"] ?? "your Prep Master"
+    const dateLabel = fmtDate(booking.fields.Date ?? "") || "your session"
+    const pmName = booking.fields["PrepMaster Name"] ?? "your PrepMaster"
     createNotification({
       userId: user.id,
       type: "booking_cancelled",
       title: "Booking cancelled",
       body: `Your session with ${pmName} on ${dateLabel} has been cancelled.${!within24 ? "" : " No credit was refunded (within 24 hours)."}`,
       bookingId,
+      pushData: { route: "/member/bookings" },
     }).catch(() => {})
 
     if (user.email) {
@@ -165,7 +166,7 @@ export async function rescheduleBooking(
       return { ok: false, error: "Bookings within 24 hours cannot be rescheduled." }
     }
 
-    const prepMasterName = existing.fields["Prep Master Name"] ?? ""
+    const prepMasterName = existing.fields["PrepMaster Name"] ?? ""
     const booked = await getBookedSlots(prepMasterName, newDate)
     if (booked.includes(newTime)) {
       return { ok: false, error: "That time slot is already taken." }
@@ -181,8 +182,9 @@ export async function rescheduleBooking(
       userId: user.id,
       type: "booking_updated",
       title: "Booking rescheduled",
-      body: `Your session with ${prepMasterName} has been moved to ${newDate} at ${newTime}.`,
+      body: `Your session with ${prepMasterName} has been moved to ${fmtDate(newDate)} at ${fmtTime(newTime)}.`,
       bookingId,
+      pushData: { route: "/member/bookings" },
     }).catch(() => {})
 
     // Email both parties about the reschedule — fire and forget
@@ -200,24 +202,25 @@ export async function rescheduleBooking(
       })
       sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Reschedule email to member failed:", e))
     }
-    // Find prep master's email + userId to notify them (email + in-app)
+    // Find PrepMaster's email + userId to notify them (email + in-app)
     getPrepMasters().then(async (all) => {
       const pm = all.find((p) => p.name === prepMasterName)
       if (!pm?.email) return
 
-      // In-app notification → prep master
+      // In-app notification → PrepMaster
       const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
       if (pmUser) {
         createNotification({
           userId: pmUser.id,
           type: "booking_updated",
           title: "Session rescheduled",
-          body: `${memberName} has rescheduled their session to ${newDate} at ${newTime}.`,
+          body: `${memberName} has rescheduled their session to ${fmtDate(newDate)} at ${fmtTime(newTime)}.`,
           bookingId,
+          pushData: { route: "/portal" },
         }).catch(() => {})
       }
 
-      // Email → prep master
+      // Email → PrepMaster
       const { subject, html } = bookingUpdatedEmail({
         recipientName: pm.name,
         updatedByName: memberName,
@@ -259,17 +262,17 @@ export async function createBooking(input: {
       }
     }
 
-    // 2) Validate the slot is within the prep master's availability …
+    // 2) Validate the slot is within the PrepMaster's availability …
     const prepMaster = await getPrepMaster(input.prepMasterId)
     if (!prepMaster) {
-      return { ok: false, error: "This Prep Master is no longer available." }
+      return { ok: false, error: "This PrepMaster is no longer available." }
     }
     const week = await getAvailabilityForEmail(prepMaster.email)
     const openSlots = slotsForDate(input.date, week)
     if (!openSlots.includes(input.time)) {
       return {
         ok: false,
-        error: "That time is outside this Prep Master's availability.",
+        error: "That time is outside this PrepMaster's availability.",
       }
     }
 
@@ -286,7 +289,7 @@ export async function createBooking(input: {
     const record = await appBase.create<BookingFields>(TABLES.bookings, {
       "User ID": user.id,
       "Client Email": user.email,
-      "Prep Master Name": input.prepMasterName,
+      "PrepMaster Name": input.prepMasterName,
       Date: input.date,
       Time: input.time,
       Status: "Pending",
@@ -314,8 +317,9 @@ export async function createBooking(input: {
       userId: user.id,
       type: "booking_confirmed",
       title: "Booking confirmed",
-      body: `Your session with ${input.prepMasterName} on ${input.date} at ${input.time} is confirmed.`,
+      body: `Your session with ${input.prepMasterName} on ${fmtDate(input.date)} at ${fmtTime(input.time)} is confirmed.`,
       bookingId: record.id,
+      pushData: { route: "/member/bookings" },
     }).catch(() => {})
 
     const dancerDisplayName = client.fields.Name ?? user.name ?? "Dancer"
@@ -331,7 +335,7 @@ export async function createBooking(input: {
       sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Confirmation email failed:", e))
     }
 
-    // Email + push notification to prep master with approve/deny — fire and forget
+    // Email + push notification to PrepMaster with approve/deny — fire and forget
     getPrepMaster(input.prepMasterId).then(async (pm) => {
       if (!pm?.email) return
       const approveUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=approve&token=${CONFIRM_SECRET}`
@@ -355,19 +359,20 @@ export async function createBooking(input: {
           userId: pmUser.id,
           type: "booking_request",
           title: "New session request",
-          body: `${dancerDisplayName} wants to book ${input.date} at ${input.time}.`,
+          body: `${dancerDisplayName} wants to book ${fmtDate(input.date)} at ${fmtTime(input.time)}.`,
           bookingId: record.id,
           pushCategory: "BOOKING_REQUEST",
           pushData: {
             bookingId: record.id,
             approveUrl,
             denyUrl,
+            route: "/portal",
           },
         }).catch(() => {})
       }
     }).catch(() => {})
 
-    // Create Google Calendar event on prep master's calendar — fire and forget
+    // Create Google Calendar event on PrepMaster's calendar — fire and forget
     getPrepMaster(input.prepMasterId).then(async (pm) => {
       if (!pm?.email) return
       const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
@@ -380,7 +385,7 @@ export async function createBooking(input: {
       }).catch((e) => console.error("Calendar event failed:", e))
     }).catch(() => {})
 
-    // Notify prep master by SMS — fire and forget so a Twilio error never blocks the booking
+    // Notify PrepMaster by SMS — fire and forget so a Twilio error never blocks the booking
     getPrepMasterPhone(input.prepMasterId).then((phone) => {
       if (!phone) return
       const dateLabel = new Date(`${input.date} ${input.time}`).toLocaleDateString("en-US", {

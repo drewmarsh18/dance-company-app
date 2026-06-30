@@ -43,9 +43,9 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
           <Users className="size-10 text-muted-foreground" />
-          <p className="font-medium">No Prep Masters found</p>
+          <p className="font-medium">No PrepMasters found</p>
           <p className="text-sm text-muted-foreground">
-            Add Prep Masters to the Workers table in Airtable to manage them here.
+            Add PrepMasters to the Workers table in Airtable to manage them here.
           </p>
         </CardContent>
       </Card>
@@ -67,7 +67,7 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
     <div className="flex flex-col gap-3">
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setShowAddForm((v) => !v)} variant={showAddForm ? "outline" : "default"}>
-          {showAddForm ? <><X className="mr-1.5 size-3.5" />Cancel</> : <><PlusCircle className="mr-1.5 size-3.5" />Add Prep Master</>}
+          {showAddForm ? <><X className="mr-1.5 size-3.5" />Cancel</> : <><PlusCircle className="mr-1.5 size-3.5" />Add PrepMaster</>}
         </Button>
       </div>
 
@@ -82,7 +82,7 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
 
       {filtered.length === 0 && !showAddForm && (
         <p className="py-6 text-center text-sm text-muted-foreground">
-          {query ? <>No Prep Masters match &ldquo;{query}&rdquo;.</> : "No Prep Masters yet."}
+          {query ? <>No PrepMasters match &ldquo;{query}&rdquo;.</> : "No PrepMasters yet."}
         </p>
       )}
       {filtered.map((worker) => {
@@ -196,7 +196,7 @@ function PrepMasterProfile({
         active,
       })
       if (result.ok) {
-        toast.success("Prep Master updated.")
+        toast.success("PrepMaster updated.")
         onSaved({ ...worker, name: name.trim(), email: email.trim(), phone: phone.trim(), address: address.trim(), hourlyRate: rate, active })
       } else {
         toast.error(result.error)
@@ -209,7 +209,7 @@ function PrepMasterProfile({
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
           <ArrowLeft className="size-4" />
-          All Prep Masters
+          All PrepMasters
         </Button>
       </div>
 
@@ -218,7 +218,7 @@ function PrepMasterProfile({
           <div className="flex items-center justify-between gap-4">
             <div>
               <CardTitle>{worker.name}</CardTitle>
-              <CardDescription>Edit Prep Master profile, pay rate, and status</CardDescription>
+              <CardDescription>Edit PrepMaster profile, pay rate, and status</CardDescription>
               {worker.university && (() => {
                 const { bg, text } = getUniversityColor(worker.university)
                 return (
@@ -466,7 +466,7 @@ function AddPrepMasterForm({ onSuccess }: { onSuccess: (worker: AdminWorker) => 
         hourlyRate: parseFloat(hourlyRate) || 0,
       })
       if (result.ok) {
-        toast.success(`${name.trim()} has been added as a Prep Master.`)
+        toast.success(`${name.trim()} has been added as a PrepMaster.`)
         onSuccess(result.worker)
       } else {
         toast.error(result.error)
@@ -479,7 +479,7 @@ function AddPrepMasterForm({ onSuccess }: { onSuccess: (worker: AdminWorker) => 
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <PlusCircle className="size-4 text-primary" />
-          Add new Prep Master
+          Add new PrepMaster
         </CardTitle>
         <CardDescription>
           Creates a profile in Airtable and grants sign-in access. They&apos;ll see their portal when they log in with this email.
@@ -507,7 +507,7 @@ function AddPrepMasterForm({ onSuccess }: { onSuccess: (worker: AdminWorker) => 
           </div>
           <div className="flex gap-2">
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Adding…" : "Add Prep Master"}
+              {isPending ? "Adding…" : "Add PrepMaster"}
             </Button>
           </div>
         </form>

@@ -51,7 +51,8 @@ export default function AdminPrepMastersScreen() {
   const bookings = data?.bookings ?? []
   const universities = Array.from(new Set(workers.map((w) => w.university).filter(Boolean))).sort()
   const filtered = workers.filter((w) => {
-    const matchesQuery = !query.trim() || w.name.toLowerCase().includes(query.toLowerCase()) || w.email.toLowerCase().includes(query.toLowerCase())
+    const q = query.toLowerCase().trim()
+    const matchesQuery = !q || w.name.toLowerCase().includes(q) || w.email.toLowerCase().includes(q) || (w.university ?? "").toLowerCase().includes(q)
     const matchesUni = !uniFilter || w.university === uniFilter
     return matchesQuery && matchesUni
   })
@@ -72,49 +73,54 @@ export default function AdminPrepMastersScreen() {
       <View style={styles.toolbar}>
         <View style={[styles.searchRow, { flex: 1 }]}>
           <Search size={16} color={COLORS.textMuted} style={{ marginRight: 6 }} />
-          <TextInput style={styles.searchInput} placeholder="Search Prep Masters…" placeholderTextColor={COLORS.textMuted} value={query} onChangeText={setQuery} autoCorrect={false} clearButtonMode="while-editing" />
+          <TextInput style={styles.searchInput} placeholder="Search PrepMasters…" placeholderTextColor={COLORS.textMuted} value={query} onChangeText={setQuery} autoCorrect={false} clearButtonMode="while-editing" />
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={() => setShowAddForm(true)} activeOpacity={0.7}><Plus size={18} color="#fff" /></TouchableOpacity>
       </View>
       {universities.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.uniFilterRow}>
-          <TouchableOpacity style={[styles.uniFilterChip, !uniFilter && styles.uniFilterChipActive]} onPress={() => setUniFilter("")} activeOpacity={0.7}>
-            <Text style={[styles.uniFilterChipText, !uniFilter && { color: COLORS.primary }]}>All</Text>
-          </TouchableOpacity>
-          {universities.map((uni) => {
-            const { bg, text } = getUniversityColor(uni)
-            const isActive = uniFilter === uni
-            return (
-              <TouchableOpacity key={uni} style={[styles.uniFilterChip, isActive && { backgroundColor: bg, borderColor: bg }]} onPress={() => setUniFilter(isActive ? "" : uni)} activeOpacity={0.7}>
-                <Text style={[styles.uniFilterChipText, isActive && { color: text }]}>{uni}</Text>
-              </TouchableOpacity>
-            )
-          })}
-        </ScrollView>
+        <View style={styles.uniFilterWrap}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.uniFilterRow}>
+            <TouchableOpacity style={[styles.uniFilterChip, !uniFilter && styles.uniFilterChipActive]} onPress={() => setUniFilter("")} activeOpacity={0.7}>
+              <Text style={[styles.uniFilterChipText, !uniFilter && { color: COLORS.primary }]}>All</Text>
+            </TouchableOpacity>
+            {universities.map((uni) => {
+              const { bg, text } = getUniversityColor(uni)
+              const isActive = uniFilter === uni
+              return (
+                <TouchableOpacity key={uni} style={[styles.uniFilterChip, isActive && { backgroundColor: bg, borderColor: bg }]} onPress={() => setUniFilter(isActive ? "" : uni)} activeOpacity={0.7}>
+                  <Text style={[styles.uniFilterChipText, isActive && { color: text }]}>{uni}</Text>
+                </TouchableOpacity>
+              )
+            })}
+          </ScrollView>
+        </View>
       )}
       <FlatList
         data={filtered}
         keyExtractor={(w) => w.id}
+        style={{ flex: 1 }}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         ItemSeparatorComponent={() => <View style={{ height: SPACING.sm }} />}
-        ListEmptyComponent={<Text style={styles.empty}>{workers.length === 0 ? "No Prep Masters yet." : "No Prep Masters match your search."}</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>{workers.length === 0 ? "No PrepMasters yet." : "No PrepMasters match your search."}</Text>}
         renderItem={({ item: w }) => {
           const sessionCount = bookings.filter((b) => b.prepMasterName === w.name && b.status.toLowerCase() !== "cancelled").length
           return (
             <TouchableOpacity style={styles.card} onPress={() => setSelected(w)} activeOpacity={0.7}>
               <View style={styles.avatar}><Text style={styles.avatarText}>{initials(w.name || "?")}</Text></View>
-              <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
-                <Text style={styles.name} numberOfLines={1}>{w.name}</Text>
+              <View style={{ flex: 1, gap: 4, minWidth: 0, overflow: "hidden" }}>
+                <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">{w.name}</Text>
                 {w.university ? (
                   <View style={[styles.uniChip, { backgroundColor: getUniversityColor(w.university).bg }]}>
-                    <Text style={[styles.uniChipText, { color: getUniversityColor(w.university).text }]}>{w.university}</Text>
+                    <Text style={[styles.uniChipText, { color: getUniversityColor(w.university).text }]} numberOfLines={1}>{w.university}</Text>
                   </View>
-                ) : w.region ? <Text style={styles.sub}>{w.region}</Text> : null}
+                ) : w.region ? <Text style={styles.sub} numberOfLines={1}>{w.region}</Text> : null}
               </View>
-              <View style={{ alignItems: "flex-end", gap: 2 }}><Text style={styles.sub}>{sessionCount} session{sessionCount !== 1 ? "s" : ""}</Text></View>
-              <View style={[styles.badge, { backgroundColor: w.active ? COLORS.greenLight : COLORS.grayLight }]}>
-                <Text style={[styles.badgeText, { color: w.active ? COLORS.green : COLORS.textMuted }]}>{w.active ? "Active" : "Inactive"}</Text>
+              <View style={{ alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
+                <Text style={styles.sub}>{sessionCount} session{sessionCount !== 1 ? "s" : ""}</Text>
+                <View style={[styles.badge, { backgroundColor: w.active ? COLORS.greenLight : COLORS.grayLight }]}>
+                  <Text style={[styles.badgeText, { color: w.active ? COLORS.green : COLORS.textMuted }]}>{w.active ? "Active" : "Inactive"}</Text>
+                </View>
               </View>
               <ChevronRight size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
@@ -157,7 +163,7 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved }: {
       method: "PATCH", body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim(), address: address.trim(), hourlyRate: rate, active }), headers: { "Content-Type": "application/json" },
     })
     setSaving(false)
-    if (error) { Alert.alert("Error", "Failed to update Prep Master."); return }
+    if (error) { Alert.alert("Error", "Failed to update PrepMaster."); return }
     onSaved({ ...worker, name: name.trim(), email: email.trim(), phone: phone.trim(), address: address.trim(), hourlyRate: rate, active })
   }
 
@@ -165,7 +171,7 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved }: {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.profileBody}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <ArrowLeft size={16} color={COLORS.primary} /><Text style={styles.backText}>All Prep Masters</Text>
+          <ArrowLeft size={16} color={COLORS.primary} /><Text style={styles.backText}>All PrepMasters</Text>
         </TouchableOpacity>
         <View style={styles.section}>
           <TouchableOpacity style={styles.profileCardHeader} onPress={() => setInfoOpen((v) => !v)} activeOpacity={0.7}>
@@ -331,14 +337,14 @@ function AddPrepMasterForm({ onClose, onSuccess }: { onClose: () => void; onSucc
       method: "POST", body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim(), hourlyRate: parseFloat(hourlyRate) || 0 }), headers: { "Content-Type": "application/json" },
     })
     setSaving(false)
-    if (error || !data) { Alert.alert("Error", "Failed to add Prep Master."); return }
+    if (error || !data) { Alert.alert("Error", "Failed to add PrepMaster."); return }
     onSuccess((data as any).worker)
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>Add Prep Master</Text>
+        <Text style={styles.modalTitle}>Add PrepMaster</Text>
         <TouchableOpacity onPress={onClose} hitSlop={8}><X size={22} color={COLORS.text} /></TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.formBody}>
@@ -348,7 +354,7 @@ function AddPrepMasterForm({ onClose, onSuccess }: { onClose: () => void; onSucc
         <FormField label="Phone" value={phone} onChangeText={setPhone} placeholder="(555) 000-0000" keyboardType="phone-pad" />
         <FormField label="Pay rate per session ($)" value={hourlyRate} onChangeText={setHourlyRate} placeholder="0.00" keyboardType="decimal-pad" />
         <TouchableOpacity style={[styles.btnPrimary, saving && styles.btnDisabled]} onPress={submit} disabled={saving} activeOpacity={0.7}>
-          <Text style={styles.btnPrimaryText}>{saving ? "Adding…" : "Add Prep Master"}</Text>
+          <Text style={styles.btnPrimaryText}>{saving ? "Adding…" : "Add PrepMaster"}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -372,11 +378,11 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: COLORS.background },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
-    toolbar: { flexDirection: "row", gap: SPACING.sm, margin: SPACING.md, alignItems: "center" },
+    toolbar: { flexDirection: "row", gap: SPACING.sm, paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: SPACING.xs, alignItems: "center", backgroundColor: COLORS.background },
     searchRow: { flexDirection: "row", alignItems: "center", backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: SPACING.sm },
     searchInput: { flex: 1, height: 40, fontSize: 14, color: COLORS.text },
     addBtn: { backgroundColor: COLORS.primary, width: 40, height: 40, borderRadius: RADIUS.md, alignItems: "center", justifyContent: "center" },
-    list: { paddingHorizontal: SPACING.md, paddingBottom: 80, paddingTop: SPACING.sm },
+    list: { paddingHorizontal: SPACING.md, paddingBottom: 100, paddingTop: SPACING.xs },
     empty: { fontSize: 14, color: COLORS.textMuted, textAlign: "center", marginTop: SPACING.xl },
     card: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md },
     avatar: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: COLORS.primaryLight, alignItems: "center", justifyContent: "center" },
@@ -390,7 +396,7 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     backText: { fontSize: 14, fontWeight: "500", color: COLORS.primary },
     section: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, backgroundColor: COLORS.surface, padding: SPACING.md, gap: SPACING.sm },
     profileCardHeader: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm },
-    profileName: { fontSize: 18, fontWeight: "700", color: COLORS.text },
+    profileName: { fontSize: 18, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_600SemiBold" },
     sectionHeader: { flexDirection: "row", alignItems: "center", gap: 5 },
     sectionTitle: { fontSize: 14, fontWeight: "600", color: COLORS.text, flex: 1 },
     collapseRow: { flexDirection: "row", alignItems: "center", gap: 5 },
@@ -422,7 +428,8 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     filterChipText: { fontSize: 12, fontWeight: "500", color: COLORS.textMuted },
     uniChip: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 2, borderRadius: RADIUS.full },
     uniChipText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.2 },
-    uniFilterRow: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm, alignItems: "center" },
+    uniFilterWrap: { height: 44, flexShrink: 0, backgroundColor: COLORS.background },
+    uniFilterRow: { paddingHorizontal: SPACING.md, alignItems: "center", height: 44 },
     uniFilterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.background, marginRight: 6 },
     uniFilterChipActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
     uniFilterChipText: { fontSize: 12, fontWeight: "600", color: COLORS.textMuted },
@@ -440,7 +447,7 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     notesText: { fontSize: 13, color: COLORS.text, marginTop: 2 },
     noNotes: { fontSize: 11, color: COLORS.textMuted, fontStyle: "italic" },
     modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-    modalTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text },
+    modalTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_600SemiBold" },
     formBody: { padding: SPACING.md, gap: SPACING.md },
     formHint: { fontSize: 13, color: COLORS.textMuted },
     formFieldWrap: { gap: 4 },

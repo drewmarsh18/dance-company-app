@@ -280,7 +280,7 @@ function MemberCard({ member: m, credits, plans, bookings, packages, statusInfo,
                 return (
                   <View key={b.id} style={styles.bookingItem}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.bookingName}>{b.prepMasterName || "Prep Master"}</Text>
+                      <Text style={styles.bookingName}>{b.prepMasterName || "PrepMaster"}</Text>
                       <Text style={styles.bookingMeta}>{b.date}{b.time ? ` · ${b.time}` : ""}</Text>
                     </View>
                     <View style={[styles.badge, { backgroundColor: bg }]}><Text style={[styles.badgeText, { color: fg }]}>{b.status}</Text></View>
@@ -423,7 +423,7 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     sheetOption: { paddingVertical: 12, paddingHorizontal: SPACING.sm, borderRadius: RADIUS.sm },
     sheetOptionText: { fontSize: 14, color: COLORS.text },
     modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-    modalTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text },
+    modalTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_600SemiBold" },
     formBody: { padding: SPACING.md, gap: SPACING.md },
     formHint: { fontSize: 13, color: COLORS.textMuted },
     formField: { gap: 4 },

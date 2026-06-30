@@ -45,9 +45,9 @@ export function AdminPayrollPanel({ workers, bookings, query = "" }: Props) {
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
           <DollarSign className="size-10 text-muted-foreground" />
-          <p className="font-medium">No active Prep Masters</p>
+          <p className="font-medium">No active PrepMasters</p>
           <p className="text-sm text-muted-foreground">
-            Prep Masters will appear here once they are added to the Workers table in Airtable.
+            PrepMasters will appear here once they are added to the Workers table in Airtable.
           </p>
         </CardContent>
       </Card>
@@ -57,7 +57,7 @@ export function AdminPayrollPanel({ workers, bookings, query = "" }: Props) {
   return (
     <div className="flex flex-col gap-3">
       {filtered.length === 0 && activeWorkers.length > 0 && (
-        <p className="py-6 text-center text-sm text-muted-foreground">No Prep Masters match &ldquo;{query}&rdquo;.</p>
+        <p className="py-6 text-center text-sm text-muted-foreground">No PrepMasters match &ldquo;{query}&rdquo;.</p>
       )}
       {filtered.map((worker) => {
         const isOpen = expanded === worker.id
