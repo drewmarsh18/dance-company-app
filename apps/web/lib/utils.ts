@@ -16,7 +16,7 @@ export function fmtDate(dateIso: string): string {
   if (!dateIso) return dateIso
   const d = new Date(`${dateIso}T00:00:00`)
   if (isNaN(d.getTime())) return dateIso
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+  return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
 }
 
 /** Normalises a time string to 12-hour display format (e.g. "15:00" → "3:00 PM", "3:00 PM" → "3:00 PM"). */
