@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from "react"
 import {
   View, Text, FlatList, RefreshControl,
-  ActivityIndicator, TouchableOpacity,
+  ActivityIndicator, TouchableOpacity, Linking,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
-import { Plus, ChevronRight } from "lucide-react-native"
+import { Plus, ChevronRight, CalendarDays } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
@@ -122,10 +122,15 @@ export default function MemberBookingsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={["top"]}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm }}>
         <Text style={{ fontSize: 26, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_700Bold" }}>My Bookings</Text>
-        <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full }} onPress={() => router.push("/member/book" as any)} activeOpacity={0.7}>
-          <Plus size={16} color="#fff" />
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>New Booking</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING.sm }}>
+          <TouchableOpacity style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface }} onPress={() => Linking.openURL("https://calendar.google.com")} activeOpacity={0.7}>
+            <CalendarDays size={18} color={COLORS.text} />
+          </TouchableOpacity>
+          <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full }} onPress={() => router.push("/member/book" as any)} activeOpacity={0.7}>
+            <Plus size={16} color="#fff" />
+            <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>New Booking</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {error ? (
         <View style={{ margin: SPACING.md, backgroundColor: COLORS.redLight, borderRadius: RADIUS.sm, padding: SPACING.sm }}>

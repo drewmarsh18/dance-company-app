@@ -25,6 +25,13 @@ export default function MemberProfileScreen() {
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
+
+  function formatPhone(raw: string): string {
+    const digits = raw.replace(/\D/g, "").slice(0, 10)
+    if (digits.length <= 3) return digits
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
   const [goals, setGoals] = useState("")
   const [parentEmail, setParentEmail] = useState("")
   const [dirty, setDirty] = useState(false)
@@ -41,7 +48,7 @@ export default function MemberProfileScreen() {
       ])
       if (dashResult.error || !dashResult.data) throw new Error((dashResult.error as any)?.statusText ?? "Failed to load")
       const p = (dashResult.data as any).profile as Profile
-      setProfile(p); setName(p.name); setPhone(p.phone); setGoals(p.goals); setParentEmail(p.parentEmail ?? ""); setError(null)
+      setProfile(p); setName(p.name); setPhone(formatPhone(p.phone ?? "")); setGoals(p.goals); setParentEmail(p.parentEmail ?? ""); setError(null)
       const accounts = (accountsResult.data as any) ?? []
       setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
       if (!meResult.error && meResult.data) setActualRole((meResult.data as any).role ?? null)
@@ -112,7 +119,7 @@ export default function MemberProfileScreen() {
           <View style={styles.card}>
             <Field label="Name" value={name} onChangeText={(v) => { setName(v); setDirty(true) }} COLORS={COLORS} styles={styles} />
             <View style={styles.divider} />
-            <Field label="Phone" value={phone} onChangeText={(v) => { setPhone(v); setDirty(true) }} keyboardType="phone-pad" COLORS={COLORS} styles={styles} />
+            <Field label="Phone" value={phone} onChangeText={(v) => { setPhone(formatPhone(v)); setDirty(true) }} keyboardType="phone-pad" COLORS={COLORS} styles={styles} />
             <View style={styles.divider} />
             <Field label="Goals" value={goals} onChangeText={(v) => { setGoals(v); setDirty(true) }} multiline placeholder="e.g. Improve turns, prepare for audition…" COLORS={COLORS} styles={styles} />
             <View style={styles.divider} />
