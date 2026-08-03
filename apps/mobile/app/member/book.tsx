@@ -112,6 +112,8 @@ function BookingStep({
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [notes, setNotes] = useState("")
   const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60" | null>(null)
+  const CREDIT_COST: Record<string, number> = { "private-30": 0.5, "private-45": 0.75, "private-60": 1 }
+  const creditCost = selectedDuration ? (CREDIT_COST[selectedDuration] ?? 1) : 1
   const activePlans = useMemo(() => plans.filter((p) => planDisplayStatus(p) === "Active"), [plans])
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(activePlans.length === 1 ? activePlans[0].id : null)
   const showPlanPicker = activePlans.length > 1
@@ -187,12 +189,12 @@ function BookingStep({
         )}
         {noStructuredCredits && (
           <View style={styles.creditBanner}>
-            <Text style={styles.creditBannerText}>You have <Text style={{ fontWeight: "700" }}>{credits}</Text> {credits === 1 ? "credit" : "credits"}. This booking uses 1.</Text>
+            <Text style={styles.creditBannerText}>You have <Text style={{ fontWeight: "700" }}>{credits}</Text> {credits === 1 ? "credit" : "credits"}. This booking uses <Text style={{ fontWeight: "700" }}>{creditCost}</Text> {creditCost === 1 ? "credit" : "credits"}.</Text>
           </View>
         )}
         {!showPlanPicker && !noStructuredCredits && effectivePlan && (
           <View style={styles.creditBanner}>
-            <Text style={styles.creditBannerText}>Using <Text style={{ fontWeight: "700" }}>{effectivePlan.planName}</Text>. This booking uses 1 credit.</Text>
+            <Text style={styles.creditBannerText}>Using <Text style={{ fontWeight: "700" }}>{effectivePlan.planName}</Text>. This booking uses <Text style={{ fontWeight: "700" }}>{creditCost}</Text> {creditCost === 1 ? "credit" : "credits"}.</Text>
           </View>
         )}
         <View style={styles.section}>
