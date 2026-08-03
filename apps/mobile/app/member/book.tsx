@@ -21,6 +21,12 @@ type CoachDetail = { coach: Coach; week: DayAvailability[]; bookedSlots: Record<
 function toIso(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` }
 function weekStart(date: Date): Date { const d = new Date(date); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - d.getDay()); return d }
 function buildWeekDays(sunday: Date): Date[] { return Array.from({ length: 7 }, (_, i) => { const d = new Date(sunday); d.setDate(sunday.getDate() + i); return d }) }
+function getTZAbbr(): string {
+  try {
+    return Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value ?? ""
+  } catch { return "" }
+}
+
 function to12Hour(hhmm: string): string {
   const [hStr, mStr] = hhmm.split(":")
   let h = Number(hStr); const m = mStr ?? "00"
@@ -164,6 +170,8 @@ function BookingStep({
   }
 
   const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+  const tzAbbr = useMemo(() => getTZAbbr(), [])
+  const selectedDaySlots = useMemo(() => weekSlots.find((w) => w.iso === selectedDate) ?? null, [weekSlots, selectedDate])
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -208,26 +216,56 @@ function BookingStep({
               <ChevronRight size={18} color={COLORS.text} />
             </TouchableOpacity>
           </View>
-          <View style={styles.calGrid}>
-            {weekSlots.map(({ date, iso, slots, taken, isPast }) => {
+          {/* Date strip */}
+          <View style={styles.dateStrip}>
+            {weekSlots.map(({ date, iso, slots, isPast }) => {
               const isSelected = selectedDate === iso
+              const hasSlots = slots.length > 0 && !isPast
               return (
-                <View key={iso} style={[styles.calCol, (isPast || slots.length === 0) && { opacity: 0.35 }, isSelected && styles.calColSelected]}>
-                  <Text style={styles.calDayLabel}>{DAY_LABELS[date.getDay()]}</Text>
-                  <Text style={[styles.calDayNum, isSelected && { color: COLORS.primary }]}>{date.getDate()}</Text>
-                  {slots.length === 0 ? <Text style={styles.calNoSlot}>—</Text> : slots.map((slot) => {
-                    const isTaken = taken.has(slot); const isSlotSel = isSelected && selectedTime === slot
-                    return (
-                      <TouchableOpacity key={slot} style={[styles.slotBtn, isSlotSel && styles.slotBtnSelected, isTaken && styles.slotBtnTaken]}
-                        onPress={() => { setSelectedDate(iso); setSelectedTime(slot) }} disabled={isTaken || isPast} activeOpacity={0.7}>
-                        <Text style={[styles.slotText, isSlotSel && { color: "#fff" }]}>{slot.replace(" ", "\n")}</Text>
-                      </TouchableOpacity>
-                    )
-                  })}
-                </View>
+                <TouchableOpacity
+                  key={iso}
+                  style={[styles.datePill, isSelected && styles.datePillSelected, !hasSlots && styles.datePillDisabled]}
+                  onPress={() => { if (hasSlots) { setSelectedDate(iso); setSelectedTime(null) } }}
+                  disabled={!hasSlots}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.datePillDay, isSelected && { color: "#fff" }, !hasSlots && { color: COLORS.textMuted }]}>{DAY_LABELS[date.getDay()]}</Text>
+                  <Text style={[styles.datePillNum, isSelected && { color: "#fff" }, !hasSlots && { color: COLORS.textMuted }]}>{date.getDate()}</Text>
+                  {hasSlots && !isSelected && <View style={styles.datePillDot} />}
+                </TouchableOpacity>
               )
             })}
           </View>
+          {/* Time slots for selected date */}
+          {selectedDate && selectedDaySlots ? (
+            <View style={styles.timeSection}>
+              <Text style={styles.timeSectionLabel}>
+                {new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                {tzAbbr ? <Text style={styles.tzLabel}> · {tzAbbr}</Text> : null}
+              </Text>
+              <View style={styles.timeGrid}>
+                {selectedDaySlots.slots.map((slot) => {
+                  const isTaken = selectedDaySlots.taken.has(slot)
+                  const isSlotSel = selectedTime === slot
+                  return (
+                    <TouchableOpacity
+                      key={slot}
+                      style={[styles.timeBtn, isSlotSel && styles.timeBtnSelected, isTaken && styles.timeBtnTaken]}
+                      onPress={() => setSelectedTime(slot)}
+                      disabled={isTaken}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.timeBtnText, isSlotSel && { color: "#fff" }, isTaken && { color: COLORS.textMuted }]}>{slot}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </View>
+          ) : (
+            <View style={styles.noDateSelected}>
+              <Text style={styles.noDateText}>Select a date above to see available times.</Text>
+            </View>
+          )}
         </View>
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{showPlanPicker ? "3" : "2"}. Session length</Text>
@@ -416,16 +454,23 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     weekNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     weekNavBtn: { width: 32, height: 32, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.surface },
     weekLabel: { fontSize: 13, fontWeight: "600", color: COLORS.textMuted },
-    calGrid: { flexDirection: "row", gap: 4 },
-    calCol: { flex: 1, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, padding: 4, gap: 4, alignItems: "center" },
-    calColSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
-    calDayLabel: { fontSize: 9, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase" },
-    calDayNum: { fontSize: 14, fontWeight: "700", color: COLORS.text },
-    calNoSlot: { fontSize: 10, color: COLORS.textMuted, paddingVertical: 4 },
-    slotBtn: { width: "100%", borderRadius: 4, paddingVertical: 5, backgroundColor: COLORS.grayLight, alignItems: "center" },
-    slotBtnSelected: { backgroundColor: COLORS.primary },
-    slotBtnTaken: { opacity: 0.35 },
-    slotText: { fontSize: 9, fontWeight: "600", color: COLORS.text, textAlign: "center", lineHeight: 12 },
+    dateStrip: { flexDirection: "row", gap: 6 },
+    datePill: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 2 },
+    datePillSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+    datePillDisabled: { opacity: 0.4 },
+    datePillDay: { fontSize: 10, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase" },
+    datePillNum: { fontSize: 16, fontWeight: "700", color: COLORS.text },
+    datePillDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.primary, marginTop: 1 },
+    timeSection: { gap: SPACING.sm, marginTop: SPACING.xs },
+    timeSectionLabel: { fontSize: 13, fontWeight: "600", color: COLORS.textSecondary },
+    tzLabel: { fontSize: 12, fontWeight: "400", color: COLORS.textMuted },
+    timeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    timeBtn: { width: "30%", alignItems: "center", paddingVertical: 11, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
+    timeBtnSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+    timeBtnTaken: { opacity: 0.35 },
+    timeBtnText: { fontSize: 13, fontWeight: "600", color: COLORS.text },
+    noDateSelected: { paddingVertical: SPACING.lg, alignItems: "center" },
+    noDateText: { fontSize: 13, color: COLORS.textMuted },
     notesInput: { backgroundColor: COLORS.surface, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.sm, fontSize: 14, color: COLORS.text, minHeight: 80 },
     confirmBar: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md },
     confirmDate: { fontSize: 14, fontWeight: "600", color: COLORS.text },
