@@ -48,8 +48,16 @@ export default function SignInScreen() {
   async function handleGoogleToken(idToken: string, accessToken?: string) {
     try {
       const result = await signIn.social({ provider: "google", idToken: { token: idToken, accessToken } } as Parameters<typeof signIn.social>[0])
-      if (result?.error) setError(result.error.message ?? "Google sign-in failed.")
-      // navigation handled by session watcher useEffect
+      if (result?.error) { setError(result.error.message ?? "Google sign-in failed."); return }
+      // Fetch role directly and navigate to the right destination — avoids index.tsx race
+      const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
+      const role = (me as any)?.role ?? "dancer"
+      const status = (me as any)?.status ?? "active"
+      if (status === "pending") router.replace("/(auth)/pending")
+      else if (status === "denied") router.replace("/(auth)/denied")
+      else if (role === "admin") router.replace("/admin")
+      else if (role === "prep_master") router.replace("/portal")
+      else router.replace("/member")
     } catch { setError("Google sign-in failed. Please try again.") }
     finally { setGoogleLoading(false) }
   }
@@ -59,8 +67,15 @@ export default function SignInScreen() {
     setError(null); setLoading(true)
     try {
       const result = await signIn.email({ email: email.trim(), password })
-      if (result.error) setError(result.error.message ?? "Invalid email or password.")
-      else router.replace("/")
+      if (result.error) { setError(result.error.message ?? "Invalid email or password."); return }
+      const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
+      const role = (me as any)?.role ?? "dancer"
+      const status = (me as any)?.status ?? "active"
+      if (status === "pending") router.replace("/(auth)/pending")
+      else if (status === "denied") router.replace("/(auth)/denied")
+      else if (role === "admin") router.replace("/admin")
+      else if (role === "prep_master") router.replace("/portal")
+      else router.replace("/member")
     } catch { setError("Something went wrong. Please try again.") }
     finally { setLoading(false) }
   }
