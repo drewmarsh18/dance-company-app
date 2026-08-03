@@ -19,15 +19,16 @@ export default async function HomePage() {
         <div className="flex flex-col gap-6">
           <span className="inline-flex w-fit items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm font-medium text-secondary-foreground">
             <Sparkles className="size-4 text-primary" />
-            Private coaching for serious dancers
+            1-1 training designed specifically for the teams you are auditioning for
           </span>
           <h1 className="text-balance font-heading text-4xl font-light leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
-            Train with elite prep masters. Book your private session.
+            Get Prepared. Make The Team.
           </h1>
           <p className="max-w-md text-pretty text-lg leading-relaxed text-muted-foreground">
-            College Dance Prep connects you with expert coaches for one-on-one
-            sessions. Pick your prep master, choose a date, and show up ready to
-            level up.
+            College Dance Prep is the #1 trusted choice for dancers serious
+            about making their team. Pick your PrepMaster, choose a date, and
+            join the 1,000+ dancers who have{" "}
+            <span className="font-medium text-foreground">#MadeTheTeam</span>
           </p>
 
           <div className="rounded-2xl border bg-card p-5 shadow-sm">
