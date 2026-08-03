@@ -20,7 +20,7 @@ const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + ST
 const TIME_LABEL_WIDTH = 52
 
 type CalEvent = { id: string; title: string; start: string | null; end: string | null; allDay: boolean; location: string | null }
-type CalFilter = "day" | "week" | "month"
+type CalFilter = "day" | "month"
 
 function toIso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
@@ -266,19 +266,11 @@ function CalendarView({
 
   function prevPeriod() {
     if (filter === "month") setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))
-    else if (filter === "week") {
-      const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() - 7); setSelectedDate(toIso(d))
-    } else {
-      const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() - 1); setSelectedDate(toIso(d))
-    }
+    else { const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() - 1); setSelectedDate(toIso(d)) }
   }
   function nextPeriod() {
     if (filter === "month") setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))
-    else if (filter === "week") {
-      const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() + 7); setSelectedDate(toIso(d))
-    } else {
-      const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() + 1); setSelectedDate(toIso(d))
-    }
+    else { const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() + 1); setSelectedDate(toIso(d)) }
   }
 
   // When switching to month, sync viewMonth to selectedDate's month
@@ -290,11 +282,6 @@ function CalendarView({
 
   const navLabel = useMemo(() => {
     if (filter === "month") return `${MONTH_NAMES[viewMonth.getMonth()]} ${viewMonth.getFullYear()}`
-    if (filter === "week") {
-      const s = weekDates[0]; const e = weekDates[6]
-      if (s.getMonth() === e.getMonth()) return `${MONTH_NAMES[s.getMonth()]} ${s.getDate()}–${e.getDate()}`
-      return `${MONTH_NAMES[s.getMonth()]} ${s.getDate()} – ${MONTH_NAMES[e.getMonth()]} ${e.getDate()}`
-    }
     const d = new Date(`${selectedDate}T00:00:00`)
     return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
   }, [filter, viewMonth, weekDates, selectedDate])
@@ -379,7 +366,7 @@ function CalendarView({
     <View style={{ flex: 1 }}>
       {/* Filter tabs */}
       <View style={{ flexDirection: "row", marginHorizontal: SPACING.md, marginBottom: SPACING.sm, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, overflow: "hidden" }}>
-        {(["day", "week", "month"] as CalFilter[]).map((f) => (
+        {(["day", "month"] as CalFilter[]).map((f) => (
           <TouchableOpacity key={f} style={{ flex: 1, alignItems: "center", paddingVertical: 8, backgroundColor: filter === f ? COLORS.primary : "transparent" }} onPress={() => setFilterMode(f)} activeOpacity={0.8}>
             <Text style={{ fontSize: 13, fontWeight: "600", color: filter === f ? "#fff" : COLORS.textMuted, textTransform: "capitalize" }}>{f}</Text>
           </TouchableOpacity>
@@ -399,8 +386,8 @@ function CalendarView({
         </TouchableOpacity>
       </View>
 
-      {/* Week strip for day/week filters */}
-      {filter !== "month" && <WeekStrip />}
+      {/* Week strip for day filter */}
+      {filter === "day" && <WeekStrip />}
 
       {/* Month grid */}
       {filter === "month" && (
@@ -462,15 +449,6 @@ function CalendarView({
         />
       )}
 
-      {/* Week view — week strip + hourly timeline for selected day */}
-      {filter === "week" && (
-        <HourlyView
-          dateIso={selectedDate}
-          calEvents={selectedEvents}
-          bookings={selectedBookings}
-          onBookingPress={onBookingPress}
-        />
-      )}
     </View>
   )
 }
