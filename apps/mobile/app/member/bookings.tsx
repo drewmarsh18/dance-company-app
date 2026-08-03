@@ -339,17 +339,29 @@ function CalendarView({
           {dateLabel}
         </Text>
         {!hasAny && <Text style={{ fontSize: 13, color: COLORS.textMuted, paddingVertical: 4 }}>No events</Text>}
-        {selectedBookings.map((b) => (
-          <TouchableOpacity key={b.id} onPress={() => onBookingPress(b)} activeOpacity={0.8}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.primary, borderLeftWidth: 4, borderLeftColor: COLORS.primary, padding: SPACING.md }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>Session w/ {b.prepMasterName || "PrepMaster"}</Text>
-                <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>{formatTime(b.time)}{b.sessionType ? ` · ${b.sessionType}` : ""}</Text>
+        {selectedBookings.map((b) => {
+          const s = b.status.toLowerCase()
+          const sc = s === "confirmed" ? { bg: COLORS.primaryLight, text: COLORS.primary }
+            : s === "declined" ? { bg: COLORS.amberLight, text: COLORS.amber }
+            : s.startsWith("cancelled") ? { bg: COLORS.redLight, text: COLORS.red }
+            : { bg: COLORS.grayLight, text: COLORS.textMuted }
+          return (
+            <TouchableOpacity key={b.id} onPress={() => onBookingPress(b)} activeOpacity={0.8}>
+              <View style={{ backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.primary, borderLeftWidth: 4, borderLeftColor: COLORS.primary, padding: SPACING.md }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text, flex: 1, marginRight: SPACING.sm }}>Session w/ {b.prepMasterName || "PrepMaster"}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full, backgroundColor: sc.bg }}>
+                      <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "capitalize", color: sc.text }}>{b.status}</Text>
+                    </View>
+                    <ChevronRight size={16} color={COLORS.primary} />
+                  </View>
+                </View>
+                <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{formatTime(b.time)}{b.sessionType ? ` · ${b.sessionType}` : ""}</Text>
               </View>
-              <ChevronRight size={16} color={COLORS.primary} />
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          )
+        })}
         {selectedEvents.map((e) => (
           <View key={e.id} style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, borderLeftWidth: 4, borderLeftColor: COLORS.textMuted, padding: SPACING.md }}>
             <View style={{ flex: 1 }}>
