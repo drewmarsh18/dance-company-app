@@ -50,7 +50,6 @@ export const PACKAGES: DancePackage[] = [
     perSession: 99,
     savings: 200,
     expiryDays: 180,
-    highlight: true,
     features: [
       "10 hourly private sessions",
       "Book with any Prep Master",
@@ -65,6 +64,7 @@ export const PACKAGES: DancePackage[] = [
     perSession: 99,
     savings: 300,
     expiryDays: 365,
+    highlight: true,
     features: [
       "15 hourly private sessions",
       "Book with any Prep Master",
