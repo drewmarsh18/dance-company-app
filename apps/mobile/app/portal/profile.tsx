@@ -3,11 +3,15 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
-import { Users, LogOut, ShieldCheck, Sun, Moon, Smartphone } from "lucide-react-native"
+import { Users, LogOut, ShieldCheck, Sun, Moon, Smartphone, CalendarCheck, CalendarX } from "lucide-react-native"
+import * as Linking from "expo-linking"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useTheme } from "@/lib/theme-context"
 import type { ThemePreference } from "@/lib/theme-context"
+import { useState, useEffect } from "react"
+
+const API_BASE = "https://dance-company-app.vercel.app"
 
 export default function PortalProfileScreen() {
   const { data: session } = useSession()
@@ -15,6 +19,22 @@ export default function PortalProfileScreen() {
   const { colors: COLORS, theme, setTheme } = useTheme()
   const name = session?.user?.name ?? ""
   const email = session?.user?.email ?? ""
+  const [calendarConnected, setCalendarConnected] = useState(false)
+
+  useEffect(() => {
+    authClient.$fetch(`${API_BASE}/api/portal/calendar-events`).then(({ data }) => {
+      setCalendarConnected(!!(data as any)?.connected)
+    }).catch(() => {})
+  }, [])
+
+  async function handleConnectCalendar() {
+    Linking.openURL(`${API_BASE}/api/google-calendar`)
+  }
+
+  async function handleDisconnectCalendar() {
+    await authClient.$fetch(`${API_BASE}/api/google-calendar`, { method: "DELETE" })
+    setCalendarConnected(false)
+  }
 
   async function handleSignOut() {
     Alert.alert("Sign out", "Are you sure you want to sign out?", [
@@ -54,6 +74,20 @@ export default function PortalProfileScreen() {
             </View>
           </TouchableOpacity>
         </View>
+
+        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Google Calendar</Text></View>
+        <TouchableOpacity
+          style={[styles.calendarBtn, calendarConnected && styles.calendarBtnConnected]}
+          onPress={calendarConnected ? handleDisconnectCalendar : handleConnectCalendar}
+          activeOpacity={0.8}
+        >
+          {calendarConnected
+            ? <CalendarCheck size={18} color={COLORS.green} />
+            : <CalendarX size={18} color={COLORS.text} />}
+          <Text style={[styles.calendarBtnText, calendarConnected && { color: COLORS.green }]}>
+            {calendarConnected ? "Google Calendar connected" : "Connect Google Calendar"}
+          </Text>
+        </TouchableOpacity>
 
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Appearance</Text></View>
         <View style={styles.themeRow}>
@@ -98,6 +132,9 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     themeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
     themeBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
     themeBtnText: { fontSize: 13, fontWeight: "600", color: COLORS.textMuted },
+    calendarBtn: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, backgroundColor: COLORS.surface },
+    calendarBtnConnected: { borderColor: COLORS.green, backgroundColor: COLORS.greenLight },
+    calendarBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
     signOutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, marginTop: SPACING.sm },
     signOutText: { fontSize: 15, fontWeight: "600", color: COLORS.textSecondary },
   })
