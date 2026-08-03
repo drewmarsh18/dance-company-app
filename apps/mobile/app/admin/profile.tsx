@@ -1,16 +1,59 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native"
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
-import { LayoutDashboard, Users, LogOut, Sun, Moon, Smartphone } from "lucide-react-native"
+import { LayoutDashboard, Users, LogOut, Sun, Moon, Smartphone, Link, CalendarCheck, CalendarX } from "lucide-react-native"
+import * as Linking from "expo-linking"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
-import { signOut, useSession } from "@/lib/auth-client"
+import { signOut, useSession, authClient } from "@/lib/auth-client"
 import { useTheme } from "@/lib/theme-context"
 import type { ThemePreference } from "@/lib/theme-context"
+import { useState, useEffect } from "react"
+
+const API_BASE = "https://dance-company-app.vercel.app"
 
 export default function AdminProfileScreen() {
   const { data: session } = useSession()
   const router = useRouter()
   const { colors: COLORS, theme, setTheme } = useTheme()
+  const [isGoogleLinked, setIsGoogleLinked] = useState(false)
+  const [googleLinking, setGoogleLinking] = useState(false)
+  const [calendarConnected, setCalendarConnected] = useState(false)
+
+  useEffect(() => {
+    authClient.$fetch(`${API_BASE}/api/auth/list-accounts`).then(({ data }) => {
+      const accounts = (data as any) ?? []
+      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
+    }).catch(() => {})
+    authClient.$fetch(`${API_BASE}/api/portal/calendar-events`).then(({ data }) => {
+      setCalendarConnected(!!(data as any)?.connected)
+    }).catch(() => {})
+  }, [])
+
+  async function handleConnectGoogle() {
+    setGoogleLinking(true)
+    try {
+      await authClient.signIn.social({ provider: "google", callbackURL: "cdp://" })
+      const { data } = await authClient.$fetch(`${API_BASE}/api/auth/list-accounts`)
+      const accounts = (data as any) ?? []
+      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
+    } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google account.") }
+    finally { setGoogleLinking(false) }
+  }
+
+  async function handleConnectCalendar() {
+    try {
+      const { data, error } = await authClient.$fetch(`${API_BASE}/api/google-calendar/url`)
+      if (error || !(data as any)?.url) throw new Error("Could not get calendar auth URL")
+      Linking.openURL((data as any).url)
+    } catch (e) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google Calendar.")
+    }
+  }
+
+  async function handleDisconnectCalendar() {
+    await authClient.$fetch(`${API_BASE}/api/google-calendar`, { method: "DELETE" })
+    setCalendarConnected(false)
+  }
 
   const name = session?.user?.name ?? ""
   const email = session?.user?.email ?? ""
@@ -56,6 +99,34 @@ export default function AdminProfileScreen() {
               <Text style={styles.rowTitle}>PrepMaster portal</Text>
               <Text style={styles.rowSub}>See the app as a PrepMaster</Text>
             </View>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>CONNECTED ACCOUNTS</Text>
+          <TouchableOpacity
+            style={[styles.row, styles.accountRow, isGoogleLinked && styles.accountRowLinked]}
+            onPress={isGoogleLinked ? undefined : handleConnectGoogle}
+            disabled={isGoogleLinked || googleLinking}
+            activeOpacity={isGoogleLinked ? 1 : 0.8}
+          >
+            {googleLinking ? <ActivityIndicator size="small" color={COLORS.text} /> : <Link size={18} color={isGoogleLinked ? COLORS.green : COLORS.text} />}
+            <Text style={[styles.rowTitle, isGoogleLinked && { color: COLORS.green }]}>
+              {isGoogleLinked ? "Google connected" : "Connect Google account"}
+            </Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity
+            style={[styles.row, styles.accountRow, calendarConnected && styles.accountRowLinked]}
+            onPress={calendarConnected ? handleDisconnectCalendar : handleConnectCalendar}
+            activeOpacity={0.8}
+          >
+            {calendarConnected
+              ? <CalendarCheck size={18} color={COLORS.green} />
+              : <CalendarX size={18} color={COLORS.text} />}
+            <Text style={[styles.rowTitle, calendarConnected && { color: COLORS.green }]}>
+              {calendarConnected ? "Google Calendar connected" : "Connect Google Calendar"}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -110,6 +181,8 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     themeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.background },
     themeBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
     themeBtnText: { fontSize: 13, fontWeight: "600", color: COLORS.textMuted },
+    accountRow: { borderRadius: 0 },
+    accountRowLinked: { backgroundColor: COLORS.greenLight },
     signOutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: SPACING.md, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
     signOutText: { fontSize: 15, fontWeight: "600", color: COLORS.red },
   })

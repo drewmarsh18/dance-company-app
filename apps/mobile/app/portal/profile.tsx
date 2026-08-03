@@ -1,9 +1,9 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
-import { Users, LogOut, ShieldCheck, Sun, Moon, Smartphone, CalendarCheck, CalendarX } from "lucide-react-native"
+import { Users, LogOut, ShieldCheck, Sun, Moon, Smartphone, CalendarCheck, CalendarX, Link } from "lucide-react-native"
 import * as Linking from "expo-linking"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
@@ -20,12 +20,29 @@ export default function PortalProfileScreen() {
   const name = session?.user?.name ?? ""
   const email = session?.user?.email ?? ""
   const [calendarConnected, setCalendarConnected] = useState(false)
+  const [isGoogleLinked, setIsGoogleLinked] = useState(false)
+  const [googleLinking, setGoogleLinking] = useState(false)
 
   useEffect(() => {
     authClient.$fetch(`${API_BASE}/api/portal/calendar-events`).then(({ data }) => {
       setCalendarConnected(!!(data as any)?.connected)
     }).catch(() => {})
+    authClient.$fetch(`${API_BASE}/api/auth/list-accounts`).then(({ data }) => {
+      const accounts = (data as any) ?? []
+      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
+    }).catch(() => {})
   }, [])
+
+  async function handleConnectGoogle() {
+    setGoogleLinking(true)
+    try {
+      await authClient.signIn.social({ provider: "google", callbackURL: "cdp://" })
+      const { data } = await authClient.$fetch(`${API_BASE}/api/auth/list-accounts`)
+      const accounts = (data as any) ?? []
+      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
+    } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google account.") }
+    finally { setGoogleLinking(false) }
+  }
 
   async function handleConnectCalendar() {
     try {
@@ -80,6 +97,19 @@ export default function PortalProfileScreen() {
             </View>
           </TouchableOpacity>
         </View>
+
+        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Connected Accounts</Text></View>
+        <TouchableOpacity
+          style={[styles.googleBtn, isGoogleLinked && styles.googleBtnLinked]}
+          onPress={isGoogleLinked ? undefined : handleConnectGoogle}
+          disabled={isGoogleLinked || googleLinking}
+          activeOpacity={isGoogleLinked ? 1 : 0.8}
+        >
+          {googleLinking ? <ActivityIndicator size="small" color={COLORS.text} /> : <Link size={18} color={isGoogleLinked ? COLORS.green : COLORS.text} />}
+          <Text style={[styles.googleBtnText, isGoogleLinked && { color: COLORS.green }]}>
+            {isGoogleLinked ? "Google connected" : "Connect Google account"}
+          </Text>
+        </TouchableOpacity>
 
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Google Calendar</Text></View>
         <TouchableOpacity
@@ -138,6 +168,9 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     themeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
     themeBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
     themeBtnText: { fontSize: 13, fontWeight: "600", color: COLORS.textMuted },
+    googleBtn: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, backgroundColor: COLORS.surface },
+    googleBtnLinked: { borderColor: COLORS.green, backgroundColor: COLORS.greenLight },
+    googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
     calendarBtn: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, backgroundColor: COLORS.surface },
     calendarBtnConnected: { borderColor: COLORS.green, backgroundColor: COLORS.greenLight },
     calendarBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
