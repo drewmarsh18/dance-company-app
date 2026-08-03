@@ -54,10 +54,19 @@ export async function POST(req: Request) {
 
   const { prepMasterId, prepMasterName, date, time, notes, planId, planSessions, sessionType } = body
 
+  // Credit cost based on session type
+  const CREDIT_COST: Record<string, number> = {
+    "pack-hour": 1,
+    "private-60": 1,
+    "private-45": 0.75,
+    "private-30": 0.5,
+  }
+  const creditCost = CREDIT_COST[sessionType ?? "pack-hour"] ?? 1
+
   // Credit gate
   const client = await findClientRecord(user.id)
   const credits = client?.fields["Credits Remaining"] ?? 0
-  if (!client || credits < 1) {
+  if (!client || credits < creditCost) {
     return NextResponse.json({ ok: false, error: "NO_CREDITS" })
   }
 
@@ -91,7 +100,7 @@ export async function POST(req: Request) {
   })
 
   // Deduct credit
-  const newCredits = credits - 1
+  const newCredits = Math.round((credits - creditCost) * 100) / 100
   await appBase.update<ClientFields>(TABLES.clients, client.id, {
     "Credits Remaining": newCredits,
   })
@@ -99,7 +108,7 @@ export async function POST(req: Request) {
   // Mark plan used if needed
   if (planId && planSessions === 1) {
     await setPlanStatus(planId, "Used")
-  } else if (newCredits === 0) {
+  } else if (newCredits <= 0) {
     const planToMark = planId ? { id: planId } : await getActivePlanForUser(user.id)
     if (planToMark) await setPlanStatus(planToMark.id, "Used")
   }
@@ -173,5 +182,5 @@ export async function POST(req: Request) {
     sendSms(phone, `New booking! ${user.name} has booked a session with you on ${dateLabel} at ${time}. Log in to College Dance Prep to view details.`).catch(() => {})
   }).catch(() => {})
 
-  return NextResponse.json({ ok: true, id: record.id })
+  return NextResponse.json({ ok: true, id: record.id, creditCost, newCredits })
 }

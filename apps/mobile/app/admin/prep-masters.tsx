@@ -10,6 +10,7 @@ import {
 } from "lucide-react-native"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
+import { formatTime } from "@/components/BookingDetailModal"
 import { useAdmin } from "@/lib/admin-context"
 import { authClient } from "@/lib/auth-client"
 import { getUniversityColor } from "@/lib/university-colors"
@@ -257,7 +258,7 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved }: {
                     <TouchableOpacity style={styles.bookingRow} onPress={() => setExpandedBooking(isOpen ? null : b.id)} activeOpacity={0.7}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.bookingName}>{b.dancerName || b.clientEmail || "Client"}</Text>
-                        <Text style={styles.bookingMeta}>{b.date}{b.time ? ` · ${b.time}` : ""}</Text>
+                        <Text style={styles.bookingMeta}>{b.date}{b.time ? ` · ${formatTime(b.time)}` : ""}</Text>
                       </View>
                       <View style={[styles.badge, { backgroundColor: bg }]}><Text style={[styles.badgeText, { color: fg }]}>{b.status}</Text></View>
                       {isOpen ? <ChevronUp size={12} color={COLORS.textMuted} /> : <ChevronDown size={12} color={COLORS.textMuted} />}
@@ -289,7 +290,7 @@ function DetailGrid({ b }: { b: AdminBooking }) {
   const styles = makeStyles(COLORS)
   return (
     <View style={styles.detailGrid}>
-      {[["Dancer", b.dancerName || "—"], ["Email", b.clientEmail || "—"], ["Date", b.date || "—"], ["Time", b.time || "—"], ["Status", b.status]].map(([label, value]) => (
+      {[["Dancer", b.dancerName || "—"], ["Email", b.clientEmail || "—"], ["Date", b.date || "—"], ["Time", b.time ? formatTime(b.time) : "—"], ["Status", b.status]].map(([label, value]) => (
         <View key={label} style={styles.detailCell}>
           <Text style={styles.detailCellLabel}>{label}</Text>
           <Text style={styles.detailCellValue}>{value}</Text>

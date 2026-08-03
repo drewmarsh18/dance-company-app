@@ -6,6 +6,7 @@ import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 import { useAdmin } from "@/lib/admin-context"
 import type { AdminBooking } from "@/lib/admin-types"
+import { formatTime } from "@/components/BookingDetailModal"
 
 const SESSION_PRICE: Record<string, number> = {
   "private-30": 65, "private-45": 89, "private-60": 99, "pack-hour": 99,
@@ -26,7 +27,7 @@ function BookingItem({ booking: b }: { booking: AdminBooking }) {
       <TouchableOpacity style={styles.bookingRow} onPress={() => setExpanded((v) => !v)} activeOpacity={0.7}>
         <View style={{ flex: 1 }}>
           <Text style={styles.bookingName}>{b.dancerName || b.clientEmail || "Client"}</Text>
-          <Text style={styles.bookingSub}>{b.prepMasterName} · {b.date}{b.time ? ` · ${b.time}` : ""}</Text>
+          <Text style={styles.bookingSub}>{b.prepMasterName} · {b.date}{b.time ? ` · ${formatTime(b.time)}` : ""}</Text>
         </View>
         <View style={[styles.badge, { backgroundColor: bg }]}><Text style={[styles.badgeText, { color: text }]}>{b.status}</Text></View>
         {expanded ? <ChevronUp size={14} color={COLORS.textMuted} /> : <ChevronDown size={14} color={COLORS.textMuted} />}
@@ -166,7 +167,7 @@ export default function AdminOverviewScreen() {
                   <View style={styles.revenueRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.bookingName}>{b.dancerName || b.clientEmail || "Client"}</Text>
-                      <Text style={styles.bookingSub}>{b.prepMasterName}{b.date ? ` · ${b.date}` : ""}{b.time ? ` · ${b.time}` : ""} · {sessionLabel}</Text>
+                      <Text style={styles.bookingSub}>{b.prepMasterName}{b.date ? ` · ${b.date}` : ""}{b.time ? ` · ${formatTime(b.time)}` : ""} · {sessionLabel}</Text>
                     </View>
                     <Text style={styles.revenueAmt}>${amt}</Text>
                   </View>

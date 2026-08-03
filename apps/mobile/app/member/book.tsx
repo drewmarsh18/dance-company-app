@@ -317,11 +317,16 @@ export default function BookScreen() {
     finally { setDetailLoading(false) }
   }, [plans, credits, router])
 
+  const CREDIT_COST: Record<string, number> = {
+    "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5,
+  }
+
   const handleConfirm = useCallback(async (args: {
     date: string; time: string; notes: string; planId?: string; planSessions?: number; sessionType?: string
   }) => {
     if (!selectedCoach) return
-    if (credits < 1) {
+    const creditCost = CREDIT_COST[args.sessionType ?? "pack-hour"] ?? 1
+    if (credits < creditCost) {
       Alert.alert("No credits", "Purchase a package to book a session.", [
         { text: "View Plans", onPress: () => router.push("/member/plans" as any) },
         { text: "Cancel", style: "cancel" },
@@ -336,14 +341,18 @@ export default function BookScreen() {
         headers: { "Content-Type": "application/json" },
       })
       if (error) throw new Error((error as any)?.message ?? "Failed to book")
-      const result = data as { ok: boolean; id?: string; error?: string }
+      const result = data as { ok: boolean; id?: string; error?: string; creditCost?: number; newCredits?: number }
       if (!result.ok) {
         if (result.error === "NO_CREDITS") {
           Alert.alert("No credits", "Purchase a package to book a session.", [{ text: "View Plans", onPress: () => router.push("/member/plans" as any) }, { text: "Cancel", style: "cancel" }])
         } else { Alert.alert("Could not book", result.error ?? "Please try again.") }
         return
       }
-      Alert.alert("Session requested!", `Your request with ${selectedCoach.name} on ${args.date} at ${args.time} has been sent. 1 credit used.`, [{ text: "Done", onPress: () => router.back() }])
+      // Instantly update displayed credit count
+      const used = result.creditCost ?? creditCost
+      setCredits((prev) => Math.round((prev - used) * 100) / 100)
+      const creditLabel = used === 1 ? "1 credit" : `${used} credits`
+      Alert.alert("Session requested!", `Your request with ${selectedCoach.name} on ${args.date} at ${args.time} has been sent. ${creditLabel} used.`, [{ text: "Done", onPress: () => router.back() }])
     } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not create booking.") }
     finally { setConfirming(false) }
   }, [selectedCoach, credits, router])

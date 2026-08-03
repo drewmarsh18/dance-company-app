@@ -36,10 +36,37 @@ export async function getAvailabilityForEmail(
   }))
 }
 
-/** Returns the logged-in prep master's full 7-day availability template. */
+/** Returns the logged-in prep master's full 7-day availability template.
+ *  Seeds 6 AM – 11 PM Mon–Sun on first use if no rows exist yet. */
 export async function getMyAvailability(): Promise<DayAvailability[]> {
   const user = await getSessionUser()
   const saved = await getAvailabilityForEmail(user.email)
+
+  if (saved.length === 0) {
+    // Seed defaults: all 7 days, 06:00 – 23:00
+    const email = normalizeEmail(user.email)
+    await Promise.all(
+      Array.from({ length: 7 }, (_, i) =>
+        db.insert(prepMasterAvailability).values({
+          id: randomUUID(),
+          email,
+          dayOfWeek: i,
+          enabled: true,
+          startTime: "06:00",
+          endTime: "23:00",
+        }).onConflictDoNothing(),
+      ),
+    )
+    return buildWeekTemplate(
+      Array.from({ length: 7 }, (_, i) => ({
+        dayOfWeek: i,
+        enabled: true,
+        startTime: "06:00",
+        endTime: "23:00",
+      })),
+    )
+  }
+
   return buildWeekTemplate(saved)
 }
 

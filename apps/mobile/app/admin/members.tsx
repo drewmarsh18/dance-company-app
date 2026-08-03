@@ -9,6 +9,7 @@ import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 import { useAdmin } from "@/lib/admin-context"
 import { authClient } from "@/lib/auth-client"
+import { formatTime } from "@/components/BookingDetailModal"
 import type { AdminMember, AdminBooking, MemberPlan, DancePackage } from "@/lib/admin-types"
 
 const API = "https://dance-company-app.vercel.app"
@@ -281,7 +282,7 @@ function MemberCard({ member: m, credits, plans, bookings, packages, statusInfo,
                   <View key={b.id} style={styles.bookingItem}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.bookingName}>{b.prepMasterName || "PrepMaster"}</Text>
-                      <Text style={styles.bookingMeta}>{b.date}{b.time ? ` · ${b.time}` : ""}</Text>
+                      <Text style={styles.bookingMeta}>{b.date}{b.time ? ` · ${formatTime(b.time)}` : ""}</Text>
                     </View>
                     <View style={[styles.badge, { backgroundColor: bg }]}><Text style={[styles.badgeText, { color: fg }]}>{b.status}</Text></View>
                   </View>

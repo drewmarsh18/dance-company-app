@@ -5,6 +5,7 @@ const COLORS: Record<string, UniversityColor> = {
   "Arizona":              { bg: "#AB0520", text: "#ffffff" },
   "ASU":                  { bg: "#8C1D40", text: "#FFC627" },
   "Boise":                { bg: "#0033A0", text: "#ffffff" },
+  "Cincinnati":           { bg: "#E00122", text: "#ffffff" },
   "Coastal Carolina":     { bg: "#006F71", text: "#ffffff" },
   "CSU":                  { bg: "#1E4D2B", text: "#C8C372" },
   "CU Boulder":           { bg: "#CFB87C", text: "#000000" },

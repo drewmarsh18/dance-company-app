@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth"
 import { TABLES, appBase, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingCancelledEmail, bookingUpdatedEmail } from "@/lib/email"
-import { isWithin24Hours } from "@/lib/utils"
+import { isWithin24Hours, fmtDate, fmtTime } from "@/lib/utils"
 import { getPrepMasters } from "@/lib/airtable"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
@@ -46,9 +46,17 @@ export async function DELETE(
   if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." })
 
   const within24 = isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "")
+  const CREDIT_COST: Record<string, number> = {
+    "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5,
+  }
+  const sessionType = booking.fields["Session Type"] as string | undefined
+  const creditCost = CREDIT_COST[sessionType ?? "pack-hour"] ?? 1
+
   await appBase.update<BookingFields>(TABLES.bookings, id, {
     Status: within24 ? "Cancelled (Late)" : "Cancelled",
     ...(body.reason ? { "Cancellation Reason": body.reason } : {}),
+    // Late cancellations remain payable to the PrepMaster
+    ...(within24 ? { "Payable to PrepMaster": true } : {}),
   })
 
   if (!within24) {
@@ -56,7 +64,7 @@ export async function DELETE(
     if (client) {
       const current = client.fields["Credits Remaining"] ?? 0
       await appBase.update<ClientFields>(TABLES.clients, client.id, {
-        "Credits Remaining": current + 1,
+        "Credits Remaining": Math.round((current + creditCost) * 100) / 100,
       })
     }
   }
@@ -124,7 +132,7 @@ export async function PATCH(
     userId: user.id,
     type: "booking_updated",
     title: "Booking rescheduled",
-    body: `Your session with ${pmName} has been moved to ${newDate} at ${newTime}.`,
+    body: `Your session with ${pmName} has been moved to ${fmtDate(newDate)} at ${fmtTime(newTime)}.`,
     bookingId: id,
   }).catch(() => {})
 
@@ -150,8 +158,9 @@ export async function PATCH(
         userId: pmUser.id,
         type: "booking_updated",
         title: "Session rescheduled",
-        body: `${memberName} has rescheduled their session to ${newDate} at ${newTime}.`,
+        body: `${memberName} has rescheduled their session to ${fmtDate(newDate)} at ${fmtTime(newTime)}.`,
         bookingId: id,
+        pushData: { route: "/portal" },
       }).catch(() => {})
     }
     const { subject, html } = bookingUpdatedEmail({

@@ -21,15 +21,27 @@ export type Booking = {
 
 export function formatDate(dateStr: string) {
   if (!dateStr) return ""
-  return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+  return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+}
+
+function getTZAbbr(): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date())
+    return parts.find((p) => p.type === "timeZoneName")?.value ?? ""
+  } catch { return "" }
 }
 
 export function formatTime(timeStr: string) {
   if (!timeStr) return ""
-  if (/am|pm/i.test(timeStr)) return timeStr
+  if (/am|pm/i.test(timeStr)) {
+    const tz = getTZAbbr()
+    return tz && !timeStr.includes(tz) ? `${timeStr} ${tz}` : timeStr
+  }
   const [h, m] = timeStr.split(":").map(Number)
   if (isNaN(h) || isNaN(m)) return timeStr
-  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
+  const base = `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
+  const tz = getTZAbbr()
+  return tz ? `${base} ${tz}` : base
 }
 
 // --- Availability helpers (mirrors apps/web/lib/availability.ts) ---

@@ -69,7 +69,7 @@ export default function MemberProfileScreen() {
   async function handleConnectGoogle() {
     setGoogleLinking(true)
     try {
-      await authClient.signIn.social({ provider: "google", callbackURL: "/dashboard" })
+      await authClient.signIn.social({ provider: "google", callbackURL: "cdp://" })
       const { data } = await authClient.$fetch(`${API_BASE}/api/auth/list-accounts`)
       const accounts = (data as any) ?? []
       setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))

@@ -9,6 +9,7 @@ import {
   Check, X, Pencil, ChevronDown, ChevronUp,
 } from "lucide-react-native"
 import { authClient, useSession } from "@/lib/auth-client"
+import { formatTime } from "@/components/BookingDetailModal"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 
@@ -88,7 +89,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
           <View style={styles.cardDateRow}>
             <CalendarDays size={14} color={COLORS.primary} />
             <Text style={styles.cardDate}>{formatDate(localDate)}</Text>
-            {localTime ? <><Clock size={13} color={COLORS.textMuted} /><Text style={styles.cardTime}>{localTime}</Text></> : null}
+            {localTime ? <><Clock size={13} color={COLORS.textMuted} /><Text style={styles.cardTime}>{formatTime(localTime)}</Text></> : null}
           </View>
           <Text style={styles.cardDancer}>{booking.dancerName || "Dancer"}</Text>
         </View>

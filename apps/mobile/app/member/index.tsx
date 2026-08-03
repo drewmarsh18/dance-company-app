@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
   TouchableOpacity, ActivityIndicator,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useRouter } from "expo-router"
+import { useRouter, useFocusEffect } from "expo-router"
 import { Ticket, Package, CalendarClock, ChevronRight, CalendarPlus } from "lucide-react-native"
 import { authClient, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
@@ -142,7 +142,13 @@ export default function MemberHomeScreen() {
     } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong.") }
   }, [])
 
+  const initialLoad = useRef(true)
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
+  // Refresh credits/bookings whenever screen comes back into focus
+  useFocusEffect(useCallback(() => {
+    if (initialLoad.current) { initialLoad.current = false; return }
+    load()
+  }, [load]))
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false) }, [load])
 
   function handleCancelled(id: string) {
