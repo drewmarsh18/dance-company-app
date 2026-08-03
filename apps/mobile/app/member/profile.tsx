@@ -30,18 +30,21 @@ export default function MemberProfileScreen() {
   const [dirty, setDirty] = useState(false)
   const [googleLinking, setGoogleLinking] = useState(false)
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
+  const [actualRole, setActualRole] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
-      const [dashResult, accountsResult] = await Promise.all([
+      const [dashResult, accountsResult, meResult] = await Promise.all([
         authClient.$fetch(`${API_BASE}/api/member/dashboard`),
         authClient.$fetch(`${API_BASE}/api/auth/list-accounts`),
+        authClient.$fetch(`${API_BASE}/api/me`),
       ])
       if (dashResult.error || !dashResult.data) throw new Error((dashResult.error as any)?.statusText ?? "Failed to load")
       const p = (dashResult.data as any).profile as Profile
       setProfile(p); setName(p.name); setPhone(p.phone); setGoals(p.goals); setParentEmail(p.parentEmail ?? ""); setError(null)
       const accounts = (accountsResult.data as any) ?? []
       setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
+      if (!meResult.error && meResult.data) setActualRole((meResult.data as any).role ?? null)
     } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong.") }
   }, [])
 
@@ -151,6 +154,20 @@ export default function MemberProfileScreen() {
             </Text>
           </TouchableOpacity>
 
+          {(actualRole === "admin" || actualRole === "prep_master") && (
+            <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Switch view</Text></View>
+          )}
+          {actualRole === "admin" && (
+            <TouchableOpacity style={styles.switchBtn} onPress={() => router.replace("/admin")} activeOpacity={0.8}>
+              <Text style={styles.switchBtnText}>Switch to Admin view</Text>
+            </TouchableOpacity>
+          )}
+          {(actualRole === "admin" || actualRole === "prep_master") && (
+            <TouchableOpacity style={styles.switchBtn} onPress={() => router.replace("/portal")} activeOpacity={0.8}>
+              <Text style={styles.switchBtnText}>Switch to PrepMaster view</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
@@ -208,6 +225,8 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     googleBtn: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, backgroundColor: COLORS.surface },
     googleBtnLinked: { borderColor: COLORS.green, backgroundColor: COLORS.greenLight },
     googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
+    switchBtn: { borderWidth: 1, borderColor: COLORS.primary, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center", backgroundColor: COLORS.primaryLight },
+    switchBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.primary },
     signOutBtn: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center" },
     signOutText: { fontSize: 15, fontWeight: "600", color: COLORS.textSecondary },
   })
