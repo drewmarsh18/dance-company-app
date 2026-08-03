@@ -107,7 +107,7 @@ export const googleCalendarToken = pgTable("google_calendar_token", {
     .unique()
     .references(() => user.id, { onDelete: "cascade" }),
   accessToken: text("accessToken").notNull(),
-  refreshToken: text("refreshToken").notNull(),
+  refreshToken: text("refreshToken"),
   expiresAt: timestamp("expiresAt").notNull(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),

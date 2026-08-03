@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback, useMemo } from "react"
+import { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import {
   View, Text, FlatList, ScrollView, RefreshControl,
-  ActivityIndicator, TouchableOpacity,
+  ActivityIndicator, TouchableOpacity, Dimensions,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
@@ -12,6 +12,12 @@ import { useColors } from "@/lib/theme-context"
 import { BookingDetailModal, formatDate, formatTime, type Booking } from "@/components/BookingDetailModal"
 
 const API_BASE = "https://dance-company-app.vercel.app"
+const SCREEN_WIDTH = Dimensions.get("window").width
+const HOUR_HEIGHT = 56
+const START_HOUR = 6
+const END_HOUR = 23
+const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + START_HOUR)
+const TIME_LABEL_WIDTH = 52
 
 type CalEvent = { id: string; title: string; start: string | null; end: string | null; allDay: boolean; location: string | null }
 type CalFilter = "day" | "week" | "month"
@@ -20,14 +26,27 @@ function toIso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
+function parseTime(iso: string): { hour: number; minute: number } {
+  const d = new Date(iso)
+  return { hour: d.getHours(), minute: d.getMinutes() }
+}
+
+function formatHour(h: number) {
+  if (h === 0) return "12 AM"
+  if (h === 12) return "12 PM"
+  return h < 12 ? `${h} AM` : `${h - 12} PM`
+}
+
 function formatEventTime(iso: string | null): string {
   if (!iso || iso.length === 10) return "All day"
-  const d = new Date(iso)
-  let h = d.getHours(); const m = d.getMinutes()
-  const period = h >= 12 ? "PM" : "AM"
-  if (h === 0) h = 12; else if (h > 12) h -= 12
-  return `${h}:${String(m).padStart(2, "0")} ${period}`
+  const { hour, minute } = parseTime(iso)
+  const period = hour >= 12 ? "PM" : "AM"
+  const h = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+  return `${h}:${String(minute).padStart(2, "0")} ${period}`
 }
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"]
 
 function BookingCard({ booking, onPress }: { booking: Booking; onPress?: () => void }) {
   const COLORS = useColors()
@@ -67,8 +86,120 @@ function SectionHeader({ title, count, expanded, onToggle }: { title: string; co
   )
 }
 
-const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+// Hourly timeline view (used for Day and Week/selected-day)
+function HourlyView({
+  dateIso,
+  calEvents,
+  bookings,
+  onBookingPress,
+}: {
+  dateIso: string
+  calEvents: CalEvent[]
+  bookings: Booking[]
+  onBookingPress: (b: Booking) => void
+}) {
+  const COLORS = useColors()
+  const scrollRef = useRef<ScrollView>(null)
+  const now = new Date()
+  const todayIso = toIso(now)
+  const isToday = dateIso === todayIso
+  const gridWidth = SCREEN_WIDTH - SPACING.md * 2 - TIME_LABEL_WIDTH
+  const totalHeight = HOURS.length * HOUR_HEIGHT
+
+  // Scroll to current time or 8 AM on mount
+  useEffect(() => {
+    const targetHour = isToday ? now.getHours() - 1 : 8
+    const offset = Math.max(0, (targetHour - START_HOUR) * HOUR_HEIGHT - HOUR_HEIGHT)
+    setTimeout(() => scrollRef.current?.scrollTo({ y: offset, animated: false }), 100)
+  }, [dateIso])
+
+  // Position events on the timeline
+  type EventBlock = {
+    key: string; top: number; height: number; title: string; subtitle: string | null
+    isCDP: boolean; booking?: Booking; color: string
+  }
+
+  const blocks: EventBlock[] = useMemo(() => {
+    const result: EventBlock[] = []
+    for (const b of bookings) {
+      if (!b.time) continue
+      const [hStr, mStr] = b.time.replace(/(AM|PM)/i, "").trim().split(":")
+      let hour = parseInt(hStr, 10); const minute = parseInt(mStr ?? "0", 10)
+      if (b.time.toUpperCase().includes("PM") && hour !== 12) hour += 12
+      if (b.time.toUpperCase().includes("AM") && hour === 12) hour = 0
+      const top = (hour - START_HOUR + minute / 60) * HOUR_HEIGHT
+      result.push({ key: `b-${b.id}`, top, height: HOUR_HEIGHT, title: `Session w/ ${b.prepMasterName || "PrepMaster"}`, subtitle: b.sessionType, isCDP: true, booking: b, color: COLORS.primary })
+    }
+    for (const e of calEvents) {
+      if (!e.start || e.allDay) continue
+      const { hour, minute } = parseTime(e.start)
+      const top = (hour - START_HOUR + minute / 60) * HOUR_HEIGHT
+      let height = HOUR_HEIGHT
+      if (e.end) {
+        const end = parseTime(e.end)
+        height = Math.max(30, (end.hour - hour + (end.minute - minute) / 60) * HOUR_HEIGHT)
+      }
+      result.push({ key: `e-${e.id}`, top, height, title: e.title, subtitle: e.location, isCDP: false, color: COLORS.textMuted })
+    }
+    return result
+  }, [bookings, calEvents, COLORS])
+
+  const currentTimeTop = isToday ? (now.getHours() - START_HOUR + now.getMinutes() / 60) * HOUR_HEIGHT : null
+
+  return (
+    <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+      <View style={{ paddingHorizontal: SPACING.md, paddingBottom: 80 }}>
+        <View style={{ flexDirection: "row" }}>
+          {/* Hour labels */}
+          <View style={{ width: TIME_LABEL_WIDTH }}>
+            {HOURS.map((h) => (
+              <View key={h} style={{ height: HOUR_HEIGHT, justifyContent: "flex-start", paddingTop: 2 }}>
+                <Text style={{ fontSize: 11, color: COLORS.textMuted, textAlign: "right", paddingRight: 8 }}>{formatHour(h)}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Grid + events */}
+          <View style={{ flex: 1, position: "relative", height: totalHeight }}>
+            {/* Hour lines */}
+            {HOURS.map((h, i) => (
+              <View key={h} style={{ position: "absolute", top: i * HOUR_HEIGHT, left: 0, right: 0, height: 1, backgroundColor: COLORS.border }} />
+            ))}
+
+            {/* Current time indicator */}
+            {currentTimeTop !== null && currentTimeTop >= 0 && currentTimeTop <= totalHeight && (
+              <View style={{ position: "absolute", top: currentTimeTop, left: 0, right: 0, flexDirection: "row", alignItems: "center", zIndex: 10 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary, marginLeft: -4 }} />
+                <View style={{ flex: 1, height: 1.5, backgroundColor: COLORS.primary }} />
+              </View>
+            )}
+
+            {/* Event blocks */}
+            {blocks.map((block) => {
+              const inner = (
+                <View style={{
+                  position: "absolute", top: block.top + 1, left: 2, right: 2,
+                  height: block.height - 2, borderRadius: 5,
+                  backgroundColor: block.isCDP ? COLORS.primaryLight : `${COLORS.textMuted}22`,
+                  borderLeftWidth: 3, borderLeftColor: block.color,
+                  padding: 4, overflow: "hidden",
+                }}>
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: block.isCDP ? COLORS.primary : COLORS.text }} numberOfLines={1}>{block.title}</Text>
+                  {block.height > 36 && block.subtitle ? <Text style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 1 }} numberOfLines={1}>{block.subtitle}</Text> : null}
+                  {block.height > 36 ? <Text style={{ fontSize: 10, color: block.isCDP ? COLORS.primary : COLORS.textMuted, marginTop: 1 }}>{formatEventTime(block.isCDP ? null : (calEvents.find(e => `e-${e.id}` === block.key)?.start ?? null))}{block.isCDP && block.booking ? formatTime(block.booking.time) : ""}</Text> : null}
+                </View>
+              )
+              if (block.booking) {
+                return <TouchableOpacity key={block.key} onPress={() => onBookingPress(block.booking!)} activeOpacity={0.8}>{inner}</TouchableOpacity>
+              }
+              return <View key={block.key}>{inner}</View>
+            })}
+          </View>
+        </View>
+      </View>
+    </ScrollView>
+  )
+}
 
 function CalendarView({
   events,
@@ -85,7 +216,8 @@ function CalendarView({
 }) {
   const COLORS = useColors()
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
-  const [selectedDate, setSelectedDate] = useState(toIso(today))
+  const todayIso = toIso(today)
+  const [selectedDate, setSelectedDate] = useState(todayIso)
   const [viewMonth, setViewMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [filter, setFilter] = useState<CalFilter>("month")
 
@@ -116,291 +248,220 @@ function CalendarView({
     return (eventsByDate[iso]?.length ?? 0) > 0 || (bookingsByDate[iso]?.length ?? 0) > 0
   }
 
-  // Monthly grid cells (padded to full weeks)
+  // Monthly grid cells
   const monthCells = useMemo(() => {
-    const year = viewMonth.getFullYear()
-    const month = viewMonth.getMonth()
+    const year = viewMonth.getFullYear(); const month = viewMonth.getMonth()
     const firstDay = new Date(year, month, 1).getDay()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
     const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
-    return Array.from({ length: totalCells }, (_, i) => {
-      const d = new Date(year, month, i - firstDay + 1)
-      return d
-    })
+    return Array.from({ length: totalCells }, (_, i) => new Date(year, month, i - firstDay + 1))
   }, [viewMonth])
 
-  // Week dates (Sun–Sat of selected date's week)
+  // Week strip for week/day views
   const weekDates = useMemo(() => {
     const d = new Date(`${selectedDate}T00:00:00`)
     const sun = new Date(d); sun.setDate(d.getDate() - d.getDay())
     return Array.from({ length: 7 }, (_, i) => { const x = new Date(sun); x.setDate(sun.getDate() + i); return x })
   }, [selectedDate])
 
-  function prevMonth() { setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1)) }
-  function nextMonth() { setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1)) }
-  function prevWeek() {
-    const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() - 7)
-    setSelectedDate(toIso(d))
+  function prevPeriod() {
+    if (filter === "month") setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))
+    else if (filter === "week") {
+      const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() - 7); setSelectedDate(toIso(d))
+    } else {
+      const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() - 1); setSelectedDate(toIso(d))
+    }
   }
-  function nextWeek() {
-    const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() + 7)
-    setSelectedDate(toIso(d))
-  }
-  function prevDay() {
-    const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() - 1)
-    setSelectedDate(toIso(d))
-  }
-  function nextDay() {
-    const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() + 1)
-    setSelectedDate(toIso(d))
+  function nextPeriod() {
+    if (filter === "month") setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))
+    else if (filter === "week") {
+      const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() + 7); setSelectedDate(toIso(d))
+    } else {
+      const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() + 1); setSelectedDate(toIso(d))
+    }
   }
 
-  // Navigation label
+  // When switching to month, sync viewMonth to selectedDate's month
+  function setFilterMode(f: CalFilter) {
+    if (f === "month") {
+      const d = new Date(`${selectedDate}T00:00:00`)
+      setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1))
+    }
+    setFilter(f)
+  }
+
   const navLabel = useMemo(() => {
     if (filter === "month") return `${MONTH_NAMES[viewMonth.getMonth()]} ${viewMonth.getFullYear()}`
     if (filter === "week") {
-      const start = weekDates[0]; const end = weekDates[6]
-      if (start.getMonth() === end.getMonth())
-        return `${MONTH_NAMES[start.getMonth()]} ${start.getDate()}–${end.getDate()}, ${start.getFullYear()}`
-      return `${MONTH_NAMES[start.getMonth()]} ${start.getDate()} – ${MONTH_NAMES[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`
+      const s = weekDates[0]; const e = weekDates[6]
+      if (s.getMonth() === e.getMonth()) return `${MONTH_NAMES[s.getMonth()]} ${s.getDate()}–${e.getDate()}`
+      return `${MONTH_NAMES[s.getMonth()]} ${s.getDate()} – ${MONTH_NAMES[e.getMonth()]} ${e.getDate()}`
     }
     const d = new Date(`${selectedDate}T00:00:00`)
-    return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+    return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
   }, [filter, viewMonth, weekDates, selectedDate])
 
-  // Events/bookings for selected date (day filter or grid tap)
-  const selectedDateEvents = eventsByDate[selectedDate] ?? []
-  const selectedDateBookings = bookingsByDate[selectedDate] ?? []
+  const selectedEvents = eventsByDate[selectedDate] ?? []
+  const selectedBookings = bookingsByDate[selectedDate] ?? []
 
-  // For month filter: events grouped by day across the whole month
-  const monthEventDays = useMemo(() => {
-    if (filter !== "month") return []
-    const year = viewMonth.getFullYear(); const month = viewMonth.getMonth()
-    const days: { iso: string; bookings: Booking[]; events: CalEvent[] }[] = []
-    for (let d = 1; d <= new Date(year, month + 1, 0).getDate(); d++) {
-      const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`
-      const b = bookingsByDate[iso] ?? []
-      const e = eventsByDate[iso] ?? []
-      if (b.length > 0 || e.length > 0) days.push({ iso, bookings: b, events: e })
-    }
-    return days
-  }, [filter, viewMonth, bookingsByDate, eventsByDate])
-
-  // For week filter: events grouped by day across the week
-  const weekEventDays = useMemo(() => {
-    if (filter !== "week") return []
-    return weekDates.map((d) => {
-      const iso = toIso(d)
-      return { iso, date: d, bookings: bookingsByDate[iso] ?? [], events: eventsByDate[iso] ?? [] }
-    })
-  }, [filter, weekDates, bookingsByDate, eventsByDate])
-
-  function EventRow({ event, booking }: { event?: CalEvent; booking?: Booking }) {
-    const time = booking ? formatTime(booking.time) : formatEventTime(event?.start ?? null)
-    const title = booking ? `Session w/ ${booking.prepMasterName || "PrepMaster"}` : (event?.title ?? "")
-    const subtitle = booking?.sessionType ?? event?.location ?? null
-    const isCDPBooking = !!booking
-
-    const inner = (
-      <View style={{
-        flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm,
-        backgroundColor: COLORS.surface, borderRadius: RADIUS.sm,
-        borderWidth: 1, borderColor: isCDPBooking ? COLORS.primary : COLORS.border,
-        borderLeftWidth: 3, borderLeftColor: isCDPBooking ? COLORS.primary : COLORS.textMuted,
-        padding: SPACING.md,
-      }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>{title}</Text>
-          <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>{time}</Text>
-          {subtitle ? <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{subtitle}</Text> : null}
-        </View>
-        {isCDPBooking && <ChevronRight size={16} color={COLORS.primary} style={{ marginTop: 2 }} />}
+  // Week strip shown in week + day modes
+  function WeekStrip() {
+    return (
+      <View style={{ flexDirection: "row", paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm }}>
+        {weekDates.map((d) => {
+          const iso = toIso(d)
+          const isSelected = iso === selectedDate
+          const isToday = iso === todayIso
+          const activity = hasActivity(iso)
+          return (
+            <TouchableOpacity key={iso} style={{ flex: 1, alignItems: "center", gap: 4 }} onPress={() => setSelectedDate(iso)} activeOpacity={0.7}>
+              <Text style={{ fontSize: 11, fontWeight: "600", color: isToday ? COLORS.primary : COLORS.textMuted }}>
+                {["S","M","T","W","T","F","S"][d.getDay()]}
+              </Text>
+              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: isSelected ? COLORS.primary : "transparent" }}>
+                <Text style={{ fontSize: 15, fontWeight: isToday || isSelected ? "700" : "400", color: isSelected ? "#fff" : isToday ? COLORS.primary : COLORS.text }}>
+                  {d.getDate()}
+                </Text>
+              </View>
+              {activity && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? COLORS.primary : COLORS.textMuted }} />}
+            </TouchableOpacity>
+          )
+        })}
       </View>
     )
-    if (booking) return <TouchableOpacity onPress={() => onBookingPress(booking)} activeOpacity={0.7}>{inner}</TouchableOpacity>
-    return inner
   }
 
-  function DaySection({ iso, bookings, calEvents }: { iso: string; bookings: Booking[]; calEvents: CalEvent[] }) {
-    const date = new Date(`${iso}T00:00:00`)
-    const isToday = iso === toIso(today)
-    if (bookings.length === 0 && calEvents.length === 0) return null
+  // Month grid events list (only for selected date, Apple Calendar style)
+  function SelectedDayEvents() {
+    const dateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+    const hasAny = selectedEvents.length > 0 || selectedBookings.length > 0
     return (
-      <View style={{ marginBottom: SPACING.md }}>
-        <Text style={{ fontSize: 12, fontWeight: "700", color: isToday ? COLORS.primary : COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: SPACING.xs ?? 4 }}>
-          {date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-          {isToday ? "  · Today" : ""}
+      <View style={{ paddingHorizontal: SPACING.md, paddingTop: SPACING.md, gap: SPACING.sm }}>
+        <Text style={{ fontSize: 13, fontWeight: "700", color: selectedDate === todayIso ? COLORS.primary : COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.5 }}>
+          {dateLabel}
         </Text>
-        <View style={{ gap: SPACING.sm }}>
-          {bookings.map((b) => <EventRow key={`b-${b.id}`} booking={b} />)}
-          {calEvents.map((e) => <EventRow key={`e-${e.id}`} event={e} />)}
-        </View>
+        {!hasAny && <Text style={{ fontSize: 13, color: COLORS.textMuted, paddingVertical: 4 }}>No events</Text>}
+        {selectedBookings.map((b) => (
+          <TouchableOpacity key={b.id} onPress={() => onBookingPress(b)} activeOpacity={0.8}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.primary, borderLeftWidth: 4, borderLeftColor: COLORS.primary, padding: SPACING.md }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>Session w/ {b.prepMasterName || "PrepMaster"}</Text>
+                <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>{formatTime(b.time)}{b.sessionType ? ` · ${b.sessionType}` : ""}</Text>
+              </View>
+              <ChevronRight size={16} color={COLORS.primary} />
+            </View>
+          </TouchableOpacity>
+        ))}
+        {selectedEvents.map((e) => (
+          <View key={e.id} style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, borderLeftWidth: 4, borderLeftColor: COLORS.textMuted, padding: SPACING.md }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>{e.title}</Text>
+              <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>{formatEventTime(e.start)}{e.end && !e.allDay ? ` – ${formatEventTime(e.end)}` : ""}</Text>
+              {e.location ? <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{e.location}</Text> : null}
+            </View>
+          </View>
+        ))}
       </View>
     )
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={{ padding: SPACING.md, paddingBottom: 100 }}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
-    >
+    <View style={{ flex: 1 }}>
       {/* Filter tabs */}
-      <View style={{ flexDirection: "row", borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, overflow: "hidden", marginBottom: SPACING.md }}>
+      <View style={{ flexDirection: "row", marginHorizontal: SPACING.md, marginBottom: SPACING.sm, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, overflow: "hidden" }}>
         {(["day", "week", "month"] as CalFilter[]).map((f) => (
-          <TouchableOpacity
-            key={f}
-            style={{ flex: 1, alignItems: "center", paddingVertical: 8, backgroundColor: filter === f ? COLORS.primary : "transparent" }}
-            onPress={() => setFilter(f)}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity key={f} style={{ flex: 1, alignItems: "center", paddingVertical: 8, backgroundColor: filter === f ? COLORS.primary : "transparent" }} onPress={() => setFilterMode(f)} activeOpacity={0.8}>
             <Text style={{ fontSize: 13, fontWeight: "600", color: filter === f ? "#fff" : COLORS.textMuted, textTransform: "capitalize" }}>{f}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Navigation header */}
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: SPACING.sm }}>
-        <TouchableOpacity
-          onPress={filter === "month" ? prevMonth : filter === "week" ? prevWeek : prevDay}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          activeOpacity={0.7}
-        >
+      {/* Nav header */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: SPACING.md, marginBottom: SPACING.sm }}>
+        <TouchableOpacity onPress={prevPeriod} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} activeOpacity={0.7}>
           <ChevronLeft size={20} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: COLORS.text }}>{navLabel}</Text>
-        <TouchableOpacity
-          onPress={filter === "month" ? nextMonth : filter === "week" ? nextWeek : nextDay}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity onPress={() => { setSelectedDate(todayIso); setViewMonth(new Date(today.getFullYear(), today.getMonth(), 1)) }} activeOpacity={0.7}>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: COLORS.text }}>{navLabel}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={nextPeriod} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} activeOpacity={0.7}>
           <ChevronRight size={20} color={COLORS.text} />
         </TouchableOpacity>
       </View>
 
-      {/* Calendar grid (month + week show a grid) */}
-      {filter !== "day" && (
-        <>
-          {/* Day-of-week headers */}
-          <View style={{ flexDirection: "row", marginBottom: 6 }}>
-            {DAY_LABELS.map((d) => (
-              <Text key={d} style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: "700", color: COLORS.textMuted }}>{d}</Text>
+      {/* Week strip for day/week filters */}
+      {filter !== "month" && <WeekStrip />}
+
+      {/* Month grid */}
+      {filter === "month" && (
+        <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}>
+          {/* Day headers */}
+          <View style={{ flexDirection: "row", paddingHorizontal: SPACING.md, marginBottom: 4 }}>
+            {DAY_LABELS.map((d, i) => (
+              <Text key={i} style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: "700", color: COLORS.textMuted }}>{d}</Text>
             ))}
           </View>
 
           {/* Grid */}
-          {filter === "month" && (
-            <View style={{ borderRadius: RADIUS.md, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.md }}>
-              {Array.from({ length: monthCells.length / 7 }, (_, row) => (
-                <View key={row} style={{ flexDirection: "row", borderBottomWidth: row < monthCells.length / 7 - 1 ? 1 : 0, borderColor: COLORS.border }}>
-                  {monthCells.slice(row * 7, row * 7 + 7).map((d, col) => {
-                    const iso = toIso(d)
-                    const isCurrentMonth = d.getMonth() === viewMonth.getMonth()
-                    const isToday = iso === toIso(today)
-                    const isSelected = iso === selectedDate
-                    const activity = hasActivity(iso)
-                    const hasCDPBooking = (bookingsByDate[iso]?.length ?? 0) > 0
-                    return (
-                      <TouchableOpacity
-                        key={iso}
-                        style={{
-                          flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center",
-                          backgroundColor: isSelected ? COLORS.primary : isToday ? COLORS.primaryLight : "transparent",
-                          borderRightWidth: col < 6 ? 1 : 0, borderColor: COLORS.border,
-                        }}
-                        onPress={() => setSelectedDate(iso)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={{
-                          fontSize: 13, fontWeight: isToday || isSelected ? "700" : "400",
-                          color: isSelected ? "#fff" : !isCurrentMonth ? COLORS.border : isToday ? COLORS.primary : COLORS.text,
-                        }}>{d.getDate()}</Text>
-                        {activity && (
-                          <View style={{ flexDirection: "row", gap: 2, marginTop: 1 }}>
-                            {hasCDPBooking && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.9)" : COLORS.primary }} />}
-                            {(eventsByDate[iso]?.length ?? 0) > 0 && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.6)" : COLORS.textMuted }} />}
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    )
-                  })}
-                </View>
-              ))}
-            </View>
-          )}
-
-          {filter === "week" && (
-            <View style={{ borderRadius: RADIUS.md, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.md }}>
-              <View style={{ flexDirection: "row" }}>
-                {weekDates.map((d, col) => {
+          <View style={{ marginHorizontal: SPACING.md, borderRadius: RADIUS.md, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.sm }}>
+            {Array.from({ length: monthCells.length / 7 }, (_, row) => (
+              <View key={row} style={{ flexDirection: "row", borderBottomWidth: row < monthCells.length / 7 - 1 ? 1 : 0, borderColor: COLORS.border }}>
+                {monthCells.slice(row * 7, row * 7 + 7).map((d, col) => {
                   const iso = toIso(d)
-                  const isToday = iso === toIso(today)
+                  const inMonth = d.getMonth() === viewMonth.getMonth()
+                  const isToday = iso === todayIso
                   const isSelected = iso === selectedDate
-                  const activity = hasActivity(iso)
-                  const hasCDPBooking = (bookingsByDate[iso]?.length ?? 0) > 0
+                  const hasCDP = (bookingsByDate[iso]?.length ?? 0) > 0
+                  const hasCal = (eventsByDate[iso]?.length ?? 0) > 0
                   return (
                     <TouchableOpacity
                       key={iso}
-                      style={{
-                        flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center",
-                        backgroundColor: isSelected ? COLORS.primary : isToday ? COLORS.primaryLight : "transparent",
-                        borderRightWidth: col < 6 ? 1 : 0, borderColor: COLORS.border,
-                      }}
+                      style={{ flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center", backgroundColor: isSelected ? COLORS.primary : "transparent", borderRightWidth: col < 6 ? 1 : 0, borderColor: COLORS.border }}
                       onPress={() => setSelectedDate(iso)}
                       activeOpacity={0.7}
                     >
-                      <Text style={{
-                        fontSize: 13, fontWeight: isToday || isSelected ? "700" : "400",
-                        color: isSelected ? "#fff" : isToday ? COLORS.primary : COLORS.text,
-                      }}>{d.getDate()}</Text>
-                      {activity && (
-                        <View style={{ flexDirection: "row", gap: 2, marginTop: 1 }}>
-                          {hasCDPBooking && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.9)" : COLORS.primary }} />}
-                          {(eventsByDate[iso]?.length ?? 0) > 0 && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.6)" : COLORS.textMuted }} />}
-                        </View>
-                      )}
+                      <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: isSelected ? COLORS.primary : isToday ? COLORS.primaryLight : "transparent" }}>
+                        <Text style={{ fontSize: 14, fontWeight: isToday || isSelected ? "700" : "400", color: isSelected ? "#fff" : !inMonth ? COLORS.border : isToday ? COLORS.primary : COLORS.text }}>
+                          {d.getDate()}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: "row", gap: 2, height: 5, marginTop: 1 }}>
+                        {hasCDP && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.9)" : COLORS.primary }} />}
+                        {hasCal && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.6)" : COLORS.textMuted }} />}
+                      </View>
                     </TouchableOpacity>
                   )
                 })}
               </View>
-            </View>
-          )}
-        </>
+            ))}
+          </View>
+
+          {/* Events for selected date only */}
+          <SelectedDayEvents />
+          <View style={{ height: 80 }} />
+        </ScrollView>
       )}
 
-      {/* Legend */}
-      <View style={{ flexDirection: "row", gap: SPACING.md, marginBottom: SPACING.md }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary }} />
-          <Text style={{ fontSize: 11, color: COLORS.textMuted }}>CDP session</Text>
-        </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.textMuted }} />
-          <Text style={{ fontSize: 11, color: COLORS.textMuted }}>Calendar event</Text>
-        </View>
-      </View>
-
-      {/* Events section */}
+      {/* Day view — hourly timeline */}
       {filter === "day" && (
-        <DaySection iso={selectedDate} bookings={selectedDateBookings} calEvents={selectedDateEvents} />
+        <HourlyView
+          dateIso={selectedDate}
+          calEvents={selectedEvents}
+          bookings={selectedBookings}
+          onBookingPress={onBookingPress}
+        />
       )}
 
+      {/* Week view — week strip + hourly timeline for selected day */}
       {filter === "week" && (
-        weekEventDays.every((d) => d.bookings.length === 0 && d.events.length === 0)
-          ? <Text style={{ fontSize: 13, color: COLORS.textMuted, paddingVertical: SPACING.sm }}>No events this week</Text>
-          : weekEventDays.map(({ iso, bookings, events: evs }) => (
-            <DaySection key={iso} iso={iso} bookings={bookings} calEvents={evs} />
-          ))
+        <HourlyView
+          dateIso={selectedDate}
+          calEvents={selectedEvents}
+          bookings={selectedBookings}
+          onBookingPress={onBookingPress}
+        />
       )}
-
-      {filter === "month" && (
-        monthEventDays.length === 0
-          ? <Text style={{ fontSize: 13, color: COLORS.textMuted, paddingVertical: SPACING.sm }}>No events this month</Text>
-          : monthEventDays.map(({ iso, bookings, events: evs }) => (
-            <DaySection key={iso} iso={iso} bookings={bookings} calEvents={evs} />
-          ))
-      )}
-    </ScrollView>
+    </View>
   )
 }
 
@@ -413,11 +474,7 @@ function ConnectCalendarPrompt({ onGoToProfile }: { onGoToProfile: () => void })
       <Text style={{ fontSize: 13, color: COLORS.textMuted, textAlign: "center", lineHeight: 20 }}>
         Link your Google Calendar in your profile to see all your events here.
       </Text>
-      <TouchableOpacity
-        style={{ backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md }}
-        onPress={onGoToProfile}
-        activeOpacity={0.8}
-      >
+      <TouchableOpacity style={{ backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md }} onPress={onGoToProfile} activeOpacity={0.8}>
         <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>Go to Profile</Text>
       </TouchableOpacity>
     </View>
@@ -506,7 +563,6 @@ export default function MemberBookingsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={["top"]}>
-      {/* Header */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm }}>
         <Text style={{ fontSize: 26, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_700Bold" }}>My Bookings</Text>
         <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full }} onPress={() => router.push("/member/book" as any)} activeOpacity={0.7}>
@@ -515,15 +571,9 @@ export default function MemberBookingsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Tab toggle */}
       <View style={{ flexDirection: "row", marginHorizontal: SPACING.md, marginBottom: SPACING.sm, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, overflow: "hidden" }}>
         {([["list", "List", List], ["calendar", "Calendar", CalendarDays]] as const).map(([value, label, Icon]) => (
-          <TouchableOpacity
-            key={value}
-            style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, backgroundColor: tab === value ? COLORS.primary : "transparent" }}
-            onPress={() => setTab(value)}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity key={value} style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, backgroundColor: tab === value ? COLORS.primary : "transparent" }} onPress={() => setTab(value)} activeOpacity={0.8}>
             <Icon size={15} color={tab === value ? "#fff" : COLORS.textMuted} />
             <Text style={{ fontSize: 13, fontWeight: "600", color: tab === value ? "#fff" : COLORS.textMuted }}>{label}</Text>
           </TouchableOpacity>
@@ -536,13 +586,7 @@ export default function MemberBookingsScreen() {
         </View>
       ) : tab === "calendar" ? (
         calConnected
-          ? <CalendarView
-              events={calEvents}
-              upcomingBookings={upcoming}
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              onBookingPress={setSelectedBooking}
-            />
+          ? <CalendarView events={calEvents} upcomingBookings={upcoming} refreshing={refreshing} onRefresh={onRefresh} onBookingPress={setSelectedBooking} />
           : <ConnectCalendarPrompt onGoToProfile={() => router.push("/member/profile" as any)} />
       ) : isEmpty ? (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: SPACING.lg, gap: SPACING.sm }}>
@@ -563,6 +607,7 @@ export default function MemberBookingsScreen() {
           }}
         />
       )}
+
       <BookingDetailModal
         booking={selectedBooking}
         onClose={() => setSelectedBooking(null)}
