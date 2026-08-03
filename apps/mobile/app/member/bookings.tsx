@@ -5,7 +5,7 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
-import { Plus, ChevronRight, List, CalendarDays } from "lucide-react-native"
+import { Plus, ChevronRight, List, CalendarDays, ChevronLeft } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
@@ -14,8 +14,20 @@ import { BookingDetailModal, formatDate, formatTime, type Booking } from "@/comp
 const API_BASE = "https://dance-company-app.vercel.app"
 
 type CalEvent = { id: string; title: string; start: string | null; end: string | null; allDay: boolean; location: string | null }
+type CalFilter = "day" | "week" | "month"
 
-function toIso(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` }
+function toIso(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+function formatEventTime(iso: string | null): string {
+  if (!iso || iso.length === 10) return "All day"
+  const d = new Date(iso)
+  let h = d.getHours(); const m = d.getMinutes()
+  const period = h >= 12 ? "PM" : "AM"
+  if (h === 0) h = 12; else if (h > 12) h -= 12
+  return `${h}:${String(m).padStart(2, "0")} ${period}`
+}
 
 function BookingCard({ booking, onPress }: { booking: Booking; onPress?: () => void }) {
   const COLORS = useColors()
@@ -55,20 +67,29 @@ function SectionHeader({ title, count, expanded, onToggle }: { title: string; co
   )
 }
 
-function CalendarView({ events, refreshing, onRefresh }: { events: CalEvent[]; refreshing: boolean; onRefresh: () => void }) {
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+
+function CalendarView({
+  events,
+  upcomingBookings,
+  refreshing,
+  onRefresh,
+  onBookingPress,
+}: {
+  events: CalEvent[]
+  upcomingBookings: Booking[]
+  refreshing: boolean
+  onRefresh: () => void
+  onBookingPress: (b: Booking) => void
+}) {
   const COLORS = useColors()
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
   const [selectedDate, setSelectedDate] = useState(toIso(today))
+  const [viewMonth, setViewMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
+  const [filter, setFilter] = useState<CalFilter>("month")
 
-  // Build 6-week date strip starting from today's week Sunday
-  const weekStart = useMemo(() => {
-    const d = new Date(today); d.setDate(d.getDate() - d.getDay()); return d
-  }, [today])
-  const dates = useMemo(() => Array.from({ length: 42 }, (_, i) => {
-    const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d
-  }), [weekStart])
-
-  // Map ISO date → events on that day
+  // Map ISO date → calendar events
   const eventsByDate = useMemo(() => {
     const map: Record<string, CalEvent[]> = {}
     for (const e of events) {
@@ -80,25 +101,143 @@ function CalendarView({ events, refreshing, onRefresh }: { events: CalEvent[]; r
     return map
   }, [events])
 
-  const selectedEvents = eventsByDate[selectedDate] ?? []
+  // Map ISO date → upcoming bookings
+  const bookingsByDate = useMemo(() => {
+    const map: Record<string, Booking[]> = {}
+    for (const b of upcomingBookings) {
+      if (!b.date) continue
+      if (!map[b.date]) map[b.date] = []
+      map[b.date].push(b)
+    }
+    return map
+  }, [upcomingBookings])
 
-  const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
-  const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-  function formatEventTime(iso: string | null): string {
-    if (!iso || iso.length === 10) return "All day"
-    const d = new Date(iso)
-    let h = d.getHours(); const m = d.getMinutes()
-    const period = h >= 12 ? "PM" : "AM"
-    if (h === 0) h = 12; else if (h > 12) h -= 12
-    return `${h}:${String(m).padStart(2, "0")} ${period}`
+  function hasActivity(iso: string) {
+    return (eventsByDate[iso]?.length ?? 0) > 0 || (bookingsByDate[iso]?.length ?? 0) > 0
   }
 
-  // Show which month is visible
-  const visibleMonth = useMemo(() => {
+  // Monthly grid cells (padded to full weeks)
+  const monthCells = useMemo(() => {
+    const year = viewMonth.getFullYear()
+    const month = viewMonth.getMonth()
+    const firstDay = new Date(year, month, 1).getDay()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
+    return Array.from({ length: totalCells }, (_, i) => {
+      const d = new Date(year, month, i - firstDay + 1)
+      return d
+    })
+  }, [viewMonth])
+
+  // Week dates (Sun–Sat of selected date's week)
+  const weekDates = useMemo(() => {
     const d = new Date(`${selectedDate}T00:00:00`)
-    return `${MONTH_LABELS[d.getMonth()]} ${d.getFullYear()}`
+    const sun = new Date(d); sun.setDate(d.getDate() - d.getDay())
+    return Array.from({ length: 7 }, (_, i) => { const x = new Date(sun); x.setDate(sun.getDate() + i); return x })
   }, [selectedDate])
+
+  function prevMonth() { setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1)) }
+  function nextMonth() { setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1)) }
+  function prevWeek() {
+    const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() - 7)
+    setSelectedDate(toIso(d))
+  }
+  function nextWeek() {
+    const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() + 7)
+    setSelectedDate(toIso(d))
+  }
+  function prevDay() {
+    const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() - 1)
+    setSelectedDate(toIso(d))
+  }
+  function nextDay() {
+    const d = new Date(`${selectedDate}T00:00:00`); d.setDate(d.getDate() + 1)
+    setSelectedDate(toIso(d))
+  }
+
+  // Navigation label
+  const navLabel = useMemo(() => {
+    if (filter === "month") return `${MONTH_NAMES[viewMonth.getMonth()]} ${viewMonth.getFullYear()}`
+    if (filter === "week") {
+      const start = weekDates[0]; const end = weekDates[6]
+      if (start.getMonth() === end.getMonth())
+        return `${MONTH_NAMES[start.getMonth()]} ${start.getDate()}–${end.getDate()}, ${start.getFullYear()}`
+      return `${MONTH_NAMES[start.getMonth()]} ${start.getDate()} – ${MONTH_NAMES[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`
+    }
+    const d = new Date(`${selectedDate}T00:00:00`)
+    return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+  }, [filter, viewMonth, weekDates, selectedDate])
+
+  // Events/bookings for selected date (day filter or grid tap)
+  const selectedDateEvents = eventsByDate[selectedDate] ?? []
+  const selectedDateBookings = bookingsByDate[selectedDate] ?? []
+
+  // For month filter: events grouped by day across the whole month
+  const monthEventDays = useMemo(() => {
+    if (filter !== "month") return []
+    const year = viewMonth.getFullYear(); const month = viewMonth.getMonth()
+    const days: { iso: string; bookings: Booking[]; events: CalEvent[] }[] = []
+    for (let d = 1; d <= new Date(year, month + 1, 0).getDate(); d++) {
+      const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+      const b = bookingsByDate[iso] ?? []
+      const e = eventsByDate[iso] ?? []
+      if (b.length > 0 || e.length > 0) days.push({ iso, bookings: b, events: e })
+    }
+    return days
+  }, [filter, viewMonth, bookingsByDate, eventsByDate])
+
+  // For week filter: events grouped by day across the week
+  const weekEventDays = useMemo(() => {
+    if (filter !== "week") return []
+    return weekDates.map((d) => {
+      const iso = toIso(d)
+      return { iso, date: d, bookings: bookingsByDate[iso] ?? [], events: eventsByDate[iso] ?? [] }
+    })
+  }, [filter, weekDates, bookingsByDate, eventsByDate])
+
+  function EventRow({ event, booking }: { event?: CalEvent; booking?: Booking }) {
+    const time = booking ? formatTime(booking.time) : formatEventTime(event?.start ?? null)
+    const title = booking ? `Session w/ ${booking.prepMasterName || "PrepMaster"}` : (event?.title ?? "")
+    const subtitle = booking?.sessionType ?? event?.location ?? null
+    const isCDPBooking = !!booking
+
+    const inner = (
+      <View style={{
+        flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm,
+        backgroundColor: COLORS.surface, borderRadius: RADIUS.sm,
+        borderWidth: 1, borderColor: isCDPBooking ? COLORS.primary : COLORS.border,
+        borderLeftWidth: 3, borderLeftColor: isCDPBooking ? COLORS.primary : COLORS.textMuted,
+        padding: SPACING.md,
+      }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>{title}</Text>
+          <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>{time}</Text>
+          {subtitle ? <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{subtitle}</Text> : null}
+        </View>
+        {isCDPBooking && <ChevronRight size={16} color={COLORS.primary} style={{ marginTop: 2 }} />}
+      </View>
+    )
+    if (booking) return <TouchableOpacity onPress={() => onBookingPress(booking)} activeOpacity={0.7}>{inner}</TouchableOpacity>
+    return inner
+  }
+
+  function DaySection({ iso, bookings, calEvents }: { iso: string; bookings: Booking[]; calEvents: CalEvent[] }) {
+    const date = new Date(`${iso}T00:00:00`)
+    const isToday = iso === toIso(today)
+    if (bookings.length === 0 && calEvents.length === 0) return null
+    return (
+      <View style={{ marginBottom: SPACING.md }}>
+        <Text style={{ fontSize: 12, fontWeight: "700", color: isToday ? COLORS.primary : COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: SPACING.xs ?? 4 }}>
+          {date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+          {isToday ? "  · Today" : ""}
+        </Text>
+        <View style={{ gap: SPACING.sm }}>
+          {bookings.map((b) => <EventRow key={`b-${b.id}`} booking={b} />)}
+          {calEvents.map((e) => <EventRow key={`e-${e.id}`} event={e} />)}
+        </View>
+      </View>
+    )
+  }
 
   return (
     <ScrollView
@@ -106,68 +245,161 @@ function CalendarView({ events, refreshing, onRefresh }: { events: CalEvent[]; r
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
     >
-      {/* Month label */}
-      <Text style={{ fontSize: 15, fontWeight: "700", color: COLORS.text, marginBottom: SPACING.sm }}>{visibleMonth}</Text>
-
-      {/* Day-of-week headers */}
-      <View style={{ flexDirection: "row", marginBottom: 4 }}>
-        {DAY_LABELS.map((d) => (
-          <Text key={d} style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase" }}>{d}</Text>
+      {/* Filter tabs */}
+      <View style={{ flexDirection: "row", borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, overflow: "hidden", marginBottom: SPACING.md }}>
+        {(["day", "week", "month"] as CalFilter[]).map((f) => (
+          <TouchableOpacity
+            key={f}
+            style={{ flex: 1, alignItems: "center", paddingVertical: 8, backgroundColor: filter === f ? COLORS.primary : "transparent" }}
+            onPress={() => setFilter(f)}
+            activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "600", color: filter === f ? "#fff" : COLORS.textMuted, textTransform: "capitalize" }}>{f}</Text>
+          </TouchableOpacity>
         ))}
       </View>
 
-      {/* Calendar grid */}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", borderRadius: RADIUS.md, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border }}>
-        {dates.map((d, i) => {
-          const iso = toIso(d)
-          const isToday = iso === toIso(today)
-          const isSelected = iso === selectedDate
-          const isPast = d < today
-          const hasEvents = (eventsByDate[iso]?.length ?? 0) > 0
-          const isCurrentMonth = d.getMonth() === new Date(`${selectedDate}T00:00:00`).getMonth()
-          return (
-            <TouchableOpacity
-              key={iso}
-              style={{
-                width: "14.28%",
-                aspectRatio: 1,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: isSelected ? COLORS.primary : isToday ? COLORS.primaryLight : COLORS.surface,
-                borderRightWidth: (i + 1) % 7 === 0 ? 0 : 1,
-                borderBottomWidth: i >= 35 ? 0 : 1,
-                borderColor: COLORS.border,
-              }}
-              onPress={() => setSelectedDate(iso)}
-              activeOpacity={0.7}
-            >
-              <Text style={{
-                fontSize: 13, fontWeight: isToday || isSelected ? "700" : "400",
-                color: isSelected ? "#fff" : isToday ? COLORS.primary : isPast || !isCurrentMonth ? COLORS.textMuted : COLORS.text,
-              }}>{d.getDate()}</Text>
-              {hasEvents && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.8)" : COLORS.primary, marginTop: 1 }} />}
-            </TouchableOpacity>
-          )
-        })}
+      {/* Navigation header */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: SPACING.sm }}>
+        <TouchableOpacity
+          onPress={filter === "month" ? prevMonth : filter === "week" ? prevWeek : prevDay}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={20} color={COLORS.text} />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 15, fontWeight: "700", color: COLORS.text }}>{navLabel}</Text>
+        <TouchableOpacity
+          onPress={filter === "month" ? nextMonth : filter === "week" ? nextWeek : nextDay}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <ChevronRight size={20} color={COLORS.text} />
+        </TouchableOpacity>
       </View>
 
-      {/* Events for selected date */}
-      <View style={{ marginTop: SPACING.md, gap: SPACING.sm }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.6 }}>
-          {new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-        </Text>
-        {selectedEvents.length === 0 ? (
-          <Text style={{ fontSize: 13, color: COLORS.textMuted, paddingVertical: SPACING.sm }}>No events</Text>
-        ) : selectedEvents.map((e) => (
-          <View key={e.id} style={{ flexDirection: "row", gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, borderLeftWidth: 3, borderLeftColor: COLORS.primary }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>{e.title}</Text>
-              <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>{formatEventTime(e.start)}{e.end && !e.allDay ? ` – ${formatEventTime(e.end)}` : ""}</Text>
-              {e.location ? <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{e.location}</Text> : null}
-            </View>
+      {/* Calendar grid (month + week show a grid) */}
+      {filter !== "day" && (
+        <>
+          {/* Day-of-week headers */}
+          <View style={{ flexDirection: "row", marginBottom: 6 }}>
+            {DAY_LABELS.map((d) => (
+              <Text key={d} style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: "700", color: COLORS.textMuted }}>{d}</Text>
+            ))}
           </View>
-        ))}
+
+          {/* Grid */}
+          {filter === "month" && (
+            <View style={{ borderRadius: RADIUS.md, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.md }}>
+              {Array.from({ length: monthCells.length / 7 }, (_, row) => (
+                <View key={row} style={{ flexDirection: "row", borderBottomWidth: row < monthCells.length / 7 - 1 ? 1 : 0, borderColor: COLORS.border }}>
+                  {monthCells.slice(row * 7, row * 7 + 7).map((d, col) => {
+                    const iso = toIso(d)
+                    const isCurrentMonth = d.getMonth() === viewMonth.getMonth()
+                    const isToday = iso === toIso(today)
+                    const isSelected = iso === selectedDate
+                    const activity = hasActivity(iso)
+                    const hasCDPBooking = (bookingsByDate[iso]?.length ?? 0) > 0
+                    return (
+                      <TouchableOpacity
+                        key={iso}
+                        style={{
+                          flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center",
+                          backgroundColor: isSelected ? COLORS.primary : isToday ? COLORS.primaryLight : "transparent",
+                          borderRightWidth: col < 6 ? 1 : 0, borderColor: COLORS.border,
+                        }}
+                        onPress={() => setSelectedDate(iso)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={{
+                          fontSize: 13, fontWeight: isToday || isSelected ? "700" : "400",
+                          color: isSelected ? "#fff" : !isCurrentMonth ? COLORS.border : isToday ? COLORS.primary : COLORS.text,
+                        }}>{d.getDate()}</Text>
+                        {activity && (
+                          <View style={{ flexDirection: "row", gap: 2, marginTop: 1 }}>
+                            {hasCDPBooking && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.9)" : COLORS.primary }} />}
+                            {(eventsByDate[iso]?.length ?? 0) > 0 && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.6)" : COLORS.textMuted }} />}
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {filter === "week" && (
+            <View style={{ borderRadius: RADIUS.md, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.md }}>
+              <View style={{ flexDirection: "row" }}>
+                {weekDates.map((d, col) => {
+                  const iso = toIso(d)
+                  const isToday = iso === toIso(today)
+                  const isSelected = iso === selectedDate
+                  const activity = hasActivity(iso)
+                  const hasCDPBooking = (bookingsByDate[iso]?.length ?? 0) > 0
+                  return (
+                    <TouchableOpacity
+                      key={iso}
+                      style={{
+                        flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center",
+                        backgroundColor: isSelected ? COLORS.primary : isToday ? COLORS.primaryLight : "transparent",
+                        borderRightWidth: col < 6 ? 1 : 0, borderColor: COLORS.border,
+                      }}
+                      onPress={() => setSelectedDate(iso)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{
+                        fontSize: 13, fontWeight: isToday || isSelected ? "700" : "400",
+                        color: isSelected ? "#fff" : isToday ? COLORS.primary : COLORS.text,
+                      }}>{d.getDate()}</Text>
+                      {activity && (
+                        <View style={{ flexDirection: "row", gap: 2, marginTop: 1 }}>
+                          {hasCDPBooking && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.9)" : COLORS.primary }} />}
+                          {(eventsByDate[iso]?.length ?? 0) > 0 && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.6)" : COLORS.textMuted }} />}
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </View>
+          )}
+        </>
+      )}
+
+      {/* Legend */}
+      <View style={{ flexDirection: "row", gap: SPACING.md, marginBottom: SPACING.md }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary }} />
+          <Text style={{ fontSize: 11, color: COLORS.textMuted }}>CDP session</Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.textMuted }} />
+          <Text style={{ fontSize: 11, color: COLORS.textMuted }}>Calendar event</Text>
+        </View>
       </View>
+
+      {/* Events section */}
+      {filter === "day" && (
+        <DaySection iso={selectedDate} bookings={selectedDateBookings} calEvents={selectedDateEvents} />
+      )}
+
+      {filter === "week" && (
+        weekEventDays.every((d) => d.bookings.length === 0 && d.events.length === 0)
+          ? <Text style={{ fontSize: 13, color: COLORS.textMuted, paddingVertical: SPACING.sm }}>No events this week</Text>
+          : weekEventDays.map(({ iso, bookings, events: evs }) => (
+            <DaySection key={iso} iso={iso} bookings={bookings} calEvents={evs} />
+          ))
+      )}
+
+      {filter === "month" && (
+        monthEventDays.length === 0
+          ? <Text style={{ fontSize: 13, color: COLORS.textMuted, paddingVertical: SPACING.sm }}>No events this month</Text>
+          : monthEventDays.map(({ iso, bookings, events: evs }) => (
+            <DaySection key={iso} iso={iso} bookings={bookings} calEvents={evs} />
+          ))
+      )}
     </ScrollView>
   )
 }
@@ -236,10 +468,12 @@ export default function MemberBookingsScreen() {
     const b = upcoming.find((x) => x.id === id)
     setUpcoming((prev) => prev.filter((x) => x.id !== id))
     if (b) setCancelled((prev) => [{ ...b, status: "Cancelled" }, ...prev])
+    setSelectedBooking(null)
   }
 
   function handleRescheduled(id: string, date: string, time: string) {
     setUpcoming((prev) => prev.map((b) => b.id === id ? { ...b, date, time, status: "Pending" } : b))
+    setSelectedBooking(null)
   }
 
   if (loading) {
@@ -302,7 +536,13 @@ export default function MemberBookingsScreen() {
         </View>
       ) : tab === "calendar" ? (
         calConnected
-          ? <CalendarView events={calEvents} refreshing={refreshing} onRefresh={onRefresh} />
+          ? <CalendarView
+              events={calEvents}
+              upcomingBookings={upcoming}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              onBookingPress={setSelectedBooking}
+            />
           : <ConnectCalendarPrompt onGoToProfile={() => router.push("/member/profile" as any)} />
       ) : isEmpty ? (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: SPACING.lg, gap: SPACING.sm }}>
