@@ -55,6 +55,7 @@ export async function DELETE(
   await appBase.update<BookingFields>(TABLES.bookings, id, {
     Status: within24 ? "Cancelled (Late)" : "Cancelled",
     ...(body.reason ? { "Cancellation Reason": body.reason } : {}),
+    ...(within24 ? { "Payable to PrepMaster": true } : {}),
   })
 
   if (!within24) {
