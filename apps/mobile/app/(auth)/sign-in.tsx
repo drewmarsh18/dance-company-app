@@ -7,7 +7,7 @@ import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 import * as WebBrowser from "expo-web-browser"
 import * as Google from "expo-auth-session/providers/google"
-import { signIn } from "@/lib/auth-client"
+import { signIn, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 
@@ -24,7 +24,12 @@ export default function SignInScreen() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const { data: session } = useSession()
   const [request, response, promptAsync] = Google.useAuthRequest({ iosClientId: GOOGLE_IOS_CLIENT_ID })
+
+  useEffect(() => {
+    if (session?.user) router.replace("/")
+  }, [session?.user?.id])
 
   useEffect(() => {
     if (response?.type === "success") {
@@ -44,7 +49,7 @@ export default function SignInScreen() {
     try {
       const result = await signIn.social({ provider: "google", idToken: { token: idToken, accessToken } } as Parameters<typeof signIn.social>[0])
       if (result?.error) setError(result.error.message ?? "Google sign-in failed.")
-      else router.replace("/")
+      // navigation handled by session watcher useEffect
     } catch { setError("Google sign-in failed. Please try again.") }
     finally { setGoogleLoading(false) }
   }
