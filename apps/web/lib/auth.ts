@@ -1,6 +1,8 @@
 import { betterAuth } from "better-auth"
 import { expo } from "@better-auth/expo"
-import { pool } from "@/lib/db"
+import { pool, db } from "@/lib/db"
+import { user as userTable } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 
 export const auth = betterAuth({
   plugins: [expo()],
@@ -84,5 +86,21 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // 1 day
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (newUser) => {
+          // Admins are auto-approved; everyone else starts as pending
+          const adminEmails = (process.env.ADMIN_EMAILS ?? "")
+            .split(",").map((e) => e.trim().toLowerCase()).filter(Boolean)
+          if (!adminEmails.includes(newUser.email.trim().toLowerCase())) {
+            await db.update(userTable)
+              .set({ status: "pending" })
+              .where(eq(userTable.id, newUser.id))
+          }
+        },
+      },
+    },
   },
 })

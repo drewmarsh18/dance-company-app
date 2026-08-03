@@ -36,8 +36,8 @@ export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { dancerEmail, date, time, notes } = await req.json() as {
-    dancerEmail: string; date: string; time: string; notes?: string
+  const { dancerEmail, date, time, notes, sessionType } = await req.json() as {
+    dancerEmail: string; date: string; time: string; notes?: string; sessionType?: string
   }
 
   const prepMaster = await getPrepMasterByEmail(session.user.email)
@@ -66,6 +66,23 @@ export async function POST(req: Request) {
     .where(eq(userTable.email, dancerEmail.toLowerCase()))
     .limit(1)
 
+  // Credit deduction for PM-scheduled sessions
+  const CREDIT_COST: Record<string, number> = { "private-30": 0.5, "private-45": 0.75, "private-60": 1 }
+  const creditCost = CREDIT_COST[sessionType ?? "private-60"] ?? 1
+  if (dancer?.id) {
+    const safeId = dancer.id.replace(/'/g, "\\'")
+    const clientRecords = await appBase.list<{ "Credits Remaining": number; Name: string }>(
+      TABLES.clients, { filterByFormula: `{User ID} = '${safeId}'`, maxRecords: 1, revalidate: 0 }
+    )
+    const clientRecord = clientRecords[0]
+    if (clientRecord) {
+      const current = (clientRecord.fields["Credits Remaining"] ?? 0) as number
+      await appBase.update(TABLES.clients, clientRecord.id, {
+        "Credits Remaining": Math.round((current - creditCost) * 100) / 100,
+      })
+    }
+  }
+
   await appBase.create<BookingFields>(TABLES.bookings, {
     "Client Email": dancerEmail,
     "User ID": dancer?.id ?? "",
@@ -74,6 +91,7 @@ export async function POST(req: Request) {
     Time: time,
     Status: "Confirmed",
     Notes: notes ?? "",
+    "Session Type": sessionType ?? "private-60",
   })
 
   if (dancer?.id) {

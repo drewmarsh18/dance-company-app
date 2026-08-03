@@ -8,12 +8,14 @@ import { AdminMembersPanel } from "@/components/admin-members-panel"
 
 import { AdminPrepMastersPanel } from "@/components/admin-prep-masters-panel"
 import { AdminOverviewPanel } from "@/components/admin-overview-panel"
+import { AdminApprovalsPanel } from "@/components/admin-approvals-panel"
 import { Search } from "lucide-react"
 
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "members", label: "Members" },
   { id: "prep-masters", label: "PrepMasters" },
+  { id: "approvals", label: "Approvals" },
 ] as const
 
 type TabId = (typeof TABS)[number]["id"]
@@ -92,6 +94,7 @@ export function AdminTabs({ members, bookings, workers, plans, packages }: Props
       {active === "prep-masters" && (
         <AdminPrepMastersPanel workers={workers} bookings={bookings} query={query} />
       )}
+      {active === "approvals" && <AdminApprovalsPanel />}
     </div>
   )
 }

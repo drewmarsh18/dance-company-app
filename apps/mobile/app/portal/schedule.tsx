@@ -100,6 +100,7 @@ export default function PortalScheduleScreen() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [selectedDate, setSelectedDate] = useState(toIso(new Date()))
   const [selectedTime, setSelectedTime] = useState("")
+  const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60">("private-60")
   const [bookNotes, setBookNotes] = useState("")
   const [booking, setBooking] = useState(false)
   const [events, setEvents] = useState<CalEvent[]>([])
@@ -126,20 +127,28 @@ export default function PortalScheduleScreen() {
 
   function openBooking() { if (!showBook) { setShowBook(true); loadClients() } else { setShowBook(false) } }
 
+  const CREDIT_COST: Record<string, number> = { "private-30": 0.5, "private-45": 0.75, "private-60": 1 }
+  const DURATION_OPTIONS = [
+    { value: "private-30" as const, label: "30 min", credits: "0.5 credits" },
+    { value: "private-45" as const, label: "45 min", credits: "0.75 credits" },
+    { value: "private-60" as const, label: "60 min", credits: "1 credit" },
+  ]
+
   async function handleBook() {
     if (!selectedClient || !selectedDate || !selectedTime) { Alert.alert("Missing fields", "Please select a client, date, and time."); return }
     setBooking(true)
     try {
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/portal/book`, {
         method: "POST",
-        body: JSON.stringify({ dancerEmail: selectedClient.email, date: selectedDate, time: selectedTime, notes: bookNotes }),
+        body: JSON.stringify({ dancerEmail: selectedClient.email, date: selectedDate, time: selectedTime, notes: bookNotes, sessionType: selectedDuration }),
         headers: { "Content-Type": "application/json" },
       })
       if (error) throw new Error((error as any)?.message ?? "Failed")
       const res = data as { ok: boolean; error?: string }
       if (!res.ok) throw new Error(res.error ?? "Failed")
-      Alert.alert("Booked!", `Session with ${selectedClient.name} on ${selectedDate} at ${selectedTime} has been created.`)
-      setShowBook(false); setSelectedClient(null); setSelectedTime(""); setBookNotes("")
+      const creditUsed = CREDIT_COST[selectedDuration]
+      Alert.alert("Booked!", `Session with ${selectedClient.name} on ${selectedDate} at ${selectedTime} has been created. ${creditUsed} credit${creditUsed === 1 ? "" : "s"} deducted.`)
+      setShowBook(false); setSelectedClient(null); setSelectedTime(""); setBookNotes(""); setSelectedDuration("private-60")
     } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not create booking.") }
     finally { setBooking(false) }
   }
@@ -267,6 +276,15 @@ export default function PortalScheduleScreen() {
               }).map((t) => (
                 <TouchableOpacity key={t} style={[styles.chip, selectedTime === t && styles.chipSelected]} onPress={() => setSelectedTime(t)} activeOpacity={0.7}>
                   <Text style={[styles.chipText, selectedTime === t && { color: COLORS.primary }]}>{t}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.fieldLabel}>Session Length</Text>
+            <View style={styles.chipWrap}>
+              {DURATION_OPTIONS.map((d) => (
+                <TouchableOpacity key={d.value} style={[styles.chip, selectedDuration === d.value && styles.chipSelected]} onPress={() => setSelectedDuration(d.value)} activeOpacity={0.7}>
+                  <Text style={[styles.chipText, selectedDuration === d.value && { color: COLORS.primary }]}>{d.label}</Text>
+                  <Text style={{ fontSize: 10, color: selectedDuration === d.value ? COLORS.primary : COLORS.textMuted, marginTop: 1 }}>{d.credits}</Text>
                 </TouchableOpacity>
               ))}
             </View>

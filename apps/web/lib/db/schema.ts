@@ -19,6 +19,8 @@ export const user = pgTable("user", {
   image: text("image"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  // "active" | "pending" | "denied" — new dancer signups start as "pending"
+  status: text("status").notNull().default("active"),
 })
 
 export const session = pgTable("session", {
