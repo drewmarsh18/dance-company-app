@@ -370,9 +370,9 @@ function CalendarView({
   return (
     <View style={{ flex: 1 }}>
       {/* Filter tabs */}
-      <View style={{ flexDirection: "row", marginHorizontal: SPACING.md, marginBottom: SPACING.sm, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, overflow: "hidden" }}>
+      <View style={{ flexDirection: "row", alignSelf: "center", marginBottom: SPACING.sm, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, overflow: "hidden" }}>
         {(["day", "month"] as CalFilter[]).map((f) => (
-          <TouchableOpacity key={f} style={{ flex: 1, alignItems: "center", paddingVertical: 5, backgroundColor: filter === f ? COLORS.primary : "transparent" }} onPress={() => setFilterMode(f)} activeOpacity={0.8}>
+          <TouchableOpacity key={f} style={{ alignItems: "center", paddingVertical: 5, paddingHorizontal: SPACING.lg, backgroundColor: filter === f ? COLORS.primary : "transparent" }} onPress={() => setFilterMode(f)} activeOpacity={0.8}>
             <Text style={{ fontSize: 11, fontWeight: "600", color: filter === f ? "#fff" : COLORS.textMuted, textTransform: "capitalize" }}>{f}</Text>
           </TouchableOpacity>
         ))}
