@@ -22,6 +22,12 @@ const TIME_LABEL_WIDTH = 52
 type CalEvent = { id: string; title: string; start: string | null; end: string | null; allDay: boolean; location: string | null }
 type CalFilter = "day" | "month"
 
+function fmtSessionType(s: string | null | undefined): string {
+  if (!s) return ""
+  const map: Record<string, string> = { "private-60": "60 min", "private-45": "45 min", "private-30": "30 min", "pack-hour": "60 min" }
+  return map[s] ?? s
+}
+
 function toIso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
@@ -59,8 +65,7 @@ function BookingCard({ booking, onPress }: { booking: Booking; onPress?: () => v
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md }}>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>{booking.prepMasterName || "PrepMaster"}</Text>
-        <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{formatDate(booking.date)}{booking.time ? ` · ${formatTime(booking.time)}` : ""}</Text>
-        {booking.sessionType ? <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{booking.sessionType}</Text> : null}
+        <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{formatDate(booking.date)}{booking.time ? ` · ${formatTime(booking.time)}` : ""}{booking.sessionType ? ` · ${fmtSessionType(booking.sessionType)}` : ""}</Text>
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
         <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full, backgroundColor: sc.bg }}>
@@ -128,7 +133,7 @@ function HourlyView({
       if (b.time.toUpperCase().includes("PM") && hour !== 12) hour += 12
       if (b.time.toUpperCase().includes("AM") && hour === 12) hour = 0
       const top = (hour - START_HOUR + minute / 60) * HOUR_HEIGHT
-      result.push({ key: `b-${b.id}`, top, height: HOUR_HEIGHT, title: `Session w/ ${b.prepMasterName || "PrepMaster"}`, subtitle: b.sessionType, isCDP: true, booking: b, color: COLORS.primary })
+      result.push({ key: `b-${b.id}`, top, height: HOUR_HEIGHT, title: `Session w/ ${b.prepMasterName || "PrepMaster"}`, subtitle: b.sessionType ? fmtSessionType(b.sessionType) : null, isCDP: true, booking: b, color: COLORS.primary })
     }
     for (const e of calEvents) {
       if (!e.start || e.allDay) continue
@@ -344,7 +349,7 @@ function CalendarView({
                     <ChevronRight size={16} color={COLORS.primary} />
                   </View>
                 </View>
-                <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{formatTime(b.time)}{b.sessionType ? ` · ${b.sessionType}` : ""}</Text>
+                <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{formatTime(b.time)}{b.sessionType ? ` · ${fmtSessionType(b.sessionType)}` : ""}</Text>
               </View>
             </TouchableOpacity>
           )
@@ -368,7 +373,7 @@ function CalendarView({
       <View style={{ flexDirection: "row", marginHorizontal: SPACING.md, marginBottom: SPACING.sm, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, overflow: "hidden" }}>
         {(["day", "month"] as CalFilter[]).map((f) => (
           <TouchableOpacity key={f} style={{ flex: 1, alignItems: "center", paddingVertical: 8, backgroundColor: filter === f ? COLORS.primary : "transparent" }} onPress={() => setFilterMode(f)} activeOpacity={0.8}>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: filter === f ? "#fff" : COLORS.textMuted, textTransform: "capitalize" }}>{f}</Text>
+            <Text style={{ fontSize: 11, fontWeight: "600", color: filter === f ? "#fff" : COLORS.textMuted, textTransform: "capitalize" }}>{f}</Text>
           </TouchableOpacity>
         ))}
       </View>
