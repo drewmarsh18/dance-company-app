@@ -283,10 +283,8 @@ function CalendarView({
 
   // When switching to month, sync viewMonth to selectedDate's month
   function setFilterMode(f: CalFilter) {
-    if (f === "month") {
-      const d = new Date(`${selectedDate}T00:00:00`)
-      setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1))
-    }
+    setSelectedDate(todayIso)
+    setViewMonth(new Date(today.getFullYear(), today.getMonth(), 1))
     setFilter(f)
   }
 
