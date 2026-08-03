@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from "react"
 import {
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
-  ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Linking,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useRouter } from "expo-router"
-import { Link, Sun, Moon, Smartphone } from "lucide-react-native"
+import { useRouter, useLocalSearchParams } from "expo-router"
+import { Link, Sun, Moon, Smartphone, CalendarCheck, CalendarX } from "lucide-react-native"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useTheme } from "@/lib/theme-context"
@@ -37,14 +37,17 @@ export default function MemberProfileScreen() {
   const [dirty, setDirty] = useState(false)
   const [googleLinking, setGoogleLinking] = useState(false)
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
+  const [calendarConnected, setCalendarConnected] = useState(false)
   const [actualRole, setActualRole] = useState<string | null>(null)
+  const params = useLocalSearchParams<{ calendar?: string }>()
 
   const load = useCallback(async () => {
     try {
-      const [dashResult, accountsResult, meResult] = await Promise.all([
+      const [dashResult, accountsResult, meResult, calResult] = await Promise.all([
         authClient.$fetch(`${API_BASE}/api/member/dashboard`),
         authClient.$fetch(`${API_BASE}/api/auth/list-accounts`),
         authClient.$fetch(`${API_BASE}/api/me`),
+        authClient.$fetch(`${API_BASE}/api/member/calendar-events`),
       ])
       if (dashResult.error || !dashResult.data) throw new Error((dashResult.error as any)?.statusText ?? "Failed to load")
       const p = (dashResult.data as any).profile as Profile
@@ -52,8 +55,13 @@ export default function MemberProfileScreen() {
       const accounts = (accountsResult.data as any) ?? []
       setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
       if (!meResult.error && meResult.data) setActualRole((meResult.data as any).role ?? null)
+      if (!calResult.error && calResult.data) setCalendarConnected((calResult.data as any).connected === true)
     } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong.") }
   }, [])
+
+  useEffect(() => {
+    if (params.calendar === "connected") { setCalendarConnected(true) }
+  }, [params.calendar])
 
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
 
@@ -71,6 +79,24 @@ export default function MemberProfileScreen() {
       Alert.alert("Saved", "Your profile has been updated.")
     } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Failed to save profile.") }
     finally { setSaving(false) }
+  }
+
+  async function handleConnectCalendar() {
+    try {
+      const { data, error } = await authClient.$fetch(`${API_BASE}/api/google-calendar/url?for=member`)
+      if (error || !(data as any)?.url) throw new Error("Could not get calendar auth URL")
+      await Linking.openURL((data as any).url)
+    } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google Calendar.") }
+  }
+
+  async function handleDisconnectCalendar() {
+    Alert.alert("Disconnect Google Calendar", "Remove calendar access?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Disconnect", style: "destructive", onPress: async () => {
+        await authClient.$fetch(`${API_BASE}/api/google-calendar/disconnect`, { method: "POST" })
+        setCalendarConnected(false)
+      }},
+    ])
   }
 
   async function handleConnectGoogle() {
@@ -149,17 +175,32 @@ export default function MemberProfileScreen() {
 
           {/* Connected accounts */}
           <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Connected accounts</Text></View>
-          <TouchableOpacity
-            style={[styles.googleBtn, isGoogleLinked && styles.googleBtnLinked]}
-            onPress={isGoogleLinked ? undefined : handleConnectGoogle}
-            disabled={isGoogleLinked || googleLinking}
-            activeOpacity={isGoogleLinked ? 1 : 0.8}
-          >
-            {googleLinking ? <ActivityIndicator size="small" color={COLORS.text} /> : <Link size={18} color={isGoogleLinked ? COLORS.green : COLORS.text} />}
-            <Text style={[styles.googleBtnText, isGoogleLinked && { color: COLORS.green }]}>
-              {isGoogleLinked ? "Google connected" : "Connect Google account"}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={[styles.accountRow, isGoogleLinked && styles.accountRowLinked]}
+              onPress={isGoogleLinked ? undefined : handleConnectGoogle}
+              disabled={isGoogleLinked || googleLinking}
+              activeOpacity={isGoogleLinked ? 1 : 0.8}
+            >
+              {googleLinking ? <ActivityIndicator size="small" color={COLORS.text} /> : <Link size={18} color={isGoogleLinked ? COLORS.green : COLORS.text} />}
+              <Text style={[styles.googleBtnText, isGoogleLinked && { color: COLORS.green }]}>
+                {isGoogleLinked ? "Google connected" : "Connect Google account"}
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity
+              style={[styles.accountRow, calendarConnected && styles.accountRowLinked]}
+              onPress={calendarConnected ? handleDisconnectCalendar : handleConnectCalendar}
+              activeOpacity={0.8}
+            >
+              {calendarConnected
+                ? <CalendarCheck size={18} color={COLORS.green} />
+                : <CalendarX size={18} color={COLORS.text} />}
+              <Text style={[styles.googleBtnText, calendarConnected && { color: COLORS.green }]}>
+                {calendarConnected ? "Google Calendar connected" : "Connect Google Calendar"}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {(actualRole === "admin" || actualRole === "prep_master") && (
             <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Switch view</Text></View>
@@ -232,6 +273,8 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     googleBtn: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, backgroundColor: COLORS.surface },
     googleBtnLinked: { borderColor: COLORS.green, backgroundColor: COLORS.greenLight },
     googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
+    accountRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, padding: SPACING.md },
+    accountRowLinked: { backgroundColor: COLORS.greenLight },
     switchBtn: { borderWidth: 1, borderColor: COLORS.primary, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center", backgroundColor: COLORS.primaryLight },
     switchBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.primary },
     signOutBtn: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center" },

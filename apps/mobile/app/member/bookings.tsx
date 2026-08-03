@@ -1,17 +1,21 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import {
-  View, Text, FlatList, RefreshControl,
-  ActivityIndicator, TouchableOpacity, Linking,
+  View, Text, FlatList, ScrollView, RefreshControl,
+  ActivityIndicator, TouchableOpacity,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
-import { Plus, ChevronRight, CalendarDays } from "lucide-react-native"
+import { Plus, ChevronRight, List, CalendarDays } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 import { BookingDetailModal, formatDate, formatTime, type Booking } from "@/components/BookingDetailModal"
 
 const API_BASE = "https://dance-company-app.vercel.app"
+
+type CalEvent = { id: string; title: string; start: string | null; end: string | null; allDay: boolean; location: string | null }
+
+function toIso(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` }
 
 function BookingCard({ booking, onPress }: { booking: Booking; onPress?: () => void }) {
   const COLORS = useColors()
@@ -51,9 +55,147 @@ function SectionHeader({ title, count, expanded, onToggle }: { title: string; co
   )
 }
 
+function CalendarView({ events, refreshing, onRefresh }: { events: CalEvent[]; refreshing: boolean; onRefresh: () => void }) {
+  const COLORS = useColors()
+  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
+  const [selectedDate, setSelectedDate] = useState(toIso(today))
+
+  // Build 6-week date strip starting from today's week Sunday
+  const weekStart = useMemo(() => {
+    const d = new Date(today); d.setDate(d.getDate() - d.getDay()); return d
+  }, [today])
+  const dates = useMemo(() => Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d
+  }), [weekStart])
+
+  // Map ISO date → events on that day
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, CalEvent[]> = {}
+    for (const e of events) {
+      if (!e.start) continue
+      const iso = e.start.length === 10 ? e.start : toIso(new Date(e.start))
+      if (!map[iso]) map[iso] = []
+      map[iso].push(e)
+    }
+    return map
+  }, [events])
+
+  const selectedEvents = eventsByDate[selectedDate] ?? []
+
+  const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+  const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+  function formatEventTime(iso: string | null): string {
+    if (!iso || iso.length === 10) return "All day"
+    const d = new Date(iso)
+    let h = d.getHours(); const m = d.getMinutes()
+    const period = h >= 12 ? "PM" : "AM"
+    if (h === 0) h = 12; else if (h > 12) h -= 12
+    return `${h}:${String(m).padStart(2, "0")} ${period}`
+  }
+
+  // Show which month is visible
+  const visibleMonth = useMemo(() => {
+    const d = new Date(`${selectedDate}T00:00:00`)
+    return `${MONTH_LABELS[d.getMonth()]} ${d.getFullYear()}`
+  }, [selectedDate])
+
+  return (
+    <ScrollView
+      contentContainerStyle={{ padding: SPACING.md, paddingBottom: 100 }}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+    >
+      {/* Month label */}
+      <Text style={{ fontSize: 15, fontWeight: "700", color: COLORS.text, marginBottom: SPACING.sm }}>{visibleMonth}</Text>
+
+      {/* Day-of-week headers */}
+      <View style={{ flexDirection: "row", marginBottom: 4 }}>
+        {DAY_LABELS.map((d) => (
+          <Text key={d} style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase" }}>{d}</Text>
+        ))}
+      </View>
+
+      {/* Calendar grid */}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", borderRadius: RADIUS.md, overflow: "hidden", borderWidth: 1, borderColor: COLORS.border }}>
+        {dates.map((d, i) => {
+          const iso = toIso(d)
+          const isToday = iso === toIso(today)
+          const isSelected = iso === selectedDate
+          const isPast = d < today
+          const hasEvents = (eventsByDate[iso]?.length ?? 0) > 0
+          const isCurrentMonth = d.getMonth() === new Date(`${selectedDate}T00:00:00`).getMonth()
+          return (
+            <TouchableOpacity
+              key={iso}
+              style={{
+                width: "14.28%",
+                aspectRatio: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: isSelected ? COLORS.primary : isToday ? COLORS.primaryLight : COLORS.surface,
+                borderRightWidth: (i + 1) % 7 === 0 ? 0 : 1,
+                borderBottomWidth: i >= 35 ? 0 : 1,
+                borderColor: COLORS.border,
+              }}
+              onPress={() => setSelectedDate(iso)}
+              activeOpacity={0.7}
+            >
+              <Text style={{
+                fontSize: 13, fontWeight: isToday || isSelected ? "700" : "400",
+                color: isSelected ? "#fff" : isToday ? COLORS.primary : isPast || !isCurrentMonth ? COLORS.textMuted : COLORS.text,
+              }}>{d.getDate()}</Text>
+              {hasEvents && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isSelected ? "rgba(255,255,255,0.8)" : COLORS.primary, marginTop: 1 }} />}
+            </TouchableOpacity>
+          )
+        })}
+      </View>
+
+      {/* Events for selected date */}
+      <View style={{ marginTop: SPACING.md, gap: SPACING.sm }}>
+        <Text style={{ fontSize: 13, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          {new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        </Text>
+        {selectedEvents.length === 0 ? (
+          <Text style={{ fontSize: 13, color: COLORS.textMuted, paddingVertical: SPACING.sm }}>No events</Text>
+        ) : selectedEvents.map((e) => (
+          <View key={e.id} style={{ flexDirection: "row", gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, borderLeftWidth: 3, borderLeftColor: COLORS.primary }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>{e.title}</Text>
+              <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>{formatEventTime(e.start)}{e.end && !e.allDay ? ` – ${formatEventTime(e.end)}` : ""}</Text>
+              {e.location ? <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{e.location}</Text> : null}
+            </View>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  )
+}
+
+function ConnectCalendarPrompt({ onGoToProfile }: { onGoToProfile: () => void }) {
+  const COLORS = useColors()
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: SPACING.xl, gap: SPACING.md }}>
+      <CalendarDays size={48} color={COLORS.textMuted} />
+      <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.text, textAlign: "center" }}>Connect Google Calendar</Text>
+      <Text style={{ fontSize: 13, color: COLORS.textMuted, textAlign: "center", lineHeight: 20 }}>
+        Link your Google Calendar in your profile to see all your events here.
+      </Text>
+      <TouchableOpacity
+        style={{ backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md }}
+        onPress={onGoToProfile}
+        activeOpacity={0.8}
+      >
+        <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>Go to Profile</Text>
+      </TouchableOpacity>
+    </View>
+  )
+}
+
 export default function MemberBookingsScreen() {
   const router = useRouter()
   const COLORS = useColors()
+  const [tab, setTab] = useState<"list" | "calendar">("list")
   const [upcoming, setUpcoming] = useState<Booking[]>([])
   const [past, setPast] = useState<Booking[]>([])
   const [cancelled, setCancelled] = useState<Booking[]>([])
@@ -64,16 +206,26 @@ export default function MemberBookingsScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [calEvents, setCalEvents] = useState<CalEvent[]>([])
+  const [calConnected, setCalConnected] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const { data, error: err } = await authClient.$fetch(`${API_BASE}/api/member/dashboard`)
-      if (err || !data) throw new Error((err as any)?.statusText ?? "Failed to load")
-      const d = data as { upcoming: Booking[]; past: Booking[]; cancelled: Booking[] }
+      const [bookingRes, calRes] = await Promise.all([
+        authClient.$fetch(`${API_BASE}/api/member/dashboard`),
+        authClient.$fetch(`${API_BASE}/api/member/calendar-events`),
+      ])
+      if (bookingRes.error || !bookingRes.data) throw new Error((bookingRes.error as any)?.statusText ?? "Failed to load")
+      const d = bookingRes.data as { upcoming: Booking[]; past: Booking[]; cancelled: Booking[] }
       setUpcoming(d.upcoming ?? [])
       setPast(d.past ?? [])
       setCancelled(d.cancelled ?? [])
       setError(null)
+      if (!calRes.error && calRes.data) {
+        const cal = calRes.data as { connected: boolean; events: CalEvent[] }
+        setCalConnected(cal.connected)
+        setCalEvents(cal.events ?? [])
+      }
     } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong.") }
   }, [])
 
@@ -120,22 +272,38 @@ export default function MemberBookingsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={["top"]}>
+      {/* Header */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm }}>
         <Text style={{ fontSize: 26, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_700Bold" }}>My Bookings</Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING.sm }}>
-          <TouchableOpacity style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface }} onPress={() => Linking.openURL("https://calendar.google.com")} activeOpacity={0.7}>
-            <CalendarDays size={18} color={COLORS.text} />
-          </TouchableOpacity>
-          <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full }} onPress={() => router.push("/member/book" as any)} activeOpacity={0.7}>
-            <Plus size={16} color="#fff" />
-            <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>New Booking</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full }} onPress={() => router.push("/member/book" as any)} activeOpacity={0.7}>
+          <Plus size={16} color="#fff" />
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>New Booking</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Tab toggle */}
+      <View style={{ flexDirection: "row", marginHorizontal: SPACING.md, marginBottom: SPACING.sm, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, overflow: "hidden" }}>
+        {([["list", "List", List], ["calendar", "Calendar", CalendarDays]] as const).map(([value, label, Icon]) => (
+          <TouchableOpacity
+            key={value}
+            style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, backgroundColor: tab === value ? COLORS.primary : "transparent" }}
+            onPress={() => setTab(value)}
+            activeOpacity={0.8}
+          >
+            <Icon size={15} color={tab === value ? "#fff" : COLORS.textMuted} />
+            <Text style={{ fontSize: 13, fontWeight: "600", color: tab === value ? "#fff" : COLORS.textMuted }}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {error ? (
         <View style={{ margin: SPACING.md, backgroundColor: COLORS.redLight, borderRadius: RADIUS.sm, padding: SPACING.sm }}>
           <Text style={{ fontSize: 13, color: COLORS.red }}>{error}</Text>
         </View>
+      ) : tab === "calendar" ? (
+        calConnected
+          ? <CalendarView events={calEvents} refreshing={refreshing} onRefresh={onRefresh} />
+          : <ConnectCalendarPrompt onGoToProfile={() => router.push("/member/profile" as any)} />
       ) : isEmpty ? (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: SPACING.lg, gap: SPACING.sm }}>
           <Text style={{ fontSize: 16, fontWeight: "600", color: COLORS.text }}>No bookings yet</Text>

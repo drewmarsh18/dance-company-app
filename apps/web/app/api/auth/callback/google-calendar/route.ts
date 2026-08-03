@@ -5,11 +5,12 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const code = searchParams.get("code")
   const rawState = searchParams.get("state") ?? ""
-  const [userId, source] = rawState.split(":")
+  const [userId, source, role] = rawState.split(":")
   const isMobile = source === "mobile"
+  const mobileRole = role ?? "portal"
 
   if (!code || !userId) {
-    if (isMobile) return NextResponse.redirect("cdp://portal/profile?calendar=error")
+    if (isMobile) return NextResponse.redirect(`cdp://${mobileRole}/profile?calendar=error`)
     return NextResponse.redirect(new URL("/portal?calendar=error", req.url))
   }
 
@@ -34,6 +35,6 @@ export async function GET(req: NextRequest) {
   const data = await res.json()
   await saveCalendarTokens(userId, data.access_token, data.refresh_token, data.expires_in)
 
-  if (isMobile) return NextResponse.redirect("cdp://portal/profile?calendar=connected")
+  if (isMobile) return NextResponse.redirect(`cdp://${mobileRole}/profile?calendar=connected`)
   return NextResponse.redirect(new URL("/portal?calendar=connected", req.url))
 }
