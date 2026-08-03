@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from "react"
 import {
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
-  ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Linking,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter, useLocalSearchParams } from "expo-router"
 import { Link, Sun, Moon, Smartphone, CalendarCheck, CalendarX } from "lucide-react-native"
+import * as WebBrowser from "expo-web-browser"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useTheme } from "@/lib/theme-context"
@@ -85,7 +86,12 @@ export default function MemberProfileScreen() {
     try {
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/google-calendar/url?for=member`)
       if (error || !(data as any)?.url) throw new Error("Could not get calendar auth URL")
-      await Linking.openURL((data as any).url)
+      const result = await WebBrowser.openAuthSessionAsync((data as any).url, "cdp://member/profile")
+      if (result.type === "success") {
+        const connected = result.url?.includes("calendar=connected")
+        if (connected) setCalendarConnected(true)
+        else Alert.alert("Error", "Could not connect Google Calendar. Please try again.")
+      }
     } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google Calendar.") }
   }
 

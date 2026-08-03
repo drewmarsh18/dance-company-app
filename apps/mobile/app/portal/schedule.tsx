@@ -52,6 +52,7 @@ function formatEventDate(iso: string): string {
 function groupEventsByDate(events: CalEvent[]): { dateLabel: string; dateIso: string; items: CalEvent[] }[] {
   const map = new Map<string, CalEvent[]>()
   for (const e of events) {
+    if (!e.start) continue
     const key = e.start.slice(0, 10)
     if (!map.has(key)) map.set(key, [])
     map.get(key)!.push(e)
