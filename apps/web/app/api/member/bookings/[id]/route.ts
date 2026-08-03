@@ -55,8 +55,6 @@ export async function DELETE(
   await appBase.update<BookingFields>(TABLES.bookings, id, {
     Status: within24 ? "Cancelled (Late)" : "Cancelled",
     ...(body.reason ? { "Cancellation Reason": body.reason } : {}),
-    // Late cancellations remain payable to the PrepMaster
-    ...(within24 ? { "Payable to PrepMaster": true } : {}),
   })
 
   if (!within24) {
