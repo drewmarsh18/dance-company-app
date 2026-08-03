@@ -4,9 +4,12 @@ import { saveCalendarTokens } from "@/lib/google-calendar"
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const code = searchParams.get("code")
-  const userId = searchParams.get("state")
+  const rawState = searchParams.get("state") ?? ""
+  const [userId, source] = rawState.split(":")
+  const isMobile = source === "mobile"
 
   if (!code || !userId) {
+    if (isMobile) return NextResponse.redirect("cdp://portal/profile?calendar=error")
     return NextResponse.redirect(new URL("/portal?calendar=error", req.url))
   }
 
@@ -24,11 +27,13 @@ export async function GET(req: NextRequest) {
 
   if (!res.ok) {
     console.error("Token exchange failed:", await res.text())
+    if (isMobile) return NextResponse.redirect("cdp://portal/profile?calendar=error")
     return NextResponse.redirect(new URL("/portal?calendar=error", req.url))
   }
 
   const data = await res.json()
   await saveCalendarTokens(userId, data.access_token, data.refresh_token, data.expires_in)
 
+  if (isMobile) return NextResponse.redirect("cdp://portal/profile?calendar=connected")
   return NextResponse.redirect(new URL("/portal?calendar=connected", req.url))
 }

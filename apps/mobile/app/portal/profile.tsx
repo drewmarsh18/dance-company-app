@@ -28,7 +28,13 @@ export default function PortalProfileScreen() {
   }, [])
 
   async function handleConnectCalendar() {
-    Linking.openURL(`${API_BASE}/api/google-calendar`)
+    try {
+      const { data, error } = await authClient.$fetch(`${API_BASE}/api/google-calendar/url`)
+      if (error || !(data as any)?.url) throw new Error("Could not get calendar auth URL")
+      Linking.openURL((data as any).url)
+    } catch (e) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google Calendar.")
+    }
   }
 
   async function handleDisconnectCalendar() {
