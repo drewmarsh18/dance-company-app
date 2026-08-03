@@ -27,7 +27,7 @@ export default function SignInScreen() {
   const { data: session } = useSession()
   const [request, response, promptAsync] = Google.useAuthRequest({
     iosClientId: GOOGLE_IOS_CLIENT_ID,
-    scopes: ["openid", "profile", "email", "https://www.googleapis.com/auth/calendar.readonly"],
+    scopes: ["openid", "profile", "email", "https://www.googleapis.com/auth/calendar.events"],
     extraParams: { access_type: "offline", prompt: "consent" },
   })
 

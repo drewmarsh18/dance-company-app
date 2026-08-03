@@ -47,6 +47,7 @@ async function getAccessToken(userId: string): Promise<string | null> {
     .where(eq(googleCalendarToken.userId, userId))
   if (!row) return null
   if (row.expiresAt > new Date()) return row.accessToken
+  if (!row.refreshToken) return null
   return refreshAccessToken(userId, row.refreshToken)
 }
 
@@ -79,25 +80,37 @@ export async function disconnectCalendar(userId: string) {
   await db.delete(googleCalendarToken).where(eq(googleCalendarToken.userId, userId))
 }
 
+const SESSION_DURATION: Record<string, number> = {
+  "private-30": 30,
+  "private-45": 45,
+  "private-60": 60,
+  "pack-hour": 60,
+}
+
 export async function createCalendarEvent(
-  prepMasterUserId: string,
+  userId: string,
   {
     dancerName,
+    prepMasterName,
     date,
     time,
     notes,
-  }: { dancerName: string; date: string; time: string; notes?: string },
+    sessionType,
+  }: { dancerName: string; prepMasterName?: string; date: string; time: string; notes?: string; sessionType?: string },
 ): Promise<void> {
-  const accessToken = await getAccessToken(prepMasterUserId)
+  const accessToken = await getAccessToken(userId)
   if (!accessToken) return // calendar not connected — skip silently
 
-  // Parse date + time into ISO start/end (1-hour sessions)
-  const [hour, minute] = time.split(":").map(Number)
+  const durationMin = SESSION_DURATION[sessionType ?? "pack-hour"] ?? 60
   const start = new Date(`${date}T${time}:00`)
-  const end = new Date(start.getTime() + 60 * 60 * 1000)
+  const end = new Date(start.getTime() + durationMin * 60 * 1000)
+
+  const summary = prepMasterName
+    ? `CDP Session w/ ${prepMasterName}`
+    : `CDP Session — ${dancerName}`
 
   const event = {
-    summary: `CDP Session — ${dancerName}`,
+    summary,
     description: notes ? `Notes: ${notes}` : "College Dance Prep private session",
     start: { dateTime: start.toISOString(), timeZone: "America/New_York" },
     end: { dateTime: end.toISOString(), timeZone: "America/New_York" },

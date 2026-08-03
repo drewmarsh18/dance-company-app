@@ -113,6 +113,16 @@ export async function POST(req: Request) {
     if (planToMark) await setPlanStatus(planToMark.id, "Used")
   }
 
+  // Add to member's Google Calendar (fire and forget)
+  createCalendarEvent(user.id, {
+    dancerName: client.fields.Name ?? user.name ?? "Member",
+    prepMasterName,
+    date,
+    time,
+    notes,
+    sessionType: sessionType ?? "pack-hour",
+  }).catch(() => {})
+
   // In-app notification
   createNotification({
     userId: user.id,
