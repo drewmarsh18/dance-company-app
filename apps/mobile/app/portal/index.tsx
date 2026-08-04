@@ -73,10 +73,12 @@ function HourlyView({
   dateIso,
   calEvents,
   bookings,
+  onBookingPress,
 }: {
   dateIso: string
   calEvents: CalEvent[]
   bookings: PrepMasterBooking[]
+  onBookingPress: (b: PrepMasterBooking) => void
 }) {
   const COLORS = useColors()
   const scrollRef = useRef<ScrollView>(null)
@@ -141,21 +143,27 @@ function HourlyView({
                 <View style={{ flex: 1, height: 1.5, backgroundColor: COLORS.primary }} />
               </View>
             )}
-            {blocks.map((block) => (
-              <View key={block.key} style={{
-                position: "absolute", top: block.top + 1, left: 2, right: 2,
-                height: block.height - 2, borderRadius: 5,
-                backgroundColor: block.isCDP ? COLORS.primaryLight : `${COLORS.textMuted}22`,
-                borderLeftWidth: 3, borderLeftColor: block.color,
-                padding: 4, overflow: "hidden",
-              }}>
-                <Text style={{ fontSize: 12, fontWeight: "600", color: block.isCDP ? COLORS.primary : COLORS.text }} numberOfLines={1}>{block.title}</Text>
-                {block.height > 36 && block.subtitle ? <Text style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 1 }} numberOfLines={1}>{block.subtitle}</Text> : null}
-                {block.height > 36 ? <Text style={{ fontSize: 10, color: block.isCDP ? COLORS.primary : COLORS.textMuted, marginTop: 1 }}>
-                  {block.isCDP && block.booking ? formatTime(block.booking.time) : formatEventTime(calEvents.find(e => `e-${e.id}` === block.key)?.start ?? null)}
-                </Text> : null}
-              </View>
-            ))}
+            {blocks.map((block) => {
+              const inner = (
+                <View style={{
+                  position: "absolute", top: block.top + 1, left: 2, right: 2,
+                  height: block.height - 2, borderRadius: 5,
+                  backgroundColor: block.isCDP ? COLORS.primaryLight : `${COLORS.textMuted}22`,
+                  borderLeftWidth: 3, borderLeftColor: block.color,
+                  padding: 4, overflow: "hidden",
+                }}>
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: block.isCDP ? COLORS.primary : COLORS.text }} numberOfLines={1}>{block.title}</Text>
+                  {block.height > 36 && block.subtitle ? <Text style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 1 }} numberOfLines={1}>{block.subtitle}</Text> : null}
+                  {block.height > 36 ? <Text style={{ fontSize: 10, color: block.isCDP ? COLORS.primary : COLORS.textMuted, marginTop: 1 }}>
+                    {block.isCDP && block.booking ? formatTime(block.booking.time) : formatEventTime(calEvents.find(e => `e-${e.id}` === block.key)?.start ?? null)}
+                  </Text> : null}
+                </View>
+              )
+              if (block.booking) {
+                return <TouchableOpacity key={block.key} onPress={() => onBookingPress(block.booking!)} activeOpacity={0.8}>{inner}</TouchableOpacity>
+              }
+              return <View key={block.key}>{inner}</View>
+            })}
           </View>
         </View>
       </View>
@@ -170,11 +178,13 @@ function CalendarView({
   bookings,
   refreshing,
   onRefresh,
+  onBookingPress,
 }: {
   events: CalEvent[]
   bookings: PrepMasterBooking[]
   refreshing: boolean
   onRefresh: () => void
+  onBookingPress: (b: PrepMasterBooking) => void
 }) {
   const COLORS = useColors()
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
@@ -288,15 +298,20 @@ function CalendarView({
             : s.startsWith("cancelled") ? { bg: COLORS.redLight, text: COLORS.red }
             : { bg: COLORS.grayLight, text: COLORS.textMuted }
           return (
-            <View key={b.id} style={{ backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.primary, borderLeftWidth: 4, borderLeftColor: COLORS.primary, padding: SPACING.md }}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text, flex: 1, marginRight: SPACING.sm }}>{b.dancerName || "Member"}</Text>
-                <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full, backgroundColor: sc.bg }}>
-                  <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "capitalize", color: sc.text }}>{b.status}</Text>
+            <TouchableOpacity key={b.id} onPress={() => onBookingPress(b)} activeOpacity={0.8}>
+              <View style={{ backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.primary, borderLeftWidth: 4, borderLeftColor: COLORS.primary, padding: SPACING.md }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text, flex: 1, marginRight: SPACING.sm }}>{b.dancerName || "Member"}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full, backgroundColor: sc.bg }}>
+                      <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "capitalize", color: sc.text }}>{b.status}</Text>
+                    </View>
+                    <ChevronRight size={14} color={COLORS.primary} />
+                  </View>
                 </View>
+                <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{formatTime(b.time)}</Text>
               </View>
-              <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{formatTime(b.time)}</Text>
-            </View>
+            </TouchableOpacity>
           )
         })}
         {selectedEvents.map((e) => (
@@ -383,7 +398,7 @@ function CalendarView({
       )}
 
       {filter === "day" && (
-        <HourlyView dateIso={selectedDate} calEvents={selectedEvents} bookings={selectedBookings} />
+        <HourlyView dateIso={selectedDate} calEvents={selectedEvents} bookings={selectedBookings} onBookingPress={onBookingPress} />
       )}
     </View>
   )
@@ -565,6 +580,7 @@ export default function PortalDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [calEvents, setCalEvents] = useState<CalEvent[]>([])
   const [calConnected, setCalConnected] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<PrepMasterBooking | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -591,6 +607,7 @@ export default function PortalDashboard() {
       const patchList = (list: PrepMasterBooking[]) => list.map((b) => b.id === id ? { ...b, ...patch } : b)
       return { ...prev, upcoming: patchList(prev.upcoming), completed: patchList(prev.completed), cancelled: patchList(prev.cancelled) }
     })
+    setSelectedBooking((prev) => prev?.id === id ? { ...prev, ...patch } : prev)
   }
 
   const styles = makeStyles(COLORS)
@@ -604,6 +621,17 @@ export default function PortalDashboard() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
+      {/* Booking action sheet */}
+      {selectedBooking && (
+        <View style={{ position: "absolute", inset: 0, zIndex: 100, justifyContent: "flex-end" }}>
+          <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }} activeOpacity={1} onPress={() => setSelectedBooking(null)} />
+          <View style={{ backgroundColor: COLORS.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32 }}>
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: "center", marginTop: 12, marginBottom: 16 }} />
+            <BookingCard booking={selectedBooking} onUpdate={(id, patch) => { handleUpdate(id, patch); if (patch.status === "Declined") setSelectedBooking(null) }} />
+          </View>
+        </View>
+      )}
+
       {/* Header */}
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm }}>
         <View>
@@ -627,7 +655,7 @@ export default function PortalDashboard() {
         <View style={[styles.errorBox, { margin: SPACING.md }]}><Text style={styles.errorText}>{error}</Text></View>
       ) : tab === "calendar" ? (
         calConnected
-          ? <CalendarView events={calEvents} bookings={upcomingBookings} refreshing={refreshing} onRefresh={onRefresh} />
+          ? <CalendarView events={calEvents} bookings={upcomingBookings} refreshing={refreshing} onRefresh={onRefresh} onBookingPress={setSelectedBooking} />
           : (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: SPACING.xl, gap: SPACING.md }}>
               <CalendarDays size={48} color={COLORS.textMuted} />

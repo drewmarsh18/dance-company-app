@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Alert, RefreshControl,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { Check, ChevronDown, Calendar, Clock, CalendarPlus } from "lucide-react-native"
+import { Check, ChevronDown, CalendarPlus } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
@@ -29,7 +29,6 @@ const WEEKDAYS = [
 ]
 
 type DayAvailability = { dayOfWeek: number; enabled: boolean; startTime: string; endTime: string }
-type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean }
 
 function to12Hour(hhmm: string): string {
   const [hStr, mStr] = hhmm.split(":")
@@ -37,29 +36,6 @@ function to12Hour(hhmm: string): string {
   const period = h >= 12 ? "PM" : "AM"
   if (h === 0) h = 12; else if (h > 12) h -= 12
   return `${h}:${m} ${period}`
-}
-
-function formatEventTime(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-}
-
-function formatEventDate(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
-}
-
-function groupEventsByDate(events: CalEvent[]): { dateLabel: string; dateIso: string; items: CalEvent[] }[] {
-  const map = new Map<string, CalEvent[]>()
-  for (const e of events) {
-    if (!e.start) continue
-    const key = e.start.slice(0, 10)
-    if (!map.has(key)) map.set(key, [])
-    map.get(key)!.push(e)
-  }
-  return Array.from(map.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dateIso, items]) => ({ dateIso, dateLabel: formatEventDate(dateIso + "T00:00:00"), items }))
 }
 
 function TimePickerRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
@@ -104,9 +80,6 @@ export default function PortalScheduleScreen() {
   const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60">("private-60")
   const [bookNotes, setBookNotes] = useState("")
   const [booking, setBooking] = useState(false)
-  const [events, setEvents] = useState<CalEvent[]>([])
-  const [calConnected, setCalConnected] = useState<boolean | null>(null)
-  const [calLoading, setCalLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
@@ -154,33 +127,15 @@ export default function PortalScheduleScreen() {
     finally { setBooking(false) }
   }
 
-  const loadCalendar = useCallback(async () => {
-    try {
-      const now = new Date()
-      const timeMin = now.toISOString()
-      const timeMax = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      const { data } = await authClient.$fetch(
-        `${API_BASE}/api/portal/calendar-events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`
-      )
-      const d = data as { connected: boolean; events: CalEvent[] }
-      setCalConnected(d.connected)
-      setEvents(d.events ?? [])
-    } catch {
-      setCalConnected(false)
-    } finally {
-      setCalLoading(false)
-    }
-  }, [])
-
   useEffect(() => {
-    Promise.all([load(), loadCalendar()]).finally(() => setLoading(false))
-  }, [load, loadCalendar])
+    load().finally(() => setLoading(false))
+  }, [load])
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    await Promise.all([load(), loadCalendar()])
+    await load()
     setRefreshing(false)
-  }, [load, loadCalendar])
+  }, [load])
 
   function updateDay(dayOfWeek: number, patch: Partial<DayAvailability>) {
     setWeek((prev) => prev.map((d) => d.dayOfWeek === dayOfWeek ? { ...d, ...patch } : d))
@@ -213,8 +168,6 @@ export default function PortalScheduleScreen() {
       </SafeAreaView>
     )
   }
-
-  const grouped = groupEventsByDate(events)
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -339,49 +292,6 @@ export default function PortalScheduleScreen() {
           )}
         </View>
 
-        {/* Google Calendar */}
-        <View style={styles.sectionHeader}>
-          <Calendar size={16} color={COLORS.primary} />
-          <Text style={styles.sectionTitle}>Google Calendar</Text>
-          <Text style={styles.sectionSub}>Next 30 days</Text>
-        </View>
-
-        {calLoading ? (
-          <View style={styles.calLoading}><ActivityIndicator size="small" color={COLORS.primary} /></View>
-        ) : !calConnected ? (
-          <View style={styles.calEmpty}>
-            <Calendar size={28} color={COLORS.textMuted} />
-            <Text style={styles.calEmptyTitle}>Calendar not connected</Text>
-            <Text style={styles.calEmptySub}>Connect Google Calendar from the web portal to see your events here.</Text>
-          </View>
-        ) : grouped.length === 0 ? (
-          <View style={styles.calEmpty}>
-            <Calendar size={28} color={COLORS.textMuted} />
-            <Text style={styles.calEmptyTitle}>No upcoming events</Text>
-            <Text style={styles.calEmptySub}>Your Google Calendar events for the next 30 days will appear here.</Text>
-          </View>
-        ) : (
-          grouped.map(({ dateIso, dateLabel, items }) => (
-            <View key={dateIso} style={styles.dayGroup}>
-              <Text style={styles.dayGroupLabel}>{dateLabel}</Text>
-              {items.map((e) => (
-                <View key={e.id} style={styles.eventCard}>
-                  <View style={styles.eventDot} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
-                    {!e.allDay && (
-                      <View style={styles.eventTimeRow}>
-                        <Clock size={11} color={COLORS.textMuted} />
-                        <Text style={styles.eventTime}>{formatEventTime(e.start)} – {formatEventTime(e.end)}</Text>
-                      </View>
-                    )}
-                    {e.allDay && <Text style={styles.eventTime}>All day</Text>}
-                  </View>
-                </View>
-              ))}
-            </View>
-          ))
-        )}
       </ScrollView>
     </SafeAreaView>
   )
@@ -405,20 +315,6 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     saveRow: { padding: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border },
     saveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, paddingVertical: 12, paddingHorizontal: SPACING.md },
     saveBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
-    sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: SPACING.sm },
-    sectionTitle: { fontSize: 17, fontWeight: "700", color: COLORS.text, flex: 1, fontFamily: "Sora_600SemiBold" },
-    sectionSub: { fontSize: 12, color: COLORS.textMuted },
-    calLoading: { paddingVertical: SPACING.xl, alignItems: "center" },
-    calEmpty: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.xl, alignItems: "center", gap: SPACING.sm },
-    calEmptyTitle: { fontSize: 15, fontWeight: "600", color: COLORS.text },
-    calEmptySub: { fontSize: 13, color: COLORS.textMuted, textAlign: "center" },
-    dayGroup: { gap: SPACING.xs },
-    dayGroupLabel: { fontSize: 13, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.6, marginTop: SPACING.sm },
-    eventCard: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: COLORS.surface, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.sm },
-    eventDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary, marginTop: 4 },
-    eventTitle: { fontSize: 14, fontWeight: "600", color: COLORS.text },
-    eventTimeRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-    eventTime: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
     bookCard: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md },
     bookCardTitle: { fontSize: 15, fontWeight: "600", color: COLORS.text },
     bookCardSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
