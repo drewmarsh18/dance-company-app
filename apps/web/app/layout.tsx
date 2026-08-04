@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     'Train with elite prep masters. Book private dance sessions, track your credits, and level up your craft with College Dance Prep.',
   generator: 'v0.app',
   verification: {
-    google: 'uRoSIPZOnEWfziv0LorcVJRKeuX5lf7QDFPrLrP1sE0',
+    google: '3-17bIudf47hr2Ks5P_MugY4Q8TMrai2kohoBB3hxOE',
   },
   icons: {
     icon: [
