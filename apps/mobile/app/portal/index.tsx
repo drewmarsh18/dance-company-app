@@ -635,7 +635,7 @@ export default function PortalDashboard() {
       {/* Header */}
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm }}>
         <View>
-          <Text style={styles.pageTitle}>Welcome, {firstName}</Text>
+          <Text style={styles.pageTitle}>Welcome, {firstName}!</Text>
           <Text style={styles.pageSub}>Manage your upcoming sessions.</Text>
         </View>
         {pendingCount > 0 && <View style={styles.pendingBadge}><Text style={styles.pendingBadgeText}>{pendingCount} pending</Text></View>}
