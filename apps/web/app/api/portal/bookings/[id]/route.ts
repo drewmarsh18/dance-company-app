@@ -37,10 +37,10 @@ export async function PATCH(
 
   if (body.action === "confirm") {
     await appBase.update<BookingFields>(TABLES.bookings, id, { Status: "Confirmed" })
-    revalidateTag(`portal-${session.user.email}`)
+    revalidateTag(`portal-${session.user.email}`, "max")
     const dancerUserId = booking.fields["User ID"]
     if (dancerUserId) {
-      revalidateTag(`member-${dancerUserId}`)
+      revalidateTag(`member-${dancerUserId}`, "max")
       createNotification({
         userId: dancerUserId,
         type: "booking_confirmed",
@@ -58,7 +58,7 @@ export async function PATCH(
       Status: "Declined",
       ...(body.declineReason ? { "Decline Reason": body.declineReason } : {}),
     })
-    revalidateTag(`portal-${session.user.email}`)
+    revalidateTag(`portal-${session.user.email}`, "max")
 
     const dancerUserId = booking.fields["User ID"]
 
@@ -76,7 +76,7 @@ export async function PATCH(
           "Credits Remaining": current + 1,
         })
       }
-      revalidateTag(`member-${dancerUserId}`)
+      revalidateTag(`member-${dancerUserId}`, "max")
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
@@ -95,8 +95,8 @@ export async function PATCH(
   if (body.time) update.Time = body.time
   if (body.prepMasterNotes !== undefined) update["Prep Master Notes"] = body.prepMasterNotes
   await appBase.update<BookingFields>(TABLES.bookings, id, update)
-  revalidateTag(`portal-${session.user.email}`)
-  if (booking.fields["User ID"]) revalidateTag(`member-${booking.fields["User ID"]}`)
+  revalidateTag(`portal-${session.user.email}`, "max")
+  if (booking.fields["User ID"]) revalidateTag(`member-${booking.fields["User ID"]}`, "max")
 
   const newDate = body.date ?? booking.fields.Date ?? ""
   const newTime = body.time ?? booking.fields.Time ?? ""

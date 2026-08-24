@@ -306,6 +306,36 @@ export async function getBookingsForPrepMaster(
   })
 }
 
+export type Booking = {
+  id: string
+  prepMasterName: string
+  date: string
+  time: string
+  status: string
+  notes: string
+  prepMasterNotes: string
+  sessionType: string | null
+}
+
+export async function getBookingsForUserId(userId: string): Promise<Booking[]> {
+  const safeId = userId.replace(/'/g, "\\'")
+  const records = await list<BookingFields>(TABLES.bookings, {
+    filterByFormula: `{User ID} = '${safeId}'`,
+    sort: [{ field: "Date", direction: "desc" }],
+    revalidate: 0,
+  })
+  return records.map((r) => ({
+    id: r.id,
+    prepMasterName: r.fields["Prep Master Name"] ?? "",
+    date: r.fields.Date ?? "",
+    time: r.fields.Time ?? "",
+    status: r.fields.Status ?? "Pending",
+    notes: r.fields.Notes ?? "",
+    prepMasterNotes: r.fields["Prep Master Notes"] ?? "",
+    sessionType: (r.fields["Session Type"] as string) ?? null,
+  }))
+}
+
 /**
  * Returns the booked time slots (display strings, e.g. "3:00 PM") for a prep
  * master on a specific date. Used to hide already-taken slots when booking.

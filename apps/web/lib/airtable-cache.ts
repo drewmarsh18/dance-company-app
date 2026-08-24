@@ -4,9 +4,8 @@ import {
   getPrepMasterByEmail,
   getBookingsForPrepMaster,
   getBookingsForUserId,
-  getPlansForUser,
 } from "@/lib/airtable"
-import { getOrCreateProfile, getMyPlans } from "@/app/actions/profile"
+import { resolveClientProfile, getPlansForUser } from "@/lib/profile-core"
 
 // 30-second TTL for all Airtable reads.
 // Short enough that booking status changes show up quickly;
@@ -18,11 +17,11 @@ type ResolvedUser = { id: string; email: string; name: string }
 export const getCachedMemberDashboard = (user: ResolvedUser) =>
   unstable_cache(
     async () => {
-      const profile = await getOrCreateProfile({ resolvedUser: user })
+      const profile = await resolveClientProfile(user)
       const memberId = profile.effectiveUserId || user.id
       const [bookings, plans] = await Promise.all([
         getBookingsForUserId(memberId),
-        getMyPlans(memberId),
+        getPlansForUser(memberId),
       ])
       return { profile, bookings, plans }
     },
