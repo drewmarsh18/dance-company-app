@@ -65,7 +65,7 @@ function BookingCard({ booking, onPress }: { booking: Booking; onPress?: () => v
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md }}>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.text }}>{booking.prepMasterName || "PrepMaster"}</Text>
-        <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{formatDate(booking.date)}{booking.time ? ` · ${formatTime(booking.time)}` : ""}{booking.sessionType ? ` · ${fmtSessionType(booking.sessionType)}` : ""}</Text>
+        <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{formatDate(booking.date)}{booking.time ? ` · ${formatTime(booking.time, booking.utcDatetime)}` : ""}{booking.sessionType ? ` · ${fmtSessionType(booking.sessionType)}` : ""}</Text>
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
         <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full, backgroundColor: sc.bg }}>
@@ -191,7 +191,7 @@ function HourlyView({
                 }}>
                   <Text style={{ fontSize: 12, fontWeight: "600", color: block.isCDP ? COLORS.primary : COLORS.text }} numberOfLines={1}>{block.title}</Text>
                   {block.height > 36 && block.subtitle ? <Text style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 1 }} numberOfLines={1}>{block.subtitle}</Text> : null}
-                  {block.height > 36 ? <Text style={{ fontSize: 10, color: block.isCDP ? COLORS.primary : COLORS.textMuted, marginTop: 1 }}>{formatEventTime(block.isCDP ? null : (calEvents.find(e => `e-${e.id}` === block.key)?.start ?? null))}{block.isCDP && block.booking ? formatTime(block.booking.time) : ""}</Text> : null}
+                  {block.height > 36 ? <Text style={{ fontSize: 10, color: block.isCDP ? COLORS.primary : COLORS.textMuted, marginTop: 1 }}>{formatEventTime(block.isCDP ? null : (calEvents.find(e => `e-${e.id}` === block.key)?.start ?? null))}{block.isCDP && block.booking ? formatTime(block.booking.time, block.booking.utcDatetime) : ""}</Text> : null}
                 </View>
               )
               if (block.booking) {
@@ -349,7 +349,7 @@ function CalendarView({
                     <ChevronRight size={16} color={COLORS.primary} />
                   </View>
                 </View>
-                <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{formatTime(b.time)}{b.sessionType ? ` · ${fmtSessionType(b.sessionType)}` : ""}</Text>
+                <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{formatTime(b.time, b.utcDatetime)}{b.sessionType ? ` · ${fmtSessionType(b.sessionType)}` : ""}</Text>
               </View>
             </TouchableOpacity>
           )

@@ -27,6 +27,19 @@ function getTZAbbr(): string {
   } catch { return "" }
 }
 
+// Convert "YYYY-MM-DD" + "3:00 PM" (in the device's local timezone) to a UTC ISO string
+function toUtcDatetime(dateIso: string, time12h: string): string {
+  const match = time12h.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+  if (!match) return ""
+  let hour = parseInt(match[1], 10)
+  const minute = parseInt(match[2], 10)
+  const period = match[3].toUpperCase()
+  if (period === "PM" && hour !== 12) hour += 12
+  if (period === "AM" && hour === 12) hour = 0
+  const local = new Date(`${dateIso}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`)
+  return local.toISOString()
+}
+
 function to12Hour(hhmm: string): string {
   const [hStr, mStr] = hhmm.split(":")
   let h = Number(hStr); const m = mStr ?? "00"
@@ -375,9 +388,10 @@ export default function BookScreen() {
     }
     setConfirming(true)
     try {
+      const utcDatetime = toUtcDatetime(args.date, args.time)
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/booking/create`, {
         method: "POST",
-        body: JSON.stringify({ prepMasterId: selectedCoach.id, prepMasterName: selectedCoach.name, date: args.date, time: args.time, notes: args.notes, planId: args.planId, planSessions: args.planSessions, sessionType: args.sessionType }),
+        body: JSON.stringify({ prepMasterId: selectedCoach.id, prepMasterName: selectedCoach.name, date: args.date, time: args.time, utcDatetime: utcDatetime || undefined, notes: args.notes, planId: args.planId, planSessions: args.planSessions, sessionType: args.sessionType }),
         headers: { "Content-Type": "application/json" },
       })
       if (error) throw new Error((error as any)?.message ?? "Failed to book")

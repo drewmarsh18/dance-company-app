@@ -25,7 +25,7 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"]
 
 type PrepMasterBooking = {
-  id: string; date: string; time: string; status: string; notes: string; prepMasterNotes: string; declineReason: string; cancellationReason: string
+  id: string; date: string; time: string; utcDatetime: string | null; status: string; notes: string; prepMasterNotes: string; declineReason: string; cancellationReason: string
   dancerName: string; dancerEmail: string; dancerPhone: string; userId: string; sessionType?: string
 }
 
@@ -155,7 +155,7 @@ function HourlyView({
                   <Text style={{ fontSize: 12, fontWeight: "600", color: block.isCDP ? COLORS.primary : COLORS.text }} numberOfLines={1}>{block.title}</Text>
                   {block.height > 36 && block.subtitle ? <Text style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 1 }} numberOfLines={1}>{block.subtitle}</Text> : null}
                   {block.height > 36 ? <Text style={{ fontSize: 10, color: block.isCDP ? COLORS.primary : COLORS.textMuted, marginTop: 1 }}>
-                    {block.isCDP && block.booking ? formatTime(block.booking.time) : formatEventTime(calEvents.find(e => `e-${e.id}` === block.key)?.start ?? null)}
+                    {block.isCDP && block.booking ? formatTime(block.booking.time, block.booking.utcDatetime) : formatEventTime(calEvents.find(e => `e-${e.id}` === block.key)?.start ?? null)}
                   </Text> : null}
                 </View>
               )
@@ -309,7 +309,7 @@ function CalendarView({
                     <ChevronRight size={14} color={COLORS.primary} />
                   </View>
                 </View>
-                <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{formatTime(b.time)}</Text>
+                <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{formatTime(b.time, b.utcDatetime)}</Text>
               </View>
             </TouchableOpacity>
           )
@@ -414,6 +414,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
   const [status, setStatus] = useState(booking.status)
   const [localDate, setLocalDate] = useState(booking.date)
   const [localTime, setLocalTime] = useState(booking.time)
+  const [localUtcDatetime, setLocalUtcDatetime] = useState(booking.utcDatetime)
   const [localPrepMasterNotes, setLocalPrepMasterNotes] = useState(booking.prepMasterNotes)
   const [editDate, setEditDate] = useState(booking.date)
   const [editTime, setEditTime] = useState(booking.time)
@@ -448,7 +449,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
       if (action === "confirm") { setStatus("Confirmed"); onUpdate(booking.id, { status: "Confirmed" }) }
       if (action === "decline") { setStatus("Declined"); onUpdate(booking.id, { status: "Declined" }); setMode("idle") }
       if (action === "edit") {
-        setLocalDate(editDate); setLocalTime(editTime); setLocalPrepMasterNotes(editPrepMasterNotes)
+        setLocalDate(editDate); setLocalTime(editTime); setLocalUtcDatetime(null); setLocalPrepMasterNotes(editPrepMasterNotes)
         onUpdate(booking.id, { date: editDate, time: editTime, prepMasterNotes: editPrepMasterNotes })
         setMode("idle")
       }
@@ -463,7 +464,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
           <View style={styles.cardDateRow}>
             <CalendarDays size={14} color={COLORS.primary} />
             <Text style={styles.cardDate}>{formatDate(localDate)}</Text>
-            {localTime ? <><Clock size={13} color={COLORS.textMuted} /><Text style={styles.cardTime}>{formatTime(localTime)}</Text></> : null}
+            {localTime ? <><Clock size={13} color={COLORS.textMuted} /><Text style={styles.cardTime}>{formatTime(localTime, localUtcDatetime)}</Text></> : null}
           </View>
           <Text style={styles.cardDancer}>{booking.dancerName || "Dancer"}</Text>
         </View>

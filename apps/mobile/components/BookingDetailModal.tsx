@@ -13,6 +13,7 @@ export type Booking = {
   prepMasterName: string
   date: string
   time: string
+  utcDatetime?: string | null
   status: string
   sessionType: string | null
   notes?: string
@@ -24,24 +25,19 @@ export function formatDate(dateStr: string) {
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
 }
 
-function getTZAbbr(): string {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date())
-    return parts.find((p) => p.type === "timeZoneName")?.value ?? ""
-  } catch { return "" }
-}
-
-export function formatTime(timeStr: string) {
-  if (!timeStr) return ""
-  if (/am|pm/i.test(timeStr)) {
-    const tz = getTZAbbr()
-    return tz && !timeStr.includes(tz) ? `${timeStr} ${tz}` : timeStr
+// When utcDatetime is present, convert to the viewer's local time.
+// Falls back to the stored time string for older bookings that predate UTC storage.
+export function formatTime(timeStr: string, utcDatetime?: string | null) {
+  if (utcDatetime) {
+    const d = new Date(utcDatetime)
+    if (!isNaN(d.getTime())) {
+      const h = d.getHours(), m = d.getMinutes()
+      return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
+    }
   }
-  const [h, m] = timeStr.split(":").map(Number)
-  if (isNaN(h) || isNaN(m)) return timeStr
-  const base = `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
-  const tz = getTZAbbr()
-  return tz ? `${base} ${tz}` : base
+  if (!timeStr) return ""
+  // Legacy: strip any timezone suffix that may have been stored
+  return timeStr.replace(/\s+(EST|EDT|CST|CDT|MST|MDT|PST|PDT|[A-Z]{2,5})$/, "").trim()
 }
 
 // --- Availability helpers (mirrors apps/web/lib/availability.ts) ---
@@ -381,7 +377,7 @@ export function BookingDetailModal({
                   <View style={styles.detailRow}>
                     <Clock size={15} color={COLORS.textMuted} />
                     <Text style={styles.detailLabel}>Time</Text>
-                    <Text style={styles.detailValue}>{formatTime(booking.time)}</Text>
+                    <Text style={styles.detailValue}>{formatTime(booking.time, booking.utcDatetime)}</Text>
                   </View>
                 ) : null}
                 {booking.sessionType ? (
