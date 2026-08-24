@@ -122,10 +122,7 @@ async function airtableFetch(
       : revalidate !== undefined
         ? { next: { revalidate } }
         : {}
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("Airtable request timed out after 8s")), 8000),
-  )
-  const res = await Promise.race([
+  const doFetch = () =>
     fetch(`${AIRTABLE_API_URL}/${BASE_ID}/${path}`, {
       ...rest,
       headers: {
@@ -134,13 +131,22 @@ async function airtableFetch(
         ...(rest.headers ?? {}),
       },
       ...cacheOpt,
-    }),
-    timeout,
-  ])
-  if (!res.ok) {
-    throw new Error(`Airtable request failed (${res.status}): ${await res.text()}`)
+    })
+
+  let res: Response | undefined
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Airtable request timed out after 8s")), 8000),
+    )
+    res = await Promise.race([doFetch(), timeout])
+    if (res.status !== 429) break
+    // Back off before retrying: 300ms, 900ms
+    await new Promise((r) => setTimeout(r, 300 * Math.pow(3, attempt)))
   }
-  return res.json()
+  if (!res!.ok) {
+    throw new Error(`Airtable request failed (${res!.status}): ${await res!.text()}`)
+  }
+  return res!.json()
 }
 
 async function list<T>(table: string, options: ListOptions = {}): Promise<AirtableRecord<T>[]> {
