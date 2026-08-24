@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { headers } from "next/headers"
+import { unstable_cache } from "next/cache"
 import { auth } from "@/lib/auth"
 import { isAdminEmail } from "@/lib/roles"
 import {
@@ -11,6 +12,20 @@ import {
 } from "@/lib/airtable"
 import { PACKAGES } from "@/lib/packages"
 
+const getCachedAdminDashboard = unstable_cache(
+  async () => {
+    const [members, bookings, workers, plans] = await Promise.all([
+      adminGetAllMembers(),
+      adminGetAllBookings(),
+      adminGetAllWorkers(),
+      adminGetAllPlans(),
+    ])
+    return { members, bookings, workers, plans }
+  },
+  ["admin-dashboard"],
+  { revalidate: 30, tags: ["admin"] },
+)
+
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -21,12 +36,7 @@ export async function GET() {
   }
 
   try {
-    const [members, bookings, workers, plans] = await Promise.all([
-      adminGetAllMembers(),
-      adminGetAllBookings(),
-      adminGetAllWorkers(),
-      adminGetAllPlans(),
-    ])
+    const { members, bookings, workers, plans } = await getCachedAdminDashboard()
 
     return NextResponse.json({ members, bookings, workers, plans, packages: PACKAGES })
   } catch (err) {
