@@ -14,12 +14,11 @@ import { PACKAGES } from "@/lib/packages"
 
 const getCachedAdminDashboard = unstable_cache(
   async () => {
-    const [members, bookings, workers, plans] = await Promise.all([
-      adminGetAllMembers(),
-      adminGetAllBookings(),
-      adminGetAllWorkers(),
-      adminGetAllPlans(),
-    ])
+    // Sequential to avoid bursting Airtable's rate limit on cold starts
+    const members = await adminGetAllMembers()
+    const bookings = await adminGetAllBookings()
+    const workers = await adminGetAllWorkers()
+    const plans = await adminGetAllPlans()
     return { members, bookings, workers, plans }
   },
   ["admin-dashboard"],

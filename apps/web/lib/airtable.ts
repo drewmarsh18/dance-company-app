@@ -137,7 +137,7 @@ async function airtableFetch(
   let res: Response | undefined
   for (let attempt = 0; attempt < 3; attempt++) {
     const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Airtable request timed out after 8s")), 8000),
+      setTimeout(() => reject(new Error("Airtable request timed out after 15s")), 15000),
     )
     res = await Promise.race([doFetch(), timeout])
     if (res.status !== 429) break
