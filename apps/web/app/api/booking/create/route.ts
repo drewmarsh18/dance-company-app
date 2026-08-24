@@ -46,13 +46,14 @@ export async function POST(req: Request) {
     prepMasterName: string
     date: string
     time: string
+    utcDatetime?: string
     notes?: string
     planId?: string
     planSessions?: number
     sessionType?: SessionType
   }
 
-  const { prepMasterId, prepMasterName, date, time, notes, planId, planSessions, sessionType } = body
+  const { prepMasterId, prepMasterName, date, time, utcDatetime, notes, planId, planSessions, sessionType } = body
 
   // Credit cost based on session type
   const CREDIT_COST: Record<string, number> = {
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
     "Prep Master Name": prepMasterName,
     Date: date,
     Time: time,
+    ...(utcDatetime ? { "UTC Datetime": utcDatetime } : {}),
     Status: "Pending",
     Notes: notes ?? "",
     "Session Type": sessionType ?? "pack-hour",

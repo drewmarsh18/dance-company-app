@@ -41,6 +41,7 @@ export type Booking = {
   prepMasterName: string
   date: string
   time: string
+  utcDatetime: string | null
   status: string
   notes: string
   prepMasterNotes: string
@@ -64,6 +65,7 @@ export async function getBookingsForUserId(userId: string): Promise<Booking[]> {
     prepMasterName: r.fields["Prep Master Name"] ?? "",
     date: r.fields.Date ?? "",
     time: r.fields.Time ?? "",
+    utcDatetime: r.fields["UTC Datetime"] ?? null,
     status: r.fields.Status ?? "Pending",
     notes: r.fields.Notes ?? "",
     prepMasterNotes: r.fields["Prep Master Notes"] ?? "",
