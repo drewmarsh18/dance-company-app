@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
-import { getPrepMasterByEmail, getBookingsForPrepMaster } from "@/lib/airtable"
+import { getCachedPortalDashboard } from "@/lib/airtable-cache"
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const prepMaster = await getPrepMasterByEmail(session.user.email)
-  if (!prepMaster) return NextResponse.json({ error: "NO_RECORD" }, { status: 404 })
+  const cached = await getCachedPortalDashboard(session.user.email)
+  if (!cached) return NextResponse.json({ error: "NO_RECORD" }, { status: 404 })
 
-  const bookings = await getBookingsForPrepMaster(prepMaster.name)
+  const { prepMaster, bookings } = cached
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const isCancelled = (b: { status: string }) => b.status.toLowerCase().startsWith("cancelled") || b.status.toLowerCase() === "declined"
 

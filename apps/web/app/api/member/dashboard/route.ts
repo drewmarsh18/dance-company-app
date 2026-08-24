@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
-import { getOrCreateProfile } from "@/app/actions/profile"
-import { getBookingsForUserId } from "@/app/actions/booking"
-import { getMyPlans } from "@/app/actions/profile"
 import { isAirtableConfigured } from "@/lib/airtable"
+import { getCachedMemberDashboard } from "@/lib/airtable-cache"
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -16,12 +14,8 @@ export async function GET() {
 
   try {
     const resolvedUser = { id: session.user.id, email: session.user.email, name: session.user.name ?? "" }
-    const profile = await getOrCreateProfile({ resolvedUser })
+    const { profile, bookings, plans } = await getCachedMemberDashboard(resolvedUser)
     const memberId = profile.effectiveUserId || session.user.id
-    const [bookings, plans] = await Promise.all([
-      getBookingsForUserId(memberId),
-      getMyPlans(memberId),
-    ])
 
     const todayMs = new Date(new Date().toDateString()).getTime()
     const bookingMs = (date: string) => new Date(`${date}T00:00:00`).getTime()

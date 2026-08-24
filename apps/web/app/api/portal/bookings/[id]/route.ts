@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { headers } from "next/headers"
+import { revalidateTag } from "next/cache"
 import { auth } from "@/lib/auth"
 import { getPrepMasterByEmail, TABLES, appBase, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
@@ -36,8 +37,10 @@ export async function PATCH(
 
   if (body.action === "confirm") {
     await appBase.update<BookingFields>(TABLES.bookings, id, { Status: "Confirmed" })
+    revalidateTag(`portal-${session.user.email}`)
     const dancerUserId = booking.fields["User ID"]
     if (dancerUserId) {
+      revalidateTag(`member-${dancerUserId}`)
       createNotification({
         userId: dancerUserId,
         type: "booking_confirmed",
@@ -55,6 +58,7 @@ export async function PATCH(
       Status: "Declined",
       ...(body.declineReason ? { "Decline Reason": body.declineReason } : {}),
     })
+    revalidateTag(`portal-${session.user.email}`)
 
     const dancerUserId = booking.fields["User ID"]
 
@@ -72,6 +76,7 @@ export async function PATCH(
           "Credits Remaining": current + 1,
         })
       }
+      revalidateTag(`member-${dancerUserId}`)
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
@@ -90,6 +95,8 @@ export async function PATCH(
   if (body.time) update.Time = body.time
   if (body.prepMasterNotes !== undefined) update["Prep Master Notes"] = body.prepMasterNotes
   await appBase.update<BookingFields>(TABLES.bookings, id, update)
+  revalidateTag(`portal-${session.user.email}`)
+  if (booking.fields["User ID"]) revalidateTag(`member-${booking.fields["User ID"]}`)
 
   const newDate = body.date ?? booking.fields.Date ?? ""
   const newTime = body.time ?? booking.fields.Time ?? ""
