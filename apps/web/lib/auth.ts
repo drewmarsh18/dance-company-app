@@ -27,6 +27,7 @@ export const auth = betterAuth({
           google: {
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+            prompt: "select_account",
             // Accept ID tokens from web or native iOS/Android client IDs.
             // Google's tokeninfo endpoint validates signature, expiry, and issuer;
             // we only need to check that the audience is one we own.
