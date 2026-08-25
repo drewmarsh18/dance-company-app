@@ -5,7 +5,7 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router"
-import { Link, Sun, Moon, Smartphone, CalendarCheck, CalendarX } from "lucide-react-native"
+import { Link, Sun, Moon, Smartphone, CalendarCheck, CalendarX, LayoutDashboard, Users, ShieldCheck } from "lucide-react-native"
 import * as WebBrowser from "expo-web-browser"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
@@ -245,17 +245,30 @@ export default function MemberProfileScreen() {
           </View>
 
           {(actualRole === "admin" || actualRole === "prep_master") && (
-            <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Switch view</Text></View>
-          )}
-          {actualRole === "admin" && (
-            <TouchableOpacity style={styles.switchBtn} onPress={() => router.replace("/admin")} activeOpacity={0.8}>
-              <Text style={styles.switchBtnText}>Switch to Admin view</Text>
-            </TouchableOpacity>
-          )}
-          {(actualRole === "admin" || actualRole === "prep_master") && (
-            <TouchableOpacity style={styles.switchBtn} onPress={() => router.replace("/portal")} activeOpacity={0.8}>
-              <Text style={styles.switchBtnText}>Switch to PrepMaster view</Text>
-            </TouchableOpacity>
+            <>
+              <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Switch view</Text></View>
+              <View style={styles.card}>
+                {actualRole === "admin" && (
+                  <>
+                    <TouchableOpacity style={styles.switchRow} onPress={() => router.replace("/admin")} activeOpacity={0.7}>
+                      <LayoutDashboard size={18} color={COLORS.primary} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.switchRowLabel}>Admin view</Text>
+                        <Text style={styles.switchRowSub}>Manage members and bookings</Text>
+                      </View>
+                    </TouchableOpacity>
+                    <View style={styles.divider} />
+                  </>
+                )}
+                <TouchableOpacity style={styles.switchRow} onPress={() => router.replace("/portal")} activeOpacity={0.7}>
+                  <ShieldCheck size={18} color={COLORS.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.switchRowLabel}>PrepMaster portal</Text>
+                    <Text style={styles.switchRowSub}>See the app as a PrepMaster</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </>
           )}
 
           <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
@@ -317,8 +330,9 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
     accountRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, padding: SPACING.md },
     accountRowLinked: { backgroundColor: COLORS.greenLight },
-    switchBtn: { borderWidth: 1, borderColor: COLORS.primary, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center", backgroundColor: COLORS.primaryLight },
-    switchBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.primary },
+    switchRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, padding: SPACING.md },
+    switchRowLabel: { fontSize: 15, fontWeight: "600", color: COLORS.text },
+    switchRowSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
     signOutBtn: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center" },
     signOutText: { fontSize: 15, fontWeight: "600", color: COLORS.textSecondary },
   })

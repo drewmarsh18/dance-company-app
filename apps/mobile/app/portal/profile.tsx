@@ -3,7 +3,7 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter, useFocusEffect } from "expo-router"
-import { Users, LogOut, ShieldCheck, Sun, Moon, Smartphone, CalendarCheck, CalendarX, Link } from "lucide-react-native"
+import { Users, LogOut, ShieldCheck, Sun, Moon, Smartphone, CalendarCheck, CalendarX, Link, LayoutDashboard } from "lucide-react-native"
 import * as WebBrowser from "expo-web-browser"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
@@ -22,6 +22,7 @@ export default function PortalProfileScreen() {
   const [calendarConnected, setCalendarConnected] = useState(false)
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
   const [googleLinking, setGoogleLinking] = useState(false)
+  const [actualRole, setActualRole] = useState<string | null>(null)
 
   const loadConnectedState = useCallback(() => {
     authClient.$fetch(`${API_BASE}/api/portal/calendar-events`).then(({ data }) => {
@@ -30,6 +31,9 @@ export default function PortalProfileScreen() {
     authClient.$fetch(`${API_BASE}/api/auth/list-accounts`).then(({ data }) => {
       const accounts = (data as any) ?? []
       setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
+    }).catch(() => {})
+    authClient.$fetch(`${API_BASE}/api/me`).then(({ data }) => {
+      if (data) setActualRole((data as any).role ?? null)
     }).catch(() => {})
   }, [])
 
@@ -94,8 +98,20 @@ export default function PortalProfileScreen() {
 
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Switch view</Text></View>
         <View style={styles.card}>
+          {actualRole === "admin" && (
+            <>
+              <TouchableOpacity style={styles.switchRow} onPress={() => router.replace("/admin" as any)} activeOpacity={0.7}>
+                <LayoutDashboard size={18} color={COLORS.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.switchLabel}>Admin view</Text>
+                  <Text style={styles.switchSub}>Manage members and bookings</Text>
+                </View>
+              </TouchableOpacity>
+              <View style={{ height: 1, backgroundColor: COLORS.border, marginHorizontal: SPACING.md }} />
+            </>
+          )}
           <TouchableOpacity style={styles.switchRow} onPress={() => router.replace("/member" as any)} activeOpacity={0.7}>
-            <Users size={18} color={COLORS.text} />
+            <Users size={18} color={COLORS.primary} />
             <View style={{ flex: 1 }}>
               <Text style={styles.switchLabel}>Member view</Text>
               <Text style={styles.switchSub}>View your own bookings and credits</Text>
