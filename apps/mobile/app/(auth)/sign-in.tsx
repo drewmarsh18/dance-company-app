@@ -7,7 +7,7 @@ import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 import * as WebBrowser from "expo-web-browser"
 import * as Google from "expo-auth-session/providers/google"
-import { signIn, useSession } from "@/lib/auth-client"
+import { signIn, useSession, authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 

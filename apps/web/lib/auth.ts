@@ -44,7 +44,16 @@ export const auth = betterAuth({
                     ? [process.env.GOOGLE_IOS_CLIENT_ID]
                     : []),
                 ]
-                return allowedAudiences.includes(payload.aud)
+                if (!allowedAudiences.includes(payload.aud)) return false
+                return {
+                  user: {
+                    id: payload.sub,
+                    email: payload.email,
+                    name: payload.name ?? payload.email,
+                    image: payload.picture ?? null,
+                    emailVerified: payload.email_verified === "true",
+                  },
+                }
               } catch {
                 return false
               }
