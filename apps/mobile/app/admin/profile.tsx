@@ -104,30 +104,45 @@ export default function AdminProfileScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>CONNECTED ACCOUNTS</Text>
-          <TouchableOpacity
-            style={[styles.row, styles.accountRow, isGoogleLinked && styles.accountRowLinked]}
-            onPress={isGoogleLinked ? undefined : handleConnectGoogle}
-            disabled={isGoogleLinked || googleLinking}
-            activeOpacity={isGoogleLinked ? 1 : 0.8}
-          >
-            {googleLinking ? <ActivityIndicator size="small" color={COLORS.text} /> : <Link size={18} color={isGoogleLinked ? COLORS.green : COLORS.text} />}
-            <Text style={[styles.rowTitle, isGoogleLinked && { color: COLORS.green }]}>
-              {isGoogleLinked ? "Google connected" : "Connect Google account"}
-            </Text>
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity
-            style={[styles.row, styles.accountRow, calendarConnected && styles.accountRowLinked]}
-            onPress={calendarConnected ? handleDisconnectCalendar : handleConnectCalendar}
-            activeOpacity={0.8}
-          >
-            {calendarConnected
-              ? <CalendarCheck size={18} color={COLORS.green} />
-              : <CalendarX size={18} color={COLORS.text} />}
-            <Text style={[styles.rowTitle, calendarConnected && { color: COLORS.green }]}>
-              {calendarConnected ? "Google Calendar connected" : "Connect Google Calendar"}
-            </Text>
-          </TouchableOpacity>
+          {isGoogleLinked ? (
+            <>
+              <View style={[styles.row, styles.accountRowLinked]}>
+                <Link size={18} color={COLORS.green} />
+                <Text style={[styles.rowTitle, { color: COLORS.green }]}>Google connected</Text>
+              </View>
+              <View style={styles.divider} />
+              <TouchableOpacity
+                style={[styles.row, styles.accountRow, calendarConnected && styles.accountRowLinked]}
+                onPress={calendarConnected ? handleDisconnectCalendar : handleConnectCalendar}
+                activeOpacity={0.8}
+              >
+                {calendarConnected
+                  ? <CalendarCheck size={18} color={COLORS.green} />
+                  : <CalendarX size={18} color={COLORS.textMuted} />}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rowTitle, calendarConnected && { color: COLORS.green }]}>
+                    {calendarConnected ? "Google Calendar synced" : "Enable Calendar sync"}
+                  </Text>
+                  {!calendarConnected && <Text style={styles.rowSub}>Sync your bookings to Google Calendar</Text>}
+                </View>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={[styles.row, styles.accountRow]}
+              onPress={handleConnectGoogle}
+              disabled={googleLinking}
+              activeOpacity={0.8}
+            >
+              {googleLinking
+                ? <ActivityIndicator size="small" color={COLORS.text} />
+                : <Link size={18} color={COLORS.text} />}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTitle}>Connect Google account</Text>
+                <Text style={styles.rowSub}>Links Google sign-in and Calendar sync</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.section}>
