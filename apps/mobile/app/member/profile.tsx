@@ -182,30 +182,53 @@ export default function MemberProfileScreen() {
           {/* Connected accounts */}
           <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Connected accounts</Text></View>
           <View style={styles.card}>
-            <TouchableOpacity
-              style={[styles.accountRow, isGoogleLinked && styles.accountRowLinked]}
-              onPress={isGoogleLinked ? undefined : handleConnectGoogle}
-              disabled={isGoogleLinked || googleLinking}
-              activeOpacity={isGoogleLinked ? 1 : 0.8}
-            >
-              {googleLinking ? <ActivityIndicator size="small" color={COLORS.text} /> : <Link size={18} color={isGoogleLinked ? COLORS.green : COLORS.text} />}
-              <Text style={[styles.googleBtnText, isGoogleLinked && { color: COLORS.green }]}>
-                {isGoogleLinked ? "Google connected" : "Connect Google account"}
-              </Text>
-            </TouchableOpacity>
-            <View style={styles.divider} />
-            <TouchableOpacity
-              style={[styles.accountRow, calendarConnected && styles.accountRowLinked]}
-              onPress={calendarConnected ? handleDisconnectCalendar : handleConnectCalendar}
-              activeOpacity={0.8}
-            >
-              {calendarConnected
-                ? <CalendarCheck size={18} color={COLORS.green} />
-                : <CalendarX size={18} color={COLORS.text} />}
-              <Text style={[styles.googleBtnText, calendarConnected && { color: COLORS.green }]}>
-                {calendarConnected ? "Google Calendar connected" : "Connect Google Calendar"}
-              </Text>
-            </TouchableOpacity>
+            {isGoogleLinked ? (
+              // Google sign-in users: show unified Google + Calendar status
+              <>
+                <View style={[styles.accountRow, styles.accountRowLinked]}>
+                  <Link size={18} color={COLORS.green} />
+                  <Text style={[styles.googleBtnText, { color: COLORS.green }]}>Google connected</Text>
+                </View>
+                <View style={styles.divider} />
+                <TouchableOpacity
+                  style={[styles.accountRow, calendarConnected && styles.accountRowLinked]}
+                  onPress={calendarConnected ? handleDisconnectCalendar : handleConnectCalendar}
+                  activeOpacity={0.8}
+                >
+                  {calendarConnected
+                    ? <CalendarCheck size={18} color={COLORS.green} />
+                    : <CalendarX size={18} color={COLORS.textMuted} />}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.googleBtnText, calendarConnected && { color: COLORS.green }]}>
+                      {calendarConnected ? "Google Calendar synced" : "Enable Calendar sync"}
+                    </Text>
+                    {!calendarConnected && (
+                      <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>
+                        Sync your bookings to Google Calendar
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </>
+            ) : (
+              // Email+password users: one button to connect Google (includes calendar)
+              <TouchableOpacity
+                style={styles.accountRow}
+                onPress={handleConnectGoogle}
+                disabled={googleLinking}
+                activeOpacity={0.8}
+              >
+                {googleLinking
+                  ? <ActivityIndicator size="small" color={COLORS.text} />
+                  : <Link size={18} color={COLORS.text} />}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.googleBtnText}>Connect Google account</Text>
+                  <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>
+                    Links Google sign-in and Calendar sync
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {(actualRole === "admin" || actualRole === "prep_master") && (

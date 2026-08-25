@@ -5,9 +5,11 @@ import {
 import { useState } from "react"
 import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { signUp } from "@/lib/auth-client"
+import { signUp, authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
+
+const API_BASE = "https://dance-company-app.vercel.app"
 
 export default function SignUpScreen() {
   const router = useRouter()
@@ -15,17 +17,37 @@ export default function SignUpScreen() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [goals, setGoals] = useState("")
+  const [parentEmail, setParentEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSignUp() {
-    if (!name || !email || !password) { setError("Please fill in all fields."); return }
+    if (!name || !email || !password) { setError("Please fill in all required fields."); return }
     if (password.length < 8) { setError("Password must be at least 8 characters."); return }
     setError(null); setLoading(true)
     try {
       const result = await signUp.email({ name: name.trim(), email: email.trim(), password })
-      if (result.error) setError(result.error.message ?? "Could not create account.")
-      else router.replace("/(auth)/welcome")
+      if (result.error) { setError(result.error.message ?? "Could not create account."); return }
+
+      // Create Airtable profile and save extra fields if provided
+      if (goals.trim() || parentEmail.trim()) {
+        try {
+          const { data: dash } = await authClient.$fetch(`${API_BASE}/api/member/dashboard`)
+          const recordId = (dash as any)?.profile?.recordId
+          if (recordId) {
+            await authClient.$fetch(`${API_BASE}/api/member/profile`, {
+              method: "PATCH",
+              body: JSON.stringify({ recordId, goals: goals.trim(), parentEmail: parentEmail.trim() || null }),
+              headers: { "Content-Type": "application/json" },
+            })
+          }
+        } catch {
+          // Non-fatal — profile can be completed later
+        }
+      }
+
+      router.replace("/(auth)/pending")
     } catch { setError("Something went wrong. Please try again.") }
     finally { setLoading(false) }
   }
@@ -43,6 +65,7 @@ export default function SignUpScreen() {
           <Text style={styles.heading}>Create account</Text>
           <Text style={styles.sub}>Join College Dance Prep</Text>
           {error && <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>}
+
           <View style={styles.field}>
             <Text style={styles.label}>Full name</Text>
             <TextInput style={styles.input} placeholder="Jane Smith" placeholderTextColor={COLORS.textMuted} autoCapitalize="words" value={name} onChangeText={setName} editable={!loading} />
@@ -53,8 +76,38 @@ export default function SignUpScreen() {
           </View>
           <View style={styles.field}>
             <Text style={styles.label}>Password</Text>
-            <TextInput style={styles.input} placeholder="Min. 8 characters" placeholderTextColor={COLORS.textMuted} secureTextEntry value={password} onChangeText={setPassword} editable={!loading} onSubmitEditing={handleSignUp} returnKeyType="go" />
+            <TextInput style={styles.input} placeholder="Min. 8 characters" placeholderTextColor={COLORS.textMuted} secureTextEntry value={password} onChangeText={setPassword} editable={!loading} returnKeyType="next" />
           </View>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>optional</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Training goals</Text>
+            <TextInput
+              style={[styles.input, styles.inputMulti]}
+              placeholder="e.g. Improve turns, prepare for college auditions…"
+              placeholderTextColor={COLORS.textMuted}
+              multiline numberOfLines={3}
+              value={goals} onChangeText={setGoals} editable={!loading}
+            />
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Parent email <Text style={styles.labelOptional}>(optional)</Text></Text>
+            <TextInput
+              style={styles.input}
+              placeholder="parent@example.com"
+              placeholderTextColor={COLORS.textMuted}
+              autoCapitalize="none" keyboardType="email-address"
+              value={parentEmail} onChangeText={setParentEmail} editable={!loading}
+              onSubmitEditing={handleSignUp} returnKeyType="go"
+            />
+            <Text style={styles.hint}>A parent can sign in to view and manage this account.</Text>
+          </View>
+
           <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleSignUp} disabled={loading} activeOpacity={0.8}>
             {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.btnText}>Create account</Text>}
           </TouchableOpacity>
@@ -82,7 +135,13 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     errorText: { fontSize: 13, color: COLORS.red, fontWeight: "500" },
     field: { marginBottom: SPACING.md },
     label: { fontSize: 13, fontWeight: "600", color: COLORS.textSecondary, marginBottom: 6 },
+    labelOptional: { fontSize: 13, fontWeight: "400", color: COLORS.textMuted },
     input: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, fontSize: 15, color: COLORS.text },
+    inputMulti: { minHeight: 72, textAlignVertical: "top" },
+    hint: { fontSize: 12, color: COLORS.textMuted, marginTop: 5, lineHeight: 17 },
+    dividerRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, marginBottom: SPACING.md },
+    dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
+    dividerText: { fontSize: 12, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.5 },
     btn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center", marginTop: SPACING.sm },
     btnDisabled: { opacity: 0.6 },
     btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },

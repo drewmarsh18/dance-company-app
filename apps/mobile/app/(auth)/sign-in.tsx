@@ -31,8 +31,10 @@ export default function SignInScreen() {
     extraParams: { access_type: "offline", prompt: "consent" },
   })
 
+  // Only auto-redirect if a session exists before the user starts signing in.
+  // During active sign-in, handleSignIn/handleGoogleToken do the routing themselves.
   useEffect(() => {
-    if (session?.user) router.replace("/")
+    if (session?.user && !loading && !googleLoading) router.replace("/")
   }, [session?.user?.id])
 
   useEffect(() => {

@@ -95,6 +95,30 @@ export default function AdminMembersScreen() {
     setActingOn(null)
   }
 
+  async function handleDeleteUser(userId: string, name: string) {
+    Alert.alert(
+      "Delete account",
+      `Permanently delete ${name || "this user"}'s account? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setActingOn(userId)
+            try {
+              await authClient.$fetch(`${API}/api/admin/users/${userId}`, { method: "DELETE" })
+              setPendingUsers((prev) => prev.filter((u) => u.id !== userId))
+            } catch {
+              Alert.alert("Error", "Failed to delete account.")
+            }
+            setActingOn(null)
+          },
+        },
+      ],
+    )
+  }
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -194,6 +218,7 @@ export default function AdminMembersScreen() {
                 acting={actingOn === item.user.id}
                 onApprove={() => handleApproval(item.user.id, "active")}
                 onDeny={() => handleApproval(item.user.id, "denied")}
+                onDelete={() => handleDeleteUser(item.user.id, item.user.name)}
               />
             )
           }
@@ -242,8 +267,8 @@ function SectionHeader({ title, icon, COLORS, styles }: {
   )
 }
 
-function PendingCard({ user, acting, onApprove, onDeny }: {
-  user: PendingUser; acting: boolean; onApprove: () => void; onDeny: () => void
+function PendingCard({ user, acting, onApprove, onDeny, onDelete }: {
+  user: PendingUser; acting: boolean; onApprove: () => void; onDeny: () => void; onDelete: () => void
 }) {
   const COLORS = useColors()
   const styles = makeStyles(COLORS)
@@ -274,6 +299,12 @@ function PendingCard({ user, acting, onApprove, onDeny }: {
                 <Text style={[styles.approvalBtnText, { color: "#fff" }]}>Approve</Text>
               </>
             )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onDelete} disabled={acting} activeOpacity={0.7}
+            style={{ padding: 4, marginTop: 4, alignSelf: "center" }}
+          >
+            <Trash2 size={14} color={COLORS.textMuted} />
           </TouchableOpacity>
         </View>
       </View>
