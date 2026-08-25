@@ -73,6 +73,8 @@ export default function SignInScreen() {
               body: JSON.stringify(updates),
               headers: { "Content-Type": "application/json" },
             })
+            // Refresh session so useSession picks up the new name/image
+            await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/get-session")
           }
         }
       } catch {}

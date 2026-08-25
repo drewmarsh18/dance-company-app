@@ -19,6 +19,7 @@ export default function AdminProfileScreen() {
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
   const [googleLinking, setGoogleLinking] = useState(false)
   const [calendarConnected, setCalendarConnected] = useState(false)
+  const [freshName, setFreshName] = useState<string | null>(null)
 
   const loadConnectedState = useCallback(() => {
     authClient.$fetch(`${API_BASE}/api/auth/list-accounts`).then(({ data }) => {
@@ -27,6 +28,9 @@ export default function AdminProfileScreen() {
     }).catch(() => {})
     authClient.$fetch(`${API_BASE}/api/portal/calendar-events`).then(({ data }) => {
       setCalendarConnected(!!(data as any)?.connected)
+    }).catch(() => {})
+    authClient.$fetch(`${API_BASE}/api/me`).then(({ data }) => {
+      if ((data as any)?.name) setFreshName((data as any).name)
     }).catch(() => {})
   }, [])
 
@@ -62,7 +66,7 @@ export default function AdminProfileScreen() {
     setCalendarConnected(false)
   }
 
-  const name = session?.user?.name ?? ""
+  const name = freshName ?? session?.user?.name ?? ""
   const email = session?.user?.email ?? ""
 
   async function handleSignOut() {
