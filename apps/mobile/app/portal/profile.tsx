@@ -2,14 +2,14 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useRouter } from "expo-router"
+import { useRouter, useFocusEffect } from "expo-router"
 import { Users, LogOut, ShieldCheck, Sun, Moon, Smartphone, CalendarCheck, CalendarX, Link } from "lucide-react-native"
-import * as Linking from "expo-linking"
+import * as WebBrowser from "expo-web-browser"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useTheme } from "@/lib/theme-context"
 import type { ThemePreference } from "@/lib/theme-context"
-import { useState, useEffect } from "react"
+import { useState, useCallback } from "react"
 
 const API_BASE = "https://dance-company-app.vercel.app"
 
@@ -23,7 +23,7 @@ export default function PortalProfileScreen() {
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
   const [googleLinking, setGoogleLinking] = useState(false)
 
-  useEffect(() => {
+  const loadConnectedState = useCallback(() => {
     authClient.$fetch(`${API_BASE}/api/portal/calendar-events`).then(({ data }) => {
       setCalendarConnected(!!(data as any)?.connected)
     }).catch(() => {})
@@ -33,22 +33,27 @@ export default function PortalProfileScreen() {
     }).catch(() => {})
   }, [])
 
+  // Re-check on every focus so the UI updates after returning from OAuth browser
+  useFocusEffect(loadConnectedState)
+
   async function handleConnectGoogle() {
     setGoogleLinking(true)
     try {
       await authClient.signIn.social({ provider: "google", callbackURL: "cdp://" })
-      const { data } = await authClient.$fetch(`${API_BASE}/api/auth/list-accounts`)
-      const accounts = (data as any) ?? []
-      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
     } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google account.") }
-    finally { setGoogleLinking(false) }
+    finally {
+      setGoogleLinking(false)
+      loadConnectedState()
+    }
   }
 
   async function handleConnectCalendar() {
     try {
-      const { data, error } = await authClient.$fetch(`${API_BASE}/api/google-calendar/url`)
+      const { data, error } = await authClient.$fetch(`${API_BASE}/api/google-calendar/url?for=portal`)
       if (error || !(data as any)?.url) throw new Error("Could not get calendar auth URL")
-      Linking.openURL((data as any).url)
+      const result = await WebBrowser.openAuthSessionAsync((data as any).url, "cdp://portal/profile")
+      if (result.type === "success") loadConnectedState()
+      else Alert.alert("Error", "Could not connect Google Calendar. Please try again.")
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google Calendar.")
     }

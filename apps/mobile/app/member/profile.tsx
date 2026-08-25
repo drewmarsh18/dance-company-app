@@ -4,7 +4,7 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useRouter, useLocalSearchParams } from "expo-router"
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router"
 import { Link, Sun, Moon, Smartphone, CalendarCheck, CalendarX } from "lucide-react-native"
 import * as WebBrowser from "expo-web-browser"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
@@ -66,6 +66,19 @@ export default function MemberProfileScreen() {
 
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
 
+  const refreshConnectedState = useCallback(() => {
+    authClient.$fetch(`${API_BASE}/api/auth/list-accounts`).then(({ data }) => {
+      const accounts = (data as any) ?? []
+      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
+    }).catch(() => {})
+    authClient.$fetch(`${API_BASE}/api/member/calendar-events`).then(({ data }) => {
+      if (data) setCalendarConnected((data as any).connected === true)
+    }).catch(() => {})
+  }, [])
+
+  // Re-check when screen regains focus (e.g. after OAuth browser closes)
+  useFocusEffect(refreshConnectedState)
+
   async function handleSave() {
     if (!profile) return
     setSaving(true)
@@ -109,11 +122,11 @@ export default function MemberProfileScreen() {
     setGoogleLinking(true)
     try {
       await authClient.signIn.social({ provider: "google", callbackURL: "cdp://" })
-      const { data } = await authClient.$fetch(`${API_BASE}/api/auth/list-accounts`)
-      const accounts = (data as any) ?? []
-      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
     } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google account.") }
-    finally { setGoogleLinking(false) }
+    finally {
+      setGoogleLinking(false)
+      refreshConnectedState()
+    }
   }
 
   async function handleSignOut() { await signOut(); router.replace("/(auth)/sign-in") }
