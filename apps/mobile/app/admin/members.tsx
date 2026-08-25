@@ -1,10 +1,10 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import {
-  View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
+  View, Text, StyleSheet, SectionList, TextInput, TouchableOpacity,
   Modal, ScrollView, RefreshControl, ActivityIndicator, Alert,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { Search, ChevronDown, ChevronUp, Plus, X, Ticket, Package, Trash2, CalendarDays } from "lucide-react-native"
+import { Search, ChevronDown, ChevronUp, Plus, X, Ticket, Package, Trash2, CalendarDays, Check, UserX, Clock } from "lucide-react-native"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 import { useAdmin } from "@/lib/admin-context"
@@ -14,24 +14,41 @@ import type { AdminMember, AdminBooking, MemberPlan, DancePackage } from "@/lib/
 
 const API = "https://dance-company-app.vercel.app"
 
+type PendingUser = { id: string; name: string; email: string; status: string; createdAt: string }
+
+function lastNameKey(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  return (parts.length > 1 ? parts[parts.length - 1] : parts[0] ?? "").toLowerCase()
+}
+
 function planDisplayStatus(plan: MemberPlan): string {
   if (plan.status === "Active" && plan.expiresAt && new Date(plan.expiresAt) < new Date()) return "Inactive"
   return plan.status
 }
 
-function memberStatusInfo(
+function memberStatusLabel(
   member: AdminMember, memberPlans: MemberPlan[], memberBookings: AdminBooking[],
-  COLORS: ReturnType<typeof useColors>,
-) {
+): "Active" | "Inactive" | "Lead" {
   const activePlan = memberPlans.find((p) => planDisplayStatus(p) === "Active")
-  if (member.creditsRemaining > 0 || activePlan) return { label: "Active", bg: COLORS.greenLight, fg: COLORS.green }
+  if (member.creditsRemaining > 0 || activePlan) return "Active"
   const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000
   const recentBooking = memberBookings.some((b) => b.status.toLowerCase() !== "cancelled" && new Date(b.date).getTime() >= oneYearAgo)
   const recentPlan = memberPlans.some((p) => new Date(p.purchasedAt).getTime() >= oneYearAgo)
-  if (recentBooking || recentPlan) return { label: "Active", bg: COLORS.greenLight, fg: COLORS.green }
-  if (memberBookings.length === 0 && memberPlans.length === 0) return { label: "Lead", bg: "#dbeafe", fg: "#1d4ed8" }
-  return { label: "Inactive", bg: COLORS.grayLight, fg: COLORS.textMuted }
+  if (recentBooking || recentPlan) return "Active"
+  if (memberBookings.length === 0 && memberPlans.length === 0) return "Lead"
+  return "Inactive"
 }
+
+function memberStatusInfo(label: "Active" | "Inactive" | "Lead", COLORS: ReturnType<typeof useColors>) {
+  if (label === "Active") return { label, bg: COLORS.greenLight, fg: COLORS.green }
+  if (label === "Lead") return { label, bg: "#dbeafe", fg: "#1d4ed8" }
+  return { label, bg: COLORS.grayLight, fg: COLORS.textMuted }
+}
+
+// Section list item types
+type SectionItem =
+  | { kind: "pending"; user: PendingUser }
+  | { kind: "member"; member: AdminMember }
 
 export default function AdminMembersScreen() {
   const { data, loading, refresh } = useAdmin()
@@ -44,12 +61,39 @@ export default function AdminMembersScreen() {
   const [localMembers, setLocalMembers] = useState<AdminMember[] | null>(null)
   const [localPlans, setLocalPlans] = useState<MemberPlan[] | null>(null)
   const [localCredits, setLocalCredits] = useState<Record<string, number>>({})
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
+  const [actingOn, setActingOn] = useState<string | null>(null)
+
+  const loadPending = useCallback(async () => {
+    try {
+      const { data: result } = await authClient.$fetch(`${API}/api/admin/pending-users`)
+      if (Array.isArray(result)) setPendingUsers(result as PendingUser[])
+    } catch {}
+  }, [])
+
+  useEffect(() => { loadPending() }, [loadPending])
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true); await refresh()
+    setRefreshing(true)
+    await Promise.all([refresh(), loadPending()])
     setLocalMembers(null); setLocalPlans(null); setLocalCredits({})
     setRefreshing(false)
-  }, [refresh])
+  }, [refresh, loadPending])
+
+  async function handleApproval(userId: string, status: "active" | "denied") {
+    setActingOn(userId)
+    try {
+      await authClient.$fetch(`${API}/api/admin/users/${userId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+        headers: { "Content-Type": "application/json" },
+      })
+      setPendingUsers((prev) => prev.filter((u) => u.id !== userId))
+    } catch {
+      Alert.alert("Error", "Failed to update user status.")
+    }
+    setActingOn(null)
+  }
 
   if (loading) {
     return (
@@ -64,36 +108,100 @@ export default function AdminMembersScreen() {
   const plans = localPlans ?? data?.plans ?? []
   const packages = data?.packages ?? []
 
-  const filtered = query.trim()
-    ? members.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()) || m.email.toLowerCase().includes(query.toLowerCase()))
-    : members
+  const q = query.trim().toLowerCase()
 
   function memberBookings(m: AdminMember) { return bookings.filter((b) => b.userId === m.userId || b.clientEmail.toLowerCase() === m.email.toLowerCase()) }
   function memberPlans(m: AdminMember) { return plans.filter((p) => p.userId === m.userId) }
   function creditsFor(m: AdminMember) { return localCredits[m.id] ?? m.creditsRemaining }
+
+  // Filter pending users by query
+  const filteredPending = q
+    ? pendingUsers.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+    : pendingUsers
+
+  // Group members by status
+  const grouped: Record<"Active" | "Inactive" | "Lead", AdminMember[]> = { Active: [], Inactive: [], Lead: [] }
+  for (const m of members) {
+    if (q && !m.name.toLowerCase().includes(q) && !m.email.toLowerCase().includes(q)) continue
+    const credits = creditsFor(m)
+    const label = memberStatusLabel({ ...m, creditsRemaining: credits }, memberPlans(m), memberBookings(m))
+    grouped[label].push(m)
+  }
+
+  // Sort each group by last name
+  const byLastName = (a: AdminMember, b: AdminMember) => lastNameKey(a.name || a.email).localeCompare(lastNameKey(b.name || b.email))
+  const sortedPending = [...filteredPending].sort((a, b) => lastNameKey(a.name || a.email).localeCompare(lastNameKey(b.name || b.email)))
+
+  const sections: { title: string; icon: "pending" | "active" | "inactive" | "lead"; data: SectionItem[] }[] = []
+
+  if (sortedPending.length > 0) {
+    sections.push({
+      title: `Pending Approval (${sortedPending.length})`,
+      icon: "pending",
+      data: sortedPending.map((u) => ({ kind: "pending" as const, user: u })),
+    })
+  }
+  for (const label of ["Active", "Inactive", "Lead"] as const) {
+    const sorted = [...grouped[label]].sort(byLastName)
+    if (sorted.length > 0) {
+      sections.push({
+        title: `${label} (${sorted.length})`,
+        icon: label.toLowerCase() as "active" | "inactive" | "lead",
+        data: sorted.map((m) => ({ kind: "member" as const, member: m })),
+      })
+    }
+  }
+
+  const totalMembers = members.length
+  const isEmpty = sections.length === 0
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.toolbar}>
         <View style={[styles.searchRow, { flex: 1 }]}>
           <Search size={16} color={COLORS.textMuted} style={{ marginRight: 6 }} />
-          <TextInput style={styles.searchInput} placeholder="Search members…" placeholderTextColor={COLORS.textMuted} value={query} onChangeText={setQuery} autoCorrect={false} clearButtonMode="while-editing" />
+          <TextInput
+            style={styles.searchInput} placeholder="Search members…" placeholderTextColor={COLORS.textMuted}
+            value={query} onChangeText={setQuery} autoCorrect={false} clearButtonMode="while-editing"
+          />
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={() => setShowAddForm(true)} activeOpacity={0.7}>
           <Plus size={18} color="#fff" />
         </TouchableOpacity>
       </View>
-      <FlatList
-        data={filtered}
-        keyExtractor={(m) => m.id}
-        contentContainerStyle={styles.list}
+
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => item.kind === "pending" ? item.user.id : item.member.id}
+        contentContainerStyle={[styles.list, isEmpty && { flex: 1 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+        stickySectionHeadersEnabled={false}
+        renderSectionHeader={({ section }) => (
+          <SectionHeader title={section.title} icon={section.icon} COLORS={COLORS} styles={styles} />
+        )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListEmptyComponent={<Text style={styles.empty}>{members.length === 0 ? "No members yet." : "No members match your search."}</Text>}
-        renderItem={({ item: m }) => {
+        SectionSeparatorComponent={() => <View style={{ height: SPACING.sm }} />}
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <Text style={styles.empty}>{totalMembers === 0 && pendingUsers.length === 0 ? "No members yet." : "No members match your search."}</Text>
+          </View>
+        }
+        renderItem={({ item }) => {
+          if (item.kind === "pending") {
+            return (
+              <PendingCard
+                user={item.user}
+                acting={actingOn === item.user.id}
+                onApprove={() => handleApproval(item.user.id, "active")}
+                onDeny={() => handleApproval(item.user.id, "denied")}
+              />
+            )
+          }
+          const m = item.member
           const mPlans = memberPlans(m); const mBookings = memberBookings(m)
           const credits = creditsFor(m)
-          const statusInfo = memberStatusInfo({ ...m, creditsRemaining: credits }, mPlans, mBookings, COLORS)
+          const label = memberStatusLabel({ ...m, creditsRemaining: credits }, mPlans, mBookings)
+          const statusInfo = memberStatusInfo(label, COLORS)
           const isOpen = expanded === m.id
           return (
             <MemberCard
@@ -106,10 +214,70 @@ export default function AdminMembersScreen() {
           )
         }}
       />
+
       <Modal visible={showAddForm} animationType="slide" presentationStyle="pageSheet">
         <AddMemberForm onClose={() => setShowAddForm(false)} onSuccess={(member) => { setLocalMembers([member, ...members]); setShowAddForm(false) }} />
       </Modal>
     </SafeAreaView>
+  )
+}
+
+function SectionHeader({ title, icon, COLORS, styles }: {
+  title: string; icon: string
+  COLORS: ReturnType<typeof useColors>; styles: ReturnType<typeof makeStyles>
+}) {
+  const iconEl = icon === "pending"
+    ? <Clock size={14} color="#d97706" />
+    : icon === "active"
+    ? <Check size={14} color={COLORS.green} />
+    : icon === "lead"
+    ? <UserX size={14} color="#1d4ed8" />
+    : <UserX size={14} color={COLORS.textMuted} />
+
+  return (
+    <View style={styles.sectionHeaderRow}>
+      {iconEl}
+      <Text style={styles.sectionHeaderText}>{title}</Text>
+    </View>
+  )
+}
+
+function PendingCard({ user, acting, onApprove, onDeny }: {
+  user: PendingUser; acting: boolean; onApprove: () => void; onDeny: () => void
+}) {
+  const COLORS = useColors()
+  const styles = makeStyles(COLORS)
+  const signupDate = new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+
+  return (
+    <View style={[styles.card, { borderColor: "#fcd34d", borderWidth: 1 }]}>
+      <View style={styles.pendingCardInner}>
+        <View style={styles.avatar}><Text style={styles.avatarText}>{initials(user.name || user.email || "?")}</Text></View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.name} numberOfLines={1}>{user.name || "(no name)"}</Text>
+          <Text style={styles.email} numberOfLines={1}>{user.email}</Text>
+          <Text style={[styles.email, { marginTop: 2 }]}>Signed up {signupDate}</Text>
+        </View>
+        <View style={styles.approvalBtns}>
+          <TouchableOpacity
+            style={styles.denyBtn} onPress={onDeny} disabled={acting} activeOpacity={0.7}
+          >
+            <X size={14} color={COLORS.red} />
+            <Text style={[styles.approvalBtnText, { color: COLORS.red }]}>Deny</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.approveBtn} onPress={onApprove} disabled={acting} activeOpacity={0.7}
+          >
+            {acting ? <ActivityIndicator size="small" color="#fff" /> : (
+              <>
+                <Check size={14} color="#fff" />
+                <Text style={[styles.approvalBtnText, { color: "#fff" }]}>Approve</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   )
 }
 
@@ -383,8 +551,12 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     addBtn: { backgroundColor: COLORS.primary, width: 40, height: 40, borderRadius: RADIUS.md, alignItems: "center", justifyContent: "center" },
     list: { paddingHorizontal: SPACING.md, paddingBottom: 80 },
     separator: { height: SPACING.sm },
+    emptyWrap: { flex: 1, justifyContent: "center", alignItems: "center" },
     empty: { fontSize: 14, color: COLORS.textMuted, textAlign: "center", marginTop: SPACING.xl },
+    sectionHeaderRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: SPACING.sm, paddingTop: SPACING.md },
+    sectionHeaderText: { fontSize: 12, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.5 },
     card: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden" },
+    pendingCardInner: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, padding: SPACING.md },
     cardHeader: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, padding: SPACING.md },
     avatar: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: COLORS.primaryLight, alignItems: "center", justifyContent: "center" },
     avatarText: { fontSize: 13, fontWeight: "700", color: COLORS.primary },
@@ -392,6 +564,10 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     email: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
     badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full, alignItems: "center" },
     badgeText: { fontSize: 11, fontWeight: "600" },
+    approvalBtns: { flexDirection: "column", gap: 6 },
+    denyBtn: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: COLORS.redLight, borderRadius: RADIUS.sm, paddingVertical: 5, paddingHorizontal: 10 },
+    approveBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, paddingVertical: 5, paddingHorizontal: 10 },
+    approvalBtnText: { fontSize: 12, fontWeight: "600" },
     expanded: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
     divider: { height: 1, backgroundColor: COLORS.border, marginBottom: SPACING.md },
     section: { marginBottom: SPACING.md, gap: 6 },
