@@ -63,10 +63,17 @@ export default function SignInScreen() {
         const parts = idToken.split(".")
         if (parts.length === 3) {
           const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")))
+          const sessionUser = (result as any)?.data?.user
           const updates: Record<string, string> = {}
-          if (payload.name && !(result as any)?.data?.user?.name) updates.name = payload.name
-          if (payload.picture && !(result as any)?.data?.user?.image) updates.image = payload.picture
-          if (Object.keys(updates).length > 0) await authClient.updateUser(updates)
+          if (payload.name && !sessionUser?.name) updates.name = payload.name
+          if (payload.picture && !sessionUser?.image) updates.image = payload.picture
+          if (Object.keys(updates).length > 0) {
+            await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/update-user", {
+              method: "POST",
+              body: JSON.stringify(updates),
+              headers: { "Content-Type": "application/json" },
+            })
+          }
         }
       } catch {}
 

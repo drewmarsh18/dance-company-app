@@ -46,7 +46,7 @@ export default function MemberProfileScreen() {
     try {
       const [dashResult, accountsResult, meResult, calResult] = await Promise.all([
         authClient.$fetch(`${API_BASE}/api/member/dashboard`),
-        authClient.listAccounts(),
+        authClient.$fetch(`${API_BASE}/api/auth/list-accounts`),
         authClient.$fetch(`${API_BASE}/api/me`),
         authClient.$fetch(`${API_BASE}/api/member/calendar-events`),
       ])
@@ -54,7 +54,7 @@ export default function MemberProfileScreen() {
       const p = (dashResult.data as any).profile as Profile
       setProfile(p); setName(p.name); setPhone(formatPhone(p.phone ?? "")); setGoals(p.goals); setParentEmail(p.parentEmail ?? ""); setError(null)
       const accounts = accountsResult.data ?? []
-      setIsGoogleLinked(accounts.some((a: any) => a.provider === "google"))
+      setIsGoogleLinked(accounts.some((a: any) => a.providerId === "google"))
       if (!meResult.error && meResult.data) setActualRole((meResult.data as any).role ?? null)
       if (!calResult.error && calResult.data) setCalendarConnected((calResult.data as any).connected === true)
     } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong.") }
@@ -67,9 +67,9 @@ export default function MemberProfileScreen() {
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
 
   const refreshConnectedState = useCallback(() => {
-    authClient.listAccounts().then(({ data }) => {
-      const accounts = data ?? []
-      setIsGoogleLinked(accounts.some((a: any) => a.provider === "google"))
+    authClient.$fetch(`${API_BASE}/api/auth/list-accounts`).then(({ data }) => {
+      const accounts = (data as any) ?? []
+      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.providerId === "google"))
     }).catch(() => {})
     authClient.$fetch(`${API_BASE}/api/member/calendar-events`).then(({ data }) => {
       if (data) setCalendarConnected((data as any).connected === true)
