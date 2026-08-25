@@ -57,6 +57,19 @@ export default function SignInScreen() {
     try {
       const result = await signIn.social({ provider: "google", idToken: { token: idToken, accessToken } } as Parameters<typeof signIn.social>[0])
       if (result?.error) { setError(result.error.message ?? "Google sign-in failed."); return }
+
+      // Sync name and image from Google token if the user record is missing them
+      try {
+        const parts = idToken.split(".")
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")))
+          const updates: Record<string, string> = {}
+          if (payload.name && !(result as any)?.data?.user?.name) updates.name = payload.name
+          if (payload.picture && !(result as any)?.data?.user?.image) updates.image = payload.picture
+          if (Object.keys(updates).length > 0) await authClient.updateUser(updates)
+        }
+      } catch {}
+
       const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
       const role = (me as any)?.role ?? "dancer"
       const status = (me as any)?.status ?? "active"

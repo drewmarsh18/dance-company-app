@@ -21,9 +21,9 @@ export default function AdminProfileScreen() {
   const [calendarConnected, setCalendarConnected] = useState(false)
 
   const loadConnectedState = useCallback(() => {
-    authClient.$fetch(`${API_BASE}/api/auth/list-accounts`).then(({ data }) => {
-      const accounts = (data as any) ?? []
-      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
+    authClient.listAccounts().then(({ data }) => {
+      const accounts = data ?? []
+      setIsGoogleLinked(accounts.some((a: any) => a.provider === "google"))
     }).catch(() => {})
     authClient.$fetch(`${API_BASE}/api/portal/calendar-events`).then(({ data }) => {
       setCalendarConnected(!!(data as any)?.connected)

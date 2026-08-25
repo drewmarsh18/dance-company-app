@@ -28,9 +28,9 @@ export default function PortalProfileScreen() {
     authClient.$fetch(`${API_BASE}/api/portal/calendar-events`).then(({ data }) => {
       setCalendarConnected(!!(data as any)?.connected)
     }).catch(() => {})
-    authClient.$fetch(`${API_BASE}/api/auth/list-accounts`).then(({ data }) => {
-      const accounts = (data as any) ?? []
-      setIsGoogleLinked(Array.isArray(accounts) && accounts.some((a: any) => a.provider === "google"))
+    authClient.listAccounts().then(({ data }) => {
+      const accounts = data ?? []
+      setIsGoogleLinked(accounts.some((a: any) => a.provider === "google"))
     }).catch(() => {})
     authClient.$fetch(`${API_BASE}/api/me`).then(({ data }) => {
       if (data) setActualRole((data as any).role ?? null)
