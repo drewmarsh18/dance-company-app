@@ -28,7 +28,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       const { data: result, error: err } = await authClient.$fetch(
         `${API_BASE}/api/admin/dashboard`,
       )
-      if (err || !result) throw new Error((result as any)?.error ?? (err as any)?.statusText ?? "Failed to load")
+      if (err || !result) throw new Error((result as any)?.error ?? (err as any)?.message ?? (err as any)?.statusText ?? "Failed to load")
       setData(result as AdminDashboard)
       setError(null)
     } catch (e) {
