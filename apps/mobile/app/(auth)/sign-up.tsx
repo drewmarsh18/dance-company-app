@@ -2,12 +2,18 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
 } from "react-native"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { signUp, authClient } from "@/lib/auth-client"
+import * as WebBrowser from "expo-web-browser"
+import * as Google from "expo-auth-session/providers/google"
+import { signUp, signIn, authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
+
+WebBrowser.maybeCompleteAuthSession()
+
+const GOOGLE_IOS_CLIENT_ID = "31400941000-8g9ud8c2pfgkb1590hb0606jg70jq152.apps.googleusercontent.com"
 
 const API_BASE = "https://dance-company-app.vercel.app"
 
@@ -20,7 +26,67 @@ export default function SignUpScreen() {
   const [goals, setGoals] = useState("")
   const [parentEmail, setParentEmail] = useState("")
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [, response, promptAsync] = Google.useAuthRequest({
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+    scopes: ["openid", "profile", "email"],
+  })
+
+  useEffect(() => {
+    if (response?.type === "success") {
+      const idToken = response.params?.id_token
+      const accessToken = response.authentication?.accessToken
+      if (idToken) handleGoogleToken(idToken, accessToken)
+      else { setError("Google sign-up failed: no ID token returned."); setGoogleLoading(false) }
+    } else if (response?.type === "error") {
+      setError(response.error?.message ?? "Google sign-up failed.")
+      setGoogleLoading(false)
+    } else if (response?.type === "dismiss" || response?.type === "cancel") {
+      setGoogleLoading(false)
+    }
+  }, [response])
+
+  async function handleGoogleToken(idToken: string, accessToken?: string) {
+    try {
+      const result = await signIn.social({ provider: "google", idToken: { token: idToken, accessToken } } as Parameters<typeof signIn.social>[0])
+      if (result?.error) { setError(result.error.message ?? "Google sign-up failed."); return }
+
+      // Sync name/image from Google token if missing
+      try {
+        const parts = idToken.split(".")
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")))
+          const sessionUser = (result as any)?.data?.user
+          const updates: Record<string, string> = {}
+          if (payload.name && !sessionUser?.name) updates.name = payload.name
+          if (payload.picture && !sessionUser?.image) updates.image = payload.picture
+          if (Object.keys(updates).length > 0) {
+            await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/update-user", {
+              method: "POST",
+              body: JSON.stringify(updates),
+              headers: { "Content-Type": "application/json" },
+            })
+            await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/get-session")
+          }
+        }
+      } catch {}
+
+      const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
+      const role = (me as any)?.role ?? "dancer"
+      const status = (me as any)?.status ?? "active"
+
+      if (status === "pending") router.replace("/(auth)/welcome")
+      else if (status === "denied") router.replace("/(auth)/denied")
+      else if (role === "admin") router.replace("/admin")
+      else if (role === "prep_master") router.replace("/portal")
+      else router.replace("/member")
+    } catch { setError("Google sign-up failed. Please try again.") }
+    finally { setGoogleLoading(false) }
+  }
+
+  function handleGoogleSignUp() { setError(null); setGoogleLoading(true); promptAsync() }
 
   async function handleSignUp() {
     if (!name || !email || !password) { setError("Please fill in all required fields."); return }
@@ -65,6 +131,16 @@ export default function SignUpScreen() {
           <Text style={styles.heading}>Create account</Text>
           <Text style={styles.sub}>Join College Dance Prep</Text>
           {error && <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>}
+
+          <TouchableOpacity style={[styles.googleBtn, googleLoading && styles.btnDisabled]} onPress={handleGoogleSignUp} disabled={googleLoading || loading} activeOpacity={0.8}>
+            {googleLoading ? <ActivityIndicator color={COLORS.text} size="small" /> : <><Text style={styles.googleIcon}>G</Text><Text style={styles.googleBtnText}>Continue with Google</Text></>}
+          </TouchableOpacity>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or sign up with email</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
           <View style={styles.field}>
             <Text style={styles.label}>Full name</Text>
@@ -139,6 +215,9 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     input: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, fontSize: 15, color: COLORS.text },
     inputMulti: { minHeight: 72, textAlignVertical: "top" },
     hint: { fontSize: 12, color: COLORS.textMuted, marginTop: 5, lineHeight: 17 },
+    googleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, marginBottom: SPACING.md },
+    googleIcon: { fontSize: 16, fontWeight: "800", color: "#4285F4" },
+    googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
     dividerRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, marginBottom: SPACING.md },
     dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
     dividerText: { fontSize: 12, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.5 },

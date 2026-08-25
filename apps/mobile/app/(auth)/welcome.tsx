@@ -58,12 +58,12 @@ export default function WelcomeScreen() {
       // Non-fatal — still proceed to the app
     } finally {
       setSaving(false)
-      router.replace("/")
+      router.replace("/(auth)/pending")
     }
   }
 
   function handleSkip() {
-    router.replace("/")
+    router.replace("/(auth)/pending")
   }
 
   return (
