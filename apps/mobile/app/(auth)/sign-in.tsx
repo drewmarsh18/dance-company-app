@@ -27,8 +27,10 @@ export default function SignInScreen() {
   const { data: session } = useSession()
   const [request, response, promptAsync] = Google.useAuthRequest({
     iosClientId: GOOGLE_IOS_CLIENT_ID,
-    scopes: ["openid", "profile", "email", "https://www.googleapis.com/auth/calendar.events"],
-    extraParams: { access_type: "offline", prompt: "consent" },
+    // Only request basic profile scopes here — calendar.events is a sensitive
+    // scope that triggers Google's "unverified app" warning. Users can connect
+    // Google Calendar separately via the Enable Calendar sync button in Profile.
+    scopes: ["openid", "profile", "email"],
   })
 
   // Only auto-redirect if a session exists before the user starts signing in.
@@ -41,9 +43,7 @@ export default function SignInScreen() {
     if (response?.type === "success") {
       const idToken = response.params?.id_token
       const accessToken = response.authentication?.accessToken
-      const refreshToken = response.authentication?.refreshToken
-      const expiresIn = response.authentication?.expiresIn ?? undefined
-      if (idToken) handleGoogleToken(idToken, accessToken, refreshToken, expiresIn)
+      if (idToken) handleGoogleToken(idToken, accessToken)
       else { setError("Google sign-in failed: no ID token returned."); setGoogleLoading(false) }
     } else if (response?.type === "error") {
       setError(response.error?.message ?? "Google sign-in failed.")
@@ -53,18 +53,10 @@ export default function SignInScreen() {
     }
   }, [response])
 
-  async function handleGoogleToken(idToken: string, accessToken?: string, refreshToken?: string, expiresIn?: number) {
+  async function handleGoogleToken(idToken: string, accessToken?: string) {
     try {
       const result = await signIn.social({ provider: "google", idToken: { token: idToken, accessToken } } as Parameters<typeof signIn.social>[0])
       if (result?.error) { setError(result.error.message ?? "Google sign-in failed."); return }
-      // Auto-store calendar token so user doesn't need a separate connect step
-      if (accessToken) {
-        authClient.$fetch("https://dance-company-app.vercel.app/api/google-calendar/store-token", {
-          method: "POST",
-          body: JSON.stringify({ accessToken, refreshToken, expiresIn }),
-          headers: { "Content-Type": "application/json" },
-        }).catch(() => {})
-      }
       const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
       const role = (me as any)?.role ?? "dancer"
       const status = (me as any)?.status ?? "active"
