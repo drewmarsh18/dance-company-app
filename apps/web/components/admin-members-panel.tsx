@@ -104,7 +104,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
     const val = parseInt(editingCredits[member.id] ?? "", 10)
     if (Number.isNaN(val) || val < 0) { toast.error("Enter a valid number."); return }
     startTransition(async () => {
-      const result = await adminSetCredits(member.id, val)
+      const result = await adminSetCredits(member.id, val, member.userId)
       if (result.ok) {
         setLocalCredits((prev) => ({ ...prev, [member.id]: val }))
         setEditingCredits((prev) => ({ ...prev, [member.id]: "" }))
@@ -118,7 +118,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
   function handleRemovePlan(member: AdminMember, plan: MemberPlan) {
     if (!confirm(`Remove "${plan.planName}" from ${member.name || member.email}? This will deduct ${plan.sessions} credits.`)) return
     startTransition(async () => {
-      const result = await adminRemovePlan(plan.id, member.id, plan.sessions, creditsFor(member))
+      const result = await adminRemovePlan(plan.id, member.id, plan.sessions, creditsFor(member), member.userId)
       if (result.ok) {
         setLocalPlans((prev) => prev.filter((p) => p.id !== plan.id))
         setLocalCredits((prev) => ({ ...prev, [member.id]: Math.max(0, creditsFor(member) - plan.sessions) }))

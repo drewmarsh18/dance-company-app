@@ -2,7 +2,7 @@
 
 import { randomUUID } from "crypto"
 import { headers } from "next/headers"
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { auth } from "@/lib/auth"
 import { isAdminEmail } from "@/lib/roles"
 import { db } from "@/lib/db"
@@ -78,6 +78,7 @@ export async function addComplimentaryCredits(
     await adminAddCredits(member.id, member.creditsRemaining, 1)
     revalidatePath("/admin")
     revalidatePath("/dashboard")
+    revalidateTag(`member-${member.userId}`, "max")
     return { ok: true, plan }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to add session." }
@@ -110,6 +111,7 @@ export async function adminAssignPlan(
     await adminAddCredits(member.id, member.creditsRemaining, pkg.sessions)
     revalidatePath("/admin")
     revalidatePath("/dashboard")
+    revalidateTag(`member-${member.userId}`, "max")
     return { ok: true, plan }
   } catch (err) {
     return {
@@ -220,6 +222,7 @@ export async function addPrepMaster(input: {
 export async function adminSetCredits(
   memberId: string,
   newCredits: number,
+  userId?: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     await assertAdmin()
@@ -229,6 +232,7 @@ export async function adminSetCredits(
     })
     revalidatePath("/admin")
     revalidatePath("/dashboard")
+    if (userId) revalidateTag(`member-${userId}`, "max")
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to set credits." }
@@ -240,6 +244,7 @@ export async function adminRemovePlan(
   memberId: string,
   planSessions: number,
   currentCredits: number,
+  userId?: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     await assertAdmin()
@@ -252,6 +257,7 @@ export async function adminRemovePlan(
     })
     revalidatePath("/admin")
     revalidatePath("/dashboard")
+    if (userId) revalidateTag(`member-${userId}`, "max")
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to remove plan." }

@@ -82,6 +82,34 @@ function sessionTable(rows: { label: string; value: string }[]) {
     </table>`
 }
 
+export function newMemberPendingEmail({
+  memberName,
+  memberEmail,
+  reviewUrl,
+}: {
+  memberName: string
+  memberEmail: string
+  reviewUrl: string
+}) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">A new member has signed up and is waiting for your approval.</p>
+    ${sessionTable([
+      { label: "Name", value: memberName },
+      { label: "Email", value: memberEmail },
+    ])}
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0">
+      <tr><td>
+        <a href="${reviewUrl}" style="display:block;text-align:center;background:#e91e8c;color:#ffffff;font-size:14px;font-weight:600;padding:12px 0;border-radius:8px;text-decoration:none">
+          Review in Admin Panel
+        </a>
+      </td></tr>
+    </table>`
+  return {
+    subject: `New member pending approval — ${memberName}`,
+    html: emailBase("New member request", body),
+  }
+}
+
 export function bookingConfirmationEmail({
   dancerName,
   prepMasterName,

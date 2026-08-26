@@ -3,6 +3,8 @@ import { expo } from "@better-auth/expo"
 import { pool, db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
+import { sendEmail, newMemberPendingEmail } from "@/lib/email"
+import { sendPushToUser } from "@/lib/push"
 
 export const auth = betterAuth({
   plugins: [expo()],
@@ -112,6 +114,39 @@ export const auth = betterAuth({
             await db.update(userTable)
               .set({ status: "pending" })
               .where(eq(userTable.id, newUser.id))
+
+            // Notify all admins via email + push
+            // Role is derived from ADMIN_EMAILS env var, not stored in DB — look up by email
+            const { inArray } = await import("drizzle-orm")
+            const admins = adminEmails.length > 0
+              ? await db
+                  .select({ id: userTable.id, email: userTable.email })
+                  .from(userTable)
+                  .where(inArray(userTable.email, adminEmails))
+              : []
+
+            const appUrl = process.env.BETTER_AUTH_URL
+              ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL
+                ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+                : "https://dance-company-app.vercel.app")
+            const reviewUrl = `${appUrl}/admin/members`
+
+            const { subject, html } = newMemberPendingEmail({
+              memberName: newUser.name,
+              memberEmail: newUser.email,
+              reviewUrl,
+            })
+
+            await Promise.allSettled([
+              ...admins.map((admin) => sendEmail({ to: admin.email, subject, html })),
+              ...admins.map((admin) =>
+                sendPushToUser(admin.id, {
+                  title: "New member request",
+                  body: `${newUser.name} signed up and is awaiting approval.`,
+                  data: { route: "/admin/members" },
+                })
+              ),
+            ])
           }
         },
       },
