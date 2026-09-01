@@ -52,12 +52,13 @@ export async function resolveClientProfile(
   if (!record) {
     const byEmail = await findClientByEmail(user.email ?? "")
     if (byEmail) {
-      if (!byEmail.fields["User ID"]) {
+      // Always claim the record for this user — update the User ID if it's missing or stale
+      if (byEmail.fields["User ID"] !== user.id) {
         record = await appBase.update<ClientFields>(TABLES.clients, byEmail.id, {
           "User ID": user.id,
           Name: byEmail.fields.Name || user.name,
         })
-      } else if (byEmail.fields["User ID"] === user.id) {
+      } else {
         record = byEmail
       }
     }

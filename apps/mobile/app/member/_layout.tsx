@@ -1,14 +1,19 @@
-import { Tabs, usePathname, useRouter } from "expo-router"
-import { Home, Calendar, Package, User } from "lucide-react-native"
+import React, { useCallback, useState } from "react"
+import { Tabs, usePathname, useRouter, useFocusEffect } from "expo-router"
+import { Home, Calendar, Package, User, Bell } from "lucide-react-native"
 import { useTheme } from "@/lib/theme-context"
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { BlurView } from "expo-blur"
+import { authClient } from "@/lib/auth-client"
+
+const API_BASE = "https://dance-company-app.vercel.app"
 
 const TABS = [
   { name: "index",    href: "/member",          label: "Home",     Icon: Home },
   { name: "bookings", href: "/member/bookings",  label: "Bookings", Icon: Calendar },
   { name: "plans",    href: "/member/plans",     label: "Plans",    Icon: Package },
+  { name: "inbox",    href: "/member/inbox",     label: "Inbox",    Icon: Bell },
   { name: "profile",  href: "/member/profile",   label: "Profile",  Icon: User },
 ] as const
 
@@ -17,6 +22,15 @@ function GlassTabBar() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const pathname = usePathname()
+  const [unread, setUnread] = useState(0)
+
+  useFocusEffect(useCallback(() => {
+    authClient.$fetch(`${API_BASE}/api/notifications`).then(({ data }: any) => {
+      if (data?.notifications) {
+        setUnread(data.notifications.filter((n: any) => !n.read).length)
+      }
+    }).catch(() => {})
+  }, []))
 
   return (
     <BlurView
@@ -27,13 +41,17 @@ function GlassTabBar() {
         paddingBottom: insets.bottom ? insets.bottom - 4 : 8,
       }]}
     >
-      {TABS.map(({ href, label, Icon }) => {
+      {TABS.map(({ href, label, Icon, name }) => {
         const isActive = pathname === href || (href === "/member" && pathname === "/member/")
+        const badgeCount = name === "inbox" ? unread : 0
         return (
           <TouchableOpacity
             key={href}
             style={styles.tab}
-            onPress={() => router.push(href as any)}
+            onPress={() => {
+              if (name === "inbox") setUnread(0)
+              router.push(href as any)
+            }}
             activeOpacity={0.7}
           >
             <View style={[
@@ -48,6 +66,11 @@ function GlassTabBar() {
                 color={isActive ? COLORS.primary : COLORS.textMuted}
                 strokeWidth={isActive ? 2.2 : 1.8}
               />
+              {badgeCount > 0 && (
+                <View style={[styles.badge, { backgroundColor: COLORS.primary }]}>
+                  <Text style={styles.badgeText}>{badgeCount > 9 ? "9+" : badgeCount}</Text>
+                </View>
+              )}
             </View>
             <Text style={[styles.label, { color: isActive ? COLORS.primary : COLORS.textMuted, fontWeight: isActive ? "700" : "500" }]}>
               {label}
@@ -79,6 +102,18 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "transparent",
   },
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  badgeText: { fontSize: 9, fontWeight: "700", color: "#fff" },
   label: {
     fontSize: 10,
     letterSpacing: 0.1,
@@ -94,6 +129,7 @@ export default function MemberLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="bookings" />
       <Tabs.Screen name="plans" />
+      <Tabs.Screen name="inbox" />
       <Tabs.Screen name="profile" />
       <Tabs.Screen name="book" options={{ href: null }} />
     </Tabs>
