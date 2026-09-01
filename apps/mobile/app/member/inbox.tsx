@@ -5,12 +5,14 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useFocusEffect } from "expo-router"
-import { Bell, CheckCheck, Calendar, Package, ShieldCheck, Info } from "lucide-react-native"
+import { Inbox as InboxIcon2, CheckCheck, Calendar, Package, ShieldCheck, Info, Circle, CircleCheck } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { useTheme } from "@/lib/theme-context"
 import { SPACING, RADIUS } from "@/constants/theme"
 
 const API_BASE = "https://dance-company-app.vercel.app"
+
+type Filter = "all" | "unread"
 
 type Notif = {
   id: string
@@ -47,6 +49,7 @@ export default function InboxScreen() {
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [filter, setFilter] = useState<Filter>("all")
   const styles = makeStyles(COLORS)
 
   const load = useCallback(async () => {
@@ -64,11 +67,12 @@ export default function InboxScreen() {
     setRefreshing(false)
   }, [load])
 
-  async function markRead(id: string) {
-    setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n))
+  async function toggleRead(item: Notif) {
+    const newRead = !item.read
+    setNotifs((prev) => prev.map((n) => n.id === item.id ? { ...n, read: newRead } : n))
     await authClient.$fetch(`${API_BASE}/api/notifications`, {
       method: "PATCH",
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id: item.id, read: newRead }),
     })
   }
 
@@ -81,6 +85,7 @@ export default function InboxScreen() {
   }
 
   const unreadCount = notifs.filter((n) => !n.read).length
+  const displayed = filter === "unread" ? notifs.filter((n) => !n.read) : notifs
 
   if (loading) {
     return (
@@ -102,26 +107,44 @@ export default function InboxScreen() {
         )}
       </View>
 
+      {/* Filter pills */}
+      <View style={styles.filterRow}>
+        {(["all", "unread"] as Filter[]).map((f) => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.pill, filter === f && { backgroundColor: COLORS.primary }]}
+            onPress={() => setFilter(f)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.pillText, filter === f && styles.pillTextActive]}>
+              {f === "all" ? "All" : `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}`}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
-        data={notifs}
+        data={displayed}
         keyExtractor={(n) => n.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
-        contentContainerStyle={notifs.length === 0 ? styles.emptyContainer : styles.list}
+        contentContainerStyle={displayed.length === 0 ? styles.emptyContainer : styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Bell size={40} color={COLORS.textMuted} strokeWidth={1.5} />
-            <Text style={styles.emptyTitle}>No notifications yet</Text>
-            <Text style={styles.emptySub}>You'll see booking updates and account activity here.</Text>
+            <InboxIcon2 size={40} color={COLORS.textMuted} strokeWidth={1.5} />
+            <Text style={styles.emptyTitle}>
+              {filter === "unread" ? "No unread notifications" : "No notifications yet"}
+            </Text>
+            <Text style={styles.emptySub}>
+              {filter === "unread"
+                ? "You're all caught up."
+                : "You'll see booking updates and account activity here."}
+            </Text>
           </View>
         }
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.row, !item.read && styles.rowUnread]}
-            activeOpacity={0.7}
-            onPress={() => !item.read && markRead(item.id)}
-          >
-            <View style={[styles.iconWrap, { backgroundColor: item.read ? COLORS.surface : COLORS.primaryLight ?? COLORS.surface }]}>
+          <View style={[styles.row, !item.read && styles.rowUnread]}>
+            <View style={[styles.iconWrap, { backgroundColor: item.read ? COLORS.surface : (COLORS as any).primaryLight ?? COLORS.surface }]}>
               {typeIcon(item.type, item.read ? COLORS.textMuted : COLORS.primary)}
             </View>
             <View style={styles.rowBody}>
@@ -131,10 +154,20 @@ export default function InboxScreen() {
                 </Text>
                 <Text style={styles.rowTime}>{timeAgo(item.createdAt)}</Text>
               </View>
-              <Text style={styles.rowBody2} numberOfLines={2}>{item.body}</Text>
+              <Text style={styles.rowBodyText} numberOfLines={2}>{item.body}</Text>
             </View>
-            {!item.read && <View style={styles.dot} />}
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => toggleRead(item)}
+              style={styles.readToggle}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {item.read
+                ? <Circle size={18} color={COLORS.textMuted} strokeWidth={1.5} />
+                : <CircleCheck size={18} color={COLORS.primary} strokeWidth={2} />
+              }
+            </TouchableOpacity>
+          </View>
         )}
       />
     </SafeAreaView>
@@ -151,11 +184,27 @@ function makeStyles(COLORS: any) {
       justifyContent: "space-between",
       paddingHorizontal: SPACING.md,
       paddingTop: SPACING.sm,
-      paddingBottom: SPACING.md,
+      paddingBottom: SPACING.sm,
     },
     title: { fontSize: 26, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_700Bold" },
     markAllBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
     markAllText: { fontSize: 13, color: COLORS.primary, fontWeight: "600" },
+    filterRow: {
+      flexDirection: "row",
+      gap: SPACING.xs ?? 6,
+      paddingHorizontal: SPACING.md,
+      paddingBottom: SPACING.sm,
+    },
+    pill: {
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: RADIUS.full ?? 999,
+      backgroundColor: COLORS.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: COLORS.border,
+    },
+    pillText: { fontSize: 13, fontWeight: "600", color: COLORS.textMuted },
+    pillTextActive: { color: "#fff" },
     list: { paddingBottom: SPACING.xl },
     emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
     emptyBox: { alignItems: "center", gap: SPACING.sm, paddingHorizontal: SPACING.lg },
@@ -184,14 +233,7 @@ function makeStyles(COLORS: any) {
     rowTitle: { fontSize: 14, fontWeight: "500", color: COLORS.textMuted, flex: 1 },
     rowTitleUnread: { fontWeight: "700", color: COLORS.text },
     rowTime: { fontSize: 11, color: COLORS.textMuted, flexShrink: 0 },
-    rowBody2: { fontSize: 13, color: COLORS.textMuted, lineHeight: 18 },
-    dot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: COLORS.primary,
-      marginTop: 5,
-      flexShrink: 0,
-    },
+    rowBodyText: { fontSize: 13, color: COLORS.textMuted, lineHeight: 18 },
+    readToggle: { paddingTop: 2, flexShrink: 0 },
   })
 }

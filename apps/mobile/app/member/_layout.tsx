@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react"
 import { Tabs, usePathname, useRouter, useFocusEffect } from "expo-router"
-import { Home, Calendar, Package, User, Bell } from "lucide-react-native"
+import { Home, Calendar, Package, User, Inbox } from "lucide-react-native"
 import { useTheme } from "@/lib/theme-context"
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -11,9 +11,9 @@ const API_BASE = "https://dance-company-app.vercel.app"
 
 const TABS = [
   { name: "index",    href: "/member",          label: "Home",     Icon: Home },
+  { name: "inbox",    href: "/member/inbox",     label: "Inbox",    Icon: Inbox },
   { name: "bookings", href: "/member/bookings",  label: "Bookings", Icon: Calendar },
   { name: "plans",    href: "/member/plans",     label: "Plans",    Icon: Package },
-  { name: "inbox",    href: "/member/inbox",     label: "Inbox",    Icon: Bell },
   { name: "profile",  href: "/member/profile",   label: "Profile",  Icon: User },
 ] as const
 

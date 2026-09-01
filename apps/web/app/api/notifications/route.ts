@@ -24,12 +24,14 @@ export async function PATCH(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { id } = await req.json() as { id?: string }
+  const { id, read } = await req.json() as { id?: string; read?: boolean }
 
   if (id) {
+    // Toggle a single notification — if `read` is provided use it, otherwise flip
+    const newRead = typeof read === "boolean" ? read : true
     await db
       .update(notification)
-      .set({ read: true })
+      .set({ read: newRead })
       .where(and(eq(notification.id, id), eq(notification.userId, session.user.id)))
   } else {
     // Mark all read
