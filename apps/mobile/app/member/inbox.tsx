@@ -1,16 +1,17 @@
-import React, { useCallback, useState } from "react"
+import React, { useCallback, useRef, useState } from "react"
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Animated, PanResponder,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useFocusEffect } from "expo-router"
-import { Inbox as InboxIcon2, CheckCheck, Calendar, Package, ShieldCheck, Info, Circle, CircleCheck } from "lucide-react-native"
+import { Inbox as InboxIcon2, CheckCheck, Calendar, Package, ShieldCheck, Info, MailOpen, Mail } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { useTheme } from "@/lib/theme-context"
 import { SPACING, RADIUS } from "@/constants/theme"
 
 const API_BASE = "https://dance-company-app.vercel.app"
+const SWIPE_THRESHOLD = 72
 
 type Filter = "all" | "unread"
 
@@ -42,6 +43,90 @@ function timeAgo(iso: string): string {
   const days = Math.floor(hrs / 24)
   if (days < 7) return `${days}d ago`
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+function SwipeableRow({
+  item,
+  onToggleRead,
+  COLORS,
+  styles,
+}: {
+  item: Notif
+  onToggleRead: (item: Notif) => void
+  COLORS: any
+  styles: any
+}) {
+  const translateX = useRef(new Animated.Value(0)).current
+  const isOpen = useRef(false)
+  // Keep latest callbacks in refs so stale PanResponder closure always calls current version
+  const snapOpenRef = useRef<() => void>(() => {})
+  const snapClosedRef = useRef<() => void>(() => {})
+  const handleActionRef = useRef<() => void>(() => {})
+
+  snapOpenRef.current = () => {
+    isOpen.current = true
+    Animated.spring(translateX, { toValue: 120, useNativeDriver: true, bounciness: 4 }).start()
+  }
+  snapClosedRef.current = () => {
+    isOpen.current = false
+    Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 6 }).start()
+  }
+  handleActionRef.current = () => {
+    snapClosedRef.current()
+    setTimeout(() => onToggleRead(item), 200)
+  }
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderMove: (_, g) => {
+        if (g.dx > 0) translateX.setValue(Math.min(g.dx, 140))
+        else if (isOpen.current) translateX.setValue(Math.max(0, 120 + g.dx))
+      },
+      onPanResponderRelease: (_, g) => {
+        if (isOpen.current) {
+          g.dx < -20 ? snapClosedRef.current() : snapOpenRef.current()
+        } else {
+          g.dx > SWIPE_THRESHOLD ? snapOpenRef.current() : snapClosedRef.current()
+        }
+      },
+    })
+  ).current
+
+  const actionBg = item.read ? COLORS.primary : "#22c55e"
+
+  return (
+    <View style={{ overflow: "hidden" }}>
+      <TouchableOpacity
+        style={[styles.swipeAction, { backgroundColor: actionBg }]}
+        onPress={() => handleActionRef.current()}
+        activeOpacity={0.8}
+      >
+        {item.read ? <Mail size={20} color="#fff" /> : <MailOpen size={20} color="#fff" />}
+        <Text style={styles.swipeActionText}>{item.read ? "Mark unread" : "Mark read"}</Text>
+      </TouchableOpacity>
+
+      <Animated.View
+        style={[styles.row, !item.read && styles.rowUnread, { transform: [{ translateX }] }]}
+        {...panResponder.panHandlers}
+      >
+        <View style={[styles.iconWrap, { backgroundColor: item.read ? COLORS.surface : (COLORS as any).primaryLight ?? COLORS.surface }]}>
+          {typeIcon(item.type, item.read ? COLORS.textMuted : COLORS.primary)}
+        </View>
+        <View style={styles.rowBody}>
+          <View style={styles.rowTop}>
+            <Text style={[styles.rowTitle, !item.read && styles.rowTitleUnread]} numberOfLines={1}>
+              {item.title}
+            </Text>
+            <Text style={styles.rowTime}>{timeAgo(item.createdAt)}</Text>
+          </View>
+          <Text style={styles.rowBodyText} numberOfLines={2}>{item.body}</Text>
+        </View>
+        {!item.read && <View style={styles.unreadDot} />}
+      </Animated.View>
+    </View>
+  )
 }
 
 export default function InboxScreen() {
@@ -143,31 +228,12 @@ export default function InboxScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <View style={[styles.row, !item.read && styles.rowUnread]}>
-            <View style={[styles.iconWrap, { backgroundColor: item.read ? COLORS.surface : (COLORS as any).primaryLight ?? COLORS.surface }]}>
-              {typeIcon(item.type, item.read ? COLORS.textMuted : COLORS.primary)}
-            </View>
-            <View style={styles.rowBody}>
-              <View style={styles.rowTop}>
-                <Text style={[styles.rowTitle, !item.read && styles.rowTitleUnread]} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <Text style={styles.rowTime}>{timeAgo(item.createdAt)}</Text>
-              </View>
-              <Text style={styles.rowBodyText} numberOfLines={2}>{item.body}</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => toggleRead(item)}
-              style={styles.readToggle}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              {item.read
-                ? <Circle size={18} color={COLORS.textMuted} strokeWidth={1.5} />
-                : <CircleCheck size={18} color={COLORS.primary} strokeWidth={2} />
-              }
-            </TouchableOpacity>
-          </View>
+          <SwipeableRow
+            item={item}
+            onToggleRead={toggleRead}
+            COLORS={COLORS}
+            styles={styles}
+          />
         )}
       />
     </SafeAreaView>
@@ -211,6 +277,16 @@ function makeStyles(COLORS: any) {
     emptyTitle: { fontSize: 16, fontWeight: "600", color: COLORS.text, textAlign: "center" },
     emptySub: { fontSize: 14, color: COLORS.textMuted, textAlign: "center", lineHeight: 20 },
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: COLORS.border },
+    swipeAction: {
+      position: "absolute",
+      top: 0, bottom: 0, left: 0,
+      width: 120,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingLeft: 20,
+      gap: 8,
+    },
+    swipeActionText: { color: "#fff", fontSize: 13, fontWeight: "600" },
     row: {
       flexDirection: "row",
       alignItems: "flex-start",
@@ -234,6 +310,10 @@ function makeStyles(COLORS: any) {
     rowTitleUnread: { fontWeight: "700", color: COLORS.text },
     rowTime: { fontSize: 11, color: COLORS.textMuted, flexShrink: 0 },
     rowBodyText: { fontSize: 13, color: COLORS.textMuted, lineHeight: 18 },
-    readToggle: { paddingTop: 2, flexShrink: 0 },
+    unreadDot: {
+      width: 8, height: 8, borderRadius: 4,
+      backgroundColor: COLORS.primary,
+      marginTop: 5, flexShrink: 0,
+    },
   })
 }
