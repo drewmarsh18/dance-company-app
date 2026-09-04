@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth"
 import { TABLES, appBase, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingCancelledEmail, bookingUpdatedEmail } from "@/lib/email"
-import { isWithin24Hours, fmtDate, fmtTime } from "@/lib/utils"
+import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso } from "@/lib/utils"
 import { getPrepMasters } from "@/lib/airtable"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
@@ -70,7 +70,11 @@ export async function DELETE(
 
   const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
   const dateLabel = booking.fields.Date ?? "your session"
+  const cancelledTime = booking.fields.Time ?? ""
+  const client = await findClientRecord(user.id)
+  const memberName = client?.fields.Name ?? user.name ?? user.email ?? "A member"
 
+  // Notify the member
   createNotification({
     userId: user.id,
     type: "booking_cancelled",
@@ -84,11 +88,36 @@ export async function DELETE(
       dancerName: user.name ?? "Dancer",
       prepMasterName: pmName,
       date: booking.fields.Date ?? dateLabel,
-      time: booking.fields.Time ?? "",
+      time: cancelledTime,
       creditRefunded: !within24,
     })
     sendEmail({ to: user.email, subject, html }).catch(() => {})
   }
+
+  // Notify the PrepMaster
+  getPrepMasters().then(async (all) => {
+    const pm = all.find((p) => p.name === pmName)
+    if (!pm?.email) return
+    const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
+    if (pmUser) {
+      createNotification({
+        userId: pmUser.id,
+        type: "booking_cancelled",
+        title: "Session cancelled",
+        body: `${memberName} cancelled their session on ${fmtDate(dateLabel)}${within24 ? " (within 24 hours — payable)" : ""}.`,
+        bookingId: id,
+        pushData: { route: "/portal" },
+      }).catch(() => {})
+    }
+    const { subject, html } = bookingCancelledEmail({
+      dancerName: memberName,
+      prepMasterName: pm.name,
+      date: booking.fields.Date ?? dateLabel,
+      time: cancelledTime,
+      creditRefunded: false,
+    })
+    sendEmail({ to: pm.email, subject, html }).catch(() => {})
+  }).catch(() => {})
 
   return NextResponse.json({ ok: true, creditRefunded: !within24 })
 }
@@ -119,6 +148,13 @@ export async function PATCH(
   if (body.date) update.Date = body.date
   if (body.time) update.Time = body.time
   if (body.notes !== undefined) update.Notes = body.notes
+  if (body.date || body.time) {
+    const utc = etToUtcIso(
+      body.date ?? booking.fields.Date ?? "",
+      body.time ?? booking.fields.Time ?? "",
+    )
+    if (utc) update["UTC Datetime"] = utc
+  }
   await appBase.update<BookingFields>(TABLES.bookings, id, update)
 
   const newDate = body.date ?? booking.fields.Date ?? ""
@@ -127,11 +163,12 @@ export async function PATCH(
   const client = await findClientRecord(user.id)
   const memberName = client?.fields.Name ?? user.name ?? user.email ?? "Your member"
 
+  // Tell the member their request is pending — not confirmed yet
   createNotification({
     userId: user.id,
     type: "booking_updated",
-    title: "Booking rescheduled",
-    body: `Your session with ${pmName} has been moved to ${fmtDate(newDate)} at ${fmtTime(newTime)}.`,
+    title: "Reschedule requested",
+    body: `Your reschedule request for ${fmtDate(newDate)} at ${fmtTime(newTime)} is awaiting approval from ${pmName}.`,
     bookingId: id,
   }).catch(() => {})
 
@@ -156,8 +193,8 @@ export async function PATCH(
       createNotification({
         userId: pmUser.id,
         type: "booking_updated",
-        title: "Session rescheduled",
-        body: `${memberName} has rescheduled their session to ${fmtDate(newDate)} at ${fmtTime(newTime)}.`,
+        title: "Reschedule request",
+        body: `${memberName} wants to reschedule to ${fmtDate(newDate)} at ${fmtTime(newTime)}. Please approve or decline.`,
         bookingId: id,
         pushData: { route: "/portal" },
       }).catch(() => {})

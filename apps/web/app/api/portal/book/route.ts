@@ -8,6 +8,7 @@ import {
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
+import { etToUtcIso } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -31,6 +32,7 @@ export async function GET() {
 
   return NextResponse.json({ clients: clients.sort((a, b) => a.name.localeCompare(b.name)) })
 }
+
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -83,12 +85,14 @@ export async function POST(req: Request) {
     }
   }
 
+  const utcDatetime = etToUtcIso(date, time)
   await appBase.create<BookingFields>(TABLES.bookings, {
     "Client Email": dancerEmail,
     "User ID": dancer?.id ?? "",
     "Prep Master Name": prepMaster.name,
     Date: date,
     Time: time,
+    ...(utcDatetime ? { "UTC Datetime": utcDatetime } : {}),
     Status: "Confirmed",
     Notes: notes ?? "",
     "Session Type": sessionType ?? "private-60",

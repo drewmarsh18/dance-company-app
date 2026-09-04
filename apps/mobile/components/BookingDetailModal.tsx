@@ -20,24 +20,47 @@ export type Booking = {
   prepMasterNotes?: string
 }
 
+/** Converts a stored ET date + 12-hour time to a UTC ISO string for local display. */
+function etToUtcIso(date: string, timeStr: string): string | null {
+  const match = timeStr.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i)
+  if (!match) return null
+  let h = parseInt(match[1])
+  const m = match[2] ? parseInt(match[2]) : 0
+  if (match[3].toUpperCase() === "PM" && h !== 12) h += 12
+  if (match[3].toUpperCase() === "AM" && h === 12) h = 0
+  const [year, mo, day] = date.split("-").map(Number)
+  const seed = new Date(Date.UTC(year, mo - 1, day, h + 5, m))
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(seed)
+  const etH = parseInt(parts.find((p) => p.type === "hour")!.value)
+  const etM = parseInt(parts.find((p) => p.type === "minute")!.value)
+  const diffMs = ((etH * 60 + etM) - (h * 60 + m)) * 60_000
+  return new Date(seed.getTime() - diffMs).toISOString()
+}
+
 export function formatDate(dateStr: string) {
   if (!dateStr) return ""
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
 }
 
-// When utcDatetime is present, convert to the viewer's local time.
-// Falls back to the stored time string for older bookings that predate UTC storage.
+// When utcDatetime is present, convert to the viewer's local time and append their tz abbreviation.
+// Falls back to the stored ET time string with "ET" label for older bookings.
 export function formatTime(timeStr: string, utcDatetime?: string | null) {
   if (utcDatetime) {
     const d = new Date(utcDatetime)
     if (!isNaN(d.getTime())) {
-      const h = d.getHours(), m = d.getMinutes()
-      return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
+      const formatted = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+      const tzAbbr = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" })
+        .formatToParts(d)
+        .find((p) => p.type === "timeZoneName")?.value ?? ""
+      return tzAbbr ? `${formatted} ${tzAbbr}` : formatted
     }
   }
   if (!timeStr) return ""
-  // Legacy: strip any timezone suffix that may have been stored
-  return timeStr.replace(/\s+(EST|EDT|CST|CDT|MST|MDT|PST|PDT|[A-Z]{2,5})$/, "").trim()
+  const clean = timeStr.replace(/\s+(EST|EDT|CST|CDT|MST|MDT|PST|PDT|[A-Z]{3,5})$/, "").trim()
+  return `${clean} ET`
 }
 
 // --- Availability helpers (mirrors apps/web/lib/availability.ts) ---
@@ -192,7 +215,7 @@ export function BookingDetailModal({
   booking: Booking | null
   onClose: () => void
   onCancelled: (id: string) => void
-  onRescheduled: (id: string, date: string, time: string) => void
+  onRescheduled: (id: string, date: string, time: string, utcDatetime?: string | null) => void
   onRefresh?: () => Promise<void>
 }) {
   const COLORS = useColors()
@@ -319,7 +342,7 @@ export function BookingDetailModal({
         method: "PATCH",
         body: { date: editDate, time: editTime, notes: editNotes },
       })
-      if ((data as any)?.ok) { onRescheduled(booking.id, editDate, editTime); onClose(); onRefresh?.() }
+      if ((data as any)?.ok) { Alert.alert("Request sent", "Your reschedule request is awaiting approval from your PrepMaster."); onRescheduled(booking.id, editDate, editTime, etToUtcIso(editDate, editTime)); onClose(); onRefresh?.() }
       else Alert.alert("Error", (data as any)?.error ?? (error as any)?.message ?? "Failed to reschedule.")
     } catch { Alert.alert("Error", "Failed to reschedule.") }
     finally { setLoading(false) }

@@ -127,11 +127,17 @@ function HourlyView({
   const blocks: EventBlock[] = useMemo(() => {
     const result: EventBlock[] = []
     for (const b of bookings) {
-      if (!b.time) continue
-      const [hStr, mStr] = b.time.replace(/(AM|PM)/i, "").trim().split(":")
-      let hour = parseInt(hStr, 10); const minute = parseInt(mStr ?? "0", 10)
-      if (b.time.toUpperCase().includes("PM") && hour !== 12) hour += 12
-      if (b.time.toUpperCase().includes("AM") && hour === 12) hour = 0
+      if (!b.time && !b.utcDatetime) continue
+      let hour: number, minute: number
+      if (b.utcDatetime) {
+        const d = new Date(b.utcDatetime)
+        hour = d.getHours(); minute = d.getMinutes()
+      } else {
+        const [hStr, mStr] = b.time.replace(/(AM|PM)/i, "").trim().split(":")
+        hour = parseInt(hStr, 10); minute = parseInt(mStr ?? "0", 10)
+        if (b.time.toUpperCase().includes("PM") && hour !== 12) hour += 12
+        if (b.time.toUpperCase().includes("AM") && hour === 12) hour = 0
+      }
       const top = (hour - START_HOUR + minute / 60) * HOUR_HEIGHT
       result.push({ key: `b-${b.id}`, top, height: HOUR_HEIGHT, title: `Session w/ ${b.prepMasterName || "PrepMaster"}`, subtitle: b.sessionType ? fmtSessionType(b.sessionType) : null, isCDP: true, booking: b, color: COLORS.primary })
     }
@@ -521,8 +527,8 @@ export default function MemberBookingsScreen() {
     setSelectedBooking(null)
   }
 
-  function handleRescheduled(id: string, date: string, time: string) {
-    setUpcoming((prev) => prev.map((b) => b.id === id ? { ...b, date, time, status: "Pending" } : b))
+  function handleRescheduled(id: string, date: string, time: string, utcDatetime?: string | null) {
+    setUpcoming((prev) => prev.map((b) => b.id === id ? { ...b, date, time, utcDatetime: utcDatetime ?? b.utcDatetime, status: "Pending" } : b))
     setSelectedBooking(null)
   }
 

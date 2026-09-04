@@ -5,10 +5,42 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+const COMPANY_TZ = process.env.NEXT_PUBLIC_COMPANY_TIMEZONE ?? "America/New_York"
+
+/**
+ * Converts a stored date ("YYYY-MM-DD") + 12-hour time ("3:00 PM") in the
+ * company timezone (ET by default) to a UTC ISO string.
+ * Used when writing bookings and reschedules to Airtable.
+ */
+export function etToUtcIso(date: string, timeStr: string, tz = COMPANY_TZ): string | null {
+  const match = timeStr.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i)
+  if (!match) return null
+  let h = parseInt(match[1])
+  const m = match[2] ? parseInt(match[2]) : 0
+  if (match[3].toUpperCase() === "PM" && h !== 12) h += 12
+  if (match[3].toUpperCase() === "AM" && h === 12) h = 0
+
+  const [year, mo, day] = date.split("-").map(Number)
+  // Seed with UTC-5 estimate, then correct using Intl to handle DST automatically.
+  const seed = new Date(Date.UTC(year, mo - 1, day, h + 5, m))
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(seed)
+  const etH = parseInt(parts.find((p) => p.type === "hour")!.value)
+  const etM = parseInt(parts.find((p) => p.type === "minute")!.value)
+  const diffMs = ((etH * 60 + etM) - (h * 60 + m)) * 60_000
+  return new Date(seed.getTime() - diffMs).toISOString()
+}
+
+/**
+ * Returns true if the session (stored in company timezone) is within 24 hours of now.
+ * Uses etToUtcIso so DST and the server's own timezone never affect the result.
+ */
 export function isWithin24Hours(date: string, time: string): boolean {
-  const dt = new Date(`${date} ${time}`)
-  if (Number.isNaN(dt.getTime())) return false
-  return dt.getTime() - Date.now() < 24 * 60 * 60 * 1000
+  const utcIso = etToUtcIso(date, time)
+  if (!utcIso) return false
+  return new Date(utcIso).getTime() - Date.now() < 24 * 60 * 60 * 1000
 }
 
 /** Formats a YYYY-MM-DD date string as "Wed, Jul 15" — matches the app display format. */
