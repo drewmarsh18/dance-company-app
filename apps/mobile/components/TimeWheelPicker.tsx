@@ -91,7 +91,7 @@ export function TimeWheelPicker({ slots, value, onChange, disabled }: Props) {
               <Text
                 style={[
                   styles.itemText,
-                  { color: isEmpty ? "transparent" : isSelected ? COLORS.primary : COLORS.textMuted },
+                  { color: isEmpty ? "transparent" : isSelected ? COLORS.text : COLORS.textMuted },
                   isSelected && styles.itemTextSelected,
                 ]}
               >
@@ -140,7 +140,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1.5,
     borderBottomWidth: 1.5,
     borderRadius: 8,
-    zIndex: 1,
   },
   item: {
     height: ITEM_HEIGHT,
