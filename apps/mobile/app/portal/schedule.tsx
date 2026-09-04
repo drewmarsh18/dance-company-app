@@ -8,14 +8,9 @@ import { Check, ChevronDown, CalendarPlus } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
+import { TimeWheelPicker, generate15MinSlots } from "@/components/TimeWheelPicker"
 
 type Client = { userId: string; name: string; email: string }
-
-const BOOK_TIMES = [
-  "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
-  "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM",
-  "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM",
-]
 
 function toIso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
@@ -36,6 +31,13 @@ function to12Hour(hhmm: string): string {
   const period = h >= 12 ? "PM" : "AM"
   if (h === 0) h = 12; else if (h > 12) h -= 12
   return `${h}:${m} ${period}`
+}
+
+function slotsForDate(dateIso: string, week: DayAvailability[]): string[] {
+  const day = new Date(`${dateIso}T00:00:00`).getDay()
+  const config = week.find((w) => w.dayOfWeek === day)
+  if (!config || !config.enabled) return []
+  return generate15MinSlots(config.startTime, config.endTime)
 }
 
 function TimePickerRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
@@ -210,7 +212,7 @@ export default function PortalScheduleScreen() {
                 const iso = toIso(d)
                 const isSelected = selectedDate === iso
                 return (
-                  <TouchableOpacity key={iso} style={[styles.dateChip, isSelected && styles.dateChipSelected]} onPress={() => setSelectedDate(iso)} activeOpacity={0.7}>
+                  <TouchableOpacity key={iso} style={[styles.dateChip, isSelected && styles.dateChipSelected]} onPress={() => { setSelectedDate(iso); setSelectedTime("") }} activeOpacity={0.7}>
                     <Text style={[styles.dateChipDay, isSelected && { color: COLORS.primary }]}>{d.toLocaleDateString("en-US", { weekday: "short" })}</Text>
                     <Text style={[styles.dateChipNum, isSelected && { color: COLORS.primary }]}>{d.getDate()}</Text>
                   </TouchableOpacity>
@@ -218,8 +220,8 @@ export default function PortalScheduleScreen() {
               })}
             </View>
             <Text style={styles.fieldLabel}>Time</Text>
-            <View style={styles.chipWrap}>
-              {BOOK_TIMES.filter((t) => {
+            {(() => {
+              const slots = slotsForDate(selectedDate, week).filter((t) => {
                 const isToday = selectedDate === toIso(new Date())
                 if (!isToday) return true
                 const [timePart, period] = t.split(" ")
@@ -227,12 +229,12 @@ export default function PortalScheduleScreen() {
                 if (period === "PM" && h !== 12) h += 12
                 else if (period === "AM" && h === 12) h = 0
                 return h > new Date().getHours()
-              }).map((t) => (
-                <TouchableOpacity key={t} style={[styles.chip, selectedTime === t && styles.chipSelected]} onPress={() => setSelectedTime(t)} activeOpacity={0.7}>
-                  <Text style={[styles.chipText, selectedTime === t && { color: COLORS.primary }]}>{t}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+              })
+              if (slots.length === 0) return <Text style={styles.emptyText}>No available times for this day.</Text>
+              const value = selectedTime && slots.includes(selectedTime) ? selectedTime : slots[0]
+              if (value !== selectedTime) setSelectedTime(value)
+              return <TimeWheelPicker slots={slots} value={value} onChange={setSelectedTime} />
+            })()}
             <Text style={styles.fieldLabel}>Session Length</Text>
             <View style={styles.chipWrap}>
               {DURATION_OPTIONS.map((d) => (
