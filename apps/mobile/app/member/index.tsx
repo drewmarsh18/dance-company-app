@@ -34,7 +34,12 @@ function CreditsCard({ plans, credits }: { plans: MemberPlan[]; credits: number 
   const historyPlans = plans.filter((p) => planDisplayStatus(p) !== "Active")
   const hasHistory = historyPlans.length > 0
   const isEmpty = credits === 0 && plans.length === 0
-  const [view, setView] = useState<"active" | "history">(activePlans.length > 0 ? "active" : "history")
+  const [view, setView] = useState<"active" | "history">("active")
+  // Switch to history only if there are no active plans and history exists
+  useEffect(() => {
+    if (activePlans.length === 0 && historyPlans.length > 0) setView("history")
+    else if (activePlans.length > 0) setView("active")
+  }, [activePlans.length, historyPlans.length])
   const shownPlans = view === "active" ? activePlans : historyPlans
   const activeSingleCount = activePlans.filter((p) => p.sessions === 1).length
 
@@ -92,6 +97,12 @@ function CreditsCard({ plans, credits }: { plans: MemberPlan[]; credits: number 
 }
 
 
+function fmtSessionType(s: string | null | undefined): string {
+  if (!s) return ""
+  const map: Record<string, string> = { "private-60": "60 min", "private-45": "45 min", "private-30": "30 min", "pack-hour": "60 min" }
+  return map[s] ?? s
+}
+
 function BookingCard({ booking, dimmed, onPress }: { booking: Booking; dimmed?: boolean; onPress?: () => void }) {
   const COLORS = useColors()
   const styles = makeStyles(COLORS)
@@ -104,8 +115,8 @@ function BookingCard({ booking, dimmed, onPress }: { booking: Booking; dimmed?: 
     <View style={[styles.bookingCard, dimmed && { opacity: 0.65 }]}>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={styles.bookingCoach}>{booking.prepMasterName || "PrepMaster"}</Text>
-        <Text style={styles.bookingDate}>{formatDate(booking.date)}{booking.time ? ` · ${formatTime(booking.time)}` : ""}</Text>
-        {booking.sessionType ? <Text style={styles.bookingType}>{booking.sessionType}</Text> : null}
+        <Text style={styles.bookingDate}>{formatDate(booking.date)}{booking.time ? ` · ${formatTime(booking.time, booking.utcDatetime)}` : ""}</Text>
+        {booking.sessionType ? <Text style={styles.bookingType}>{fmtSessionType(booking.sessionType)}</Text> : null}
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
         <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>

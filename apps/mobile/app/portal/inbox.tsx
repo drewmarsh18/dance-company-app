@@ -79,7 +79,7 @@ function SwipeableRow({
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
+      onMoveShouldSetPanResponderCapture: (_, g) =>
         Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
       onPanResponderMove: (_, g) => {
         if (g.dx > 0) translateX.setValue(Math.min(g.dx, 140))
@@ -108,29 +108,30 @@ function SwipeableRow({
         <Text style={styles.swipeActionText}>{item.read ? "Mark unread" : "Mark read"}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        activeOpacity={item.bookingId ? 0.7 : 1}
-        onPress={() => { if (item.bookingId) onNavigate(item) }}
-      >
       <Animated.View
         style={[styles.row, !item.read && styles.rowUnread, { transform: [{ translateX }] }]}
         {...panResponder.panHandlers}
       >
-        <View style={[styles.iconWrap, { backgroundColor: item.read ? COLORS.surface : (COLORS as any).primaryLight ?? COLORS.surface }]}>
-          {typeIcon(item.type, item.read ? COLORS.textMuted : COLORS.primary)}
-        </View>
-        <View style={styles.rowBody}>
-          <View style={styles.rowTop}>
-            <Text style={[styles.rowTitle, !item.read && styles.rowTitleUnread]} numberOfLines={1}>
-              {item.title}
-            </Text>
-            <Text style={styles.rowTime}>{timeAgo(item.createdAt)}</Text>
+        <TouchableOpacity
+          style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
+          activeOpacity={item.bookingId ? 0.7 : 1}
+          onPress={() => { if (item.bookingId) onNavigate(item) }}
+        >
+          <View style={[styles.iconWrap, { backgroundColor: item.read ? COLORS.surface : (COLORS as any).primaryLight ?? COLORS.surface }]}>
+            {typeIcon(item.type, item.read ? COLORS.textMuted : COLORS.primary)}
           </View>
-          <Text style={styles.rowBodyText} numberOfLines={2}>{item.body}</Text>
-        </View>
-        {!item.read && <View style={styles.unreadDot} />}
+          <View style={styles.rowBody}>
+            <View style={styles.rowTop}>
+              <Text style={[styles.rowTitle, !item.read && styles.rowTitleUnread]} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <Text style={styles.rowTime}>{timeAgo(item.createdAt)}</Text>
+            </View>
+            <Text style={styles.rowBodyText} numberOfLines={2}>{item.body}</Text>
+          </View>
+          {!item.read && <View style={styles.unreadDot} />}
+        </TouchableOpacity>
       </Animated.View>
-      </TouchableOpacity>
     </View>
   )
 }
