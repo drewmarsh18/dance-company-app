@@ -4,7 +4,7 @@ import {
   ActivityIndicator, TouchableOpacity, Dimensions,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useRouter } from "expo-router"
+import { useRouter, useLocalSearchParams } from "expo-router"
 import { Plus, ChevronRight, List, CalendarDays, ChevronLeft } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
@@ -482,6 +482,7 @@ function ConnectCalendarPrompt({ onGoToProfile }: { onGoToProfile: () => void })
 
 export default function MemberBookingsScreen() {
   const router = useRouter()
+  const { openBookingId } = useLocalSearchParams<{ openBookingId?: string }>()
   const COLORS = useColors()
   const [tab, setTab] = useState<"list" | "calendar">("list")
   const [upcoming, setUpcoming] = useState<Booking[]>([])
@@ -518,6 +519,15 @@ export default function MemberBookingsScreen() {
   }, [])
 
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
+
+  // Auto-open booking detail when navigated from inbox notification
+  useEffect(() => {
+    if (!openBookingId || loading) return
+    const all = [...upcoming, ...past, ...cancelled]
+    const target = all.find((b) => b.id === openBookingId)
+    if (target) setSelectedBooking(target)
+  }, [openBookingId, loading])
+
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false) }, [load])
 
   function handleCancelled(id: string) {

@@ -4,7 +4,7 @@ import {
   ActivityIndicator, RefreshControl, Animated, PanResponder,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useFocusEffect } from "expo-router"
+import { useFocusEffect, useRouter } from "expo-router"
 import { Inbox as InboxIcon2, CheckCheck, Calendar, Package, ShieldCheck, Info, MailOpen, Mail } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { useTheme } from "@/lib/theme-context"
@@ -48,11 +48,13 @@ function timeAgo(iso: string): string {
 function SwipeableRow({
   item,
   onToggleRead,
+  onNavigate,
   COLORS,
   styles,
 }: {
   item: Notif
   onToggleRead: (item: Notif) => void
+  onNavigate: (item: Notif) => void
   COLORS: any
   styles: any
 }) {
@@ -106,6 +108,10 @@ function SwipeableRow({
         <Text style={styles.swipeActionText}>{item.read ? "Mark unread" : "Mark read"}</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        activeOpacity={item.bookingId ? 0.7 : 1}
+        onPress={() => { if (item.bookingId) onNavigate(item) }}
+      >
       <Animated.View
         style={[styles.row, !item.read && styles.rowUnread, { transform: [{ translateX }] }]}
         {...panResponder.panHandlers}
@@ -124,16 +130,18 @@ function SwipeableRow({
         </View>
         {!item.read && <View style={styles.unreadDot} />}
       </Animated.View>
+      </TouchableOpacity>
     </View>
   )
 }
 
 export default function InboxScreen() {
+  const router = useRouter()
   const { colors: COLORS } = useTheme()
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [filter, setFilter] = useState<Filter>("all")
+  const [filter, setFilter] = useState<Filter>("unread")
   const styles = makeStyles(COLORS)
 
   const load = useCallback(async () => {
@@ -158,6 +166,18 @@ export default function InboxScreen() {
       method: "PATCH",
       body: JSON.stringify({ id: item.id, read: newRead }),
     })
+  }
+
+  async function navigateToBooking(item: Notif) {
+    if (!item.bookingId) return
+    if (!item.read) {
+      setNotifs((prev) => prev.map((n) => n.id === item.id ? { ...n, read: true } : n))
+      authClient.$fetch(`${API_BASE}/api/notifications`, {
+        method: "PATCH",
+        body: JSON.stringify({ id: item.id, read: true }),
+      }).catch(() => {})
+    }
+    router.push({ pathname: "/portal", params: { openBookingId: item.bookingId } })
   }
 
   async function markAllRead() {
@@ -193,7 +213,7 @@ export default function InboxScreen() {
 
       {/* Filter pills */}
       <View style={styles.filterRow}>
-        {(["all", "unread"] as Filter[]).map((f) => (
+        {(["unread", "all"] as Filter[]).map((f) => (
           <TouchableOpacity
             key={f}
             style={[styles.pill, filter === f && { backgroundColor: COLORS.primary }]}
@@ -230,6 +250,7 @@ export default function InboxScreen() {
           <SwipeableRow
             item={item}
             onToggleRead={toggleRead}
+            onNavigate={navigateToBooking}
             COLORS={COLORS}
             styles={styles}
           />

@@ -1,14 +1,15 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from "react"
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import {
-  View, Text, StyleSheet, ScrollView, RefreshControl,
+  View, Text, StyleSheet, ScrollView, RefreshControl, Modal,
   TouchableOpacity, ActivityIndicator, TextInput, Alert, KeyboardAvoidingView, Platform,
-  Dimensions,
+  Dimensions, AppState,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import {
   CalendarDays, Clock, Phone, StickyNote,
   Check, X, Pencil, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, List,
 } from "lucide-react-native"
+import { useLocalSearchParams } from "expo-router"
 import { authClient, useSession } from "@/lib/auth-client"
 import { formatTime } from "@/components/BookingDetailModal"
 import { SPACING, RADIUS } from "@/constants/theme"
@@ -406,6 +407,66 @@ function CalendarView({
 
 // ─── Booking Card (List view) ────────────────────────────────────────────────
 
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "")
+  if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  if (digits.length === 11 && digits[0] === "1") return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  return raw
+}
+
+// ── Simple scroll-wheel style picker ─────────────────────────────────────────
+const TIME_SLOTS = [
+  "7:00 AM","7:30 AM","8:00 AM","8:30 AM","9:00 AM","9:30 AM",
+  "10:00 AM","10:30 AM","11:00 AM","11:30 AM","12:00 PM","12:30 PM",
+  "1:00 PM","1:30 PM","2:00 PM","2:30 PM","3:00 PM","3:30 PM",
+  "4:00 PM","4:30 PM","5:00 PM","5:30 PM","6:00 PM","6:30 PM",
+  "7:00 PM","7:30 PM","8:00 PM","8:30 PM","9:00 PM","9:30 PM",
+  "10:00 PM","10:30 PM","11:00 PM",
+]
+
+function buildDateOptions(): { label: string; value: string }[] {
+  const opts: { label: string; value: string }[] = []
+  const today = new Date()
+  for (let i = 0; i < 90; i++) {
+    const d = new Date(today)
+    d.setDate(today.getDate() + i)
+    const value = d.toISOString().slice(0, 10)
+    const label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+    opts.push({ label, value })
+  }
+  return opts
+}
+
+function PickerModal({ visible, title, options, selected, onSelect, onClose }: {
+  visible: boolean; title: string; options: { label: string; value: string }[];
+  selected: string; onSelect: (v: string) => void; onClose: () => void
+}) {
+  const COLORS = useColors()
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: COLORS.background }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
+          <Text style={{ fontSize: 17, fontWeight: "700", color: COLORS.text }}>{title}</Text>
+          <TouchableOpacity onPress={onClose} hitSlop={8}><X size={22} color={COLORS.text} /></TouchableOpacity>
+        </View>
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+          {options.map((opt) => (
+            <TouchableOpacity
+              key={opt.value}
+              onPress={() => { onSelect(opt.value); onClose() }}
+              style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border, backgroundColor: opt.value === selected ? COLORS.primaryLight : COLORS.background }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 16, color: opt.value === selected ? COLORS.primary : COLORS.text, fontWeight: opt.value === selected ? "700" : "400" }}>{opt.label}</Text>
+              {opt.value === selected && <Check size={16} color={COLORS.primary} />}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    </Modal>
+  )
+}
+
 function BookingCard({ booking, dimmed, onUpdate }: {
   booking: PrepMasterBooking; dimmed?: boolean; onUpdate: (id: string, patch: Partial<PrepMasterBooking>) => void
 }) {
@@ -419,35 +480,75 @@ function BookingCard({ booking, dimmed, onUpdate }: {
   const [editDate, setEditDate] = useState(booking.date)
   const [editTime, setEditTime] = useState(booking.time)
   const [editPrepMasterNotes, setEditPrepMasterNotes] = useState(booking.prepMasterNotes)
-  const [mode, setMode] = useState<"idle" | "edit" | "decline-reason">("idle")
+  const [mode, setMode] = useState<"idle" | "edit" | "decline-reason" | "cancel-reason">("idle")
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [showTimePicker, setShowTimePicker] = useState(false)
+  const dateOptions = useMemo(() => buildDateOptions(), [])
   const [declineReason, setDeclineReason] = useState("")
+  const [cancelReason, setCancelReason] = useState("")
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [availableSlots, setAvailableSlots] = useState<string[]>(TIME_SLOTS)
+  const [slotsLoading, setSlotsLoading] = useState(false)
+
+  // Fetch available slots whenever the edit panel is open and the date changes
+  useEffect(() => {
+    if (mode !== "edit" || !editDate) return
+    let cancelled = false
+    setSlotsLoading(true)
+    authClient.$fetch(`${API_BASE}/api/portal/available-slots?date=${editDate}&bookingId=${booking.id}`)
+      .then(({ data }) => {
+        if (!cancelled) {
+          const slots = (data as { slots?: string[] })?.slots
+          setAvailableSlots(slots && slots.length > 0 ? slots : TIME_SLOTS)
+        }
+      })
+      .catch(() => { if (!cancelled) setAvailableSlots(TIME_SLOTS) })
+      .finally(() => { if (!cancelled) setSlotsLoading(false) })
+    return () => { cancelled = true }
+  }, [mode, editDate])
 
   const isPending = status.toLowerCase() === "pending"
+  const isConfirmed = status.toLowerCase() === "confirmed"
   const isCancelled = status.toLowerCase().startsWith("cancelled") || status.toLowerCase() === "declined"
+
+  // "Completed" label for confirmed sessions that are in the past
+  const isPastConfirmed = isConfirmed && (() => {
+    if (!localDate) return false
+    const sessionDate = new Date(`${localDate}T23:59:59`)
+    return sessionDate < new Date()
+  })()
+  const displayStatus = isPastConfirmed ? "Completed" : status
+
   const s = status.toLowerCase()
-  const sc = s === "confirmed" ? { bg: COLORS.primaryLight, text: COLORS.primary }
+  const sc = isPastConfirmed ? { bg: COLORS.grayLight, text: COLORS.textMuted }
+    : s === "confirmed" ? { bg: COLORS.primaryLight, text: COLORS.primary }
     : s === "declined" ? { bg: COLORS.amberLight, text: COLORS.amber }
     : s.startsWith("cancelled") ? { bg: COLORS.redLight, text: COLORS.red }
     : s === "pending" ? { bg: COLORS.amberLight, text: COLORS.amber }
     : { bg: COLORS.grayLight, text: COLORS.textMuted }
 
-  async function callAction(action: "confirm" | "decline" | "edit", reason?: string) {
+  async function callAction(action: "confirm" | "decline" | "cancel" | "edit", reason?: string) {
     setSaving(true)
     try {
       const body: Record<string, unknown> = action === "edit"
         ? { date: editDate, time: editTime, prepMasterNotes: editPrepMasterNotes }
         : action === "decline"
         ? { action, declineReason: reason }
+        : action === "cancel"
+        ? { action: "cancel", cancellationReason: reason }
         : { action }
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/portal/bookings/${booking.id}`,
         { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } })
       if (error) throw new Error((error as any)?.message ?? "Failed")
-      const res = data as { ok: boolean; error?: string }
+      const res = data as { ok: boolean; error?: string; creditRefunded?: boolean }
       if (!res.ok) throw new Error(res.error ?? "Failed")
       if (action === "confirm") { setStatus("Confirmed"); onUpdate(booking.id, { status: "Confirmed" }) }
       if (action === "decline") { setStatus("Declined"); onUpdate(booking.id, { status: "Declined" }); setMode("idle") }
+      if (action === "cancel") {
+        setStatus("Cancelled"); onUpdate(booking.id, { status: "Cancelled" }); setMode("idle")
+        Alert.alert("Session cancelled", res.creditRefunded ? "The member's credit has been refunded." : "The session has been cancelled.")
+      }
       if (action === "edit") {
         setLocalDate(editDate); setLocalTime(editTime); setLocalUtcDatetime(null); setLocalPrepMasterNotes(editPrepMasterNotes)
         onUpdate(booking.id, { date: editDate, time: editTime, prepMasterNotes: editPrepMasterNotes })
@@ -464,12 +565,15 @@ function BookingCard({ booking, dimmed, onUpdate }: {
           <View style={styles.cardDateRow}>
             <CalendarDays size={14} color={COLORS.primary} />
             <Text style={styles.cardDate}>{formatDate(localDate)}</Text>
-            {localTime ? <><Clock size={13} color={COLORS.textMuted} /><Text style={styles.cardTime}>{formatTime(localTime, localUtcDatetime)}</Text></> : null}
+            {localTime ? <><Clock size={13} color={COLORS.textMuted} /><Text style={styles.cardTime}>{formatTime(localTime, localUtcDatetime)}<Text style={{ fontSize: 10, color: COLORS.textMuted }}> (ET)</Text></Text></> : null}
           </View>
-          <Text style={styles.cardDancer}>{booking.dancerName || "Dancer"}</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+            <Text style={styles.cardDancer}>{booking.dancerName || "Dancer"}</Text>
+            {booking.sessionType ? <View style={[styles.badge, { backgroundColor: COLORS.grayLight }]}><Text style={[styles.badgeText, { color: COLORS.textMuted }]}>{booking.sessionType}</Text></View> : null}
+          </View>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING.sm }}>
-          <View style={[styles.badge, { backgroundColor: sc.bg }]}><Text style={[styles.badgeText, { color: sc.text }]}>{status}</Text></View>
+          <View style={[styles.badge, { backgroundColor: sc.bg }]}><Text style={[styles.badgeText, { color: sc.text }]}>{displayStatus}</Text></View>
           {expanded ? <ChevronUp size={16} color={COLORS.textMuted} /> : <ChevronDown size={16} color={COLORS.textMuted} />}
         </View>
       </TouchableOpacity>
@@ -477,7 +581,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
       {expanded && (
         <View style={styles.cardBody}>
           {booking.dancerPhone ? (
-            <View style={styles.infoRow}><Phone size={13} color={COLORS.textMuted} /><Text style={styles.infoText}>{booking.dancerPhone}</Text></View>
+            <View style={styles.infoRow}><Phone size={13} color={COLORS.textMuted} /><Text style={styles.infoText}>{formatPhone(booking.dancerPhone)}</Text></View>
           ) : null}
           {booking.notes ? <View style={styles.infoRow}><StickyNote size={13} color={COLORS.textMuted} /><Text style={[styles.infoText, { fontStyle: "italic" }]}><Text style={{ fontWeight: "600" }}>Member: </Text>{booking.notes}</Text></View> : null}
           {localPrepMasterNotes && mode === "idle" ? <View style={styles.infoRow}><StickyNote size={13} color={COLORS.primary} /><Text style={styles.infoText}><Text style={{ fontWeight: "600", color: COLORS.primary }}>Your notes: </Text>{localPrepMasterNotes}</Text></View> : null}
@@ -497,6 +601,13 @@ function BookingCard({ booking, dimmed, onUpdate }: {
                     <X size={14} color={COLORS.red} /><Text style={styles.actionBtnDangerText}>Decline</Text>
                   </TouchableOpacity>
                 </>
+              )}
+              {isConfirmed && !isPastConfirmed && (
+                <TouchableOpacity style={[styles.actionBtn, styles.actionBtnDanger, saving && { opacity: 0.5 }]}
+                  onPress={() => { setCancelReason(""); setMode("cancel-reason") }}
+                  disabled={saving} activeOpacity={0.8}>
+                  <X size={14} color={COLORS.red} /><Text style={styles.actionBtnDangerText}>Cancel session</Text>
+                </TouchableOpacity>
               )}
               <TouchableOpacity style={[styles.actionBtn, styles.actionBtnGhost]} onPress={() => setMode("edit")} activeOpacity={0.8}>
                 <Pencil size={14} color={COLORS.textMuted} /><Text style={styles.actionBtnGhostText}>Edit</Text>
@@ -535,6 +646,38 @@ function BookingCard({ booking, dimmed, onUpdate }: {
             </KeyboardAvoidingView>
           )}
 
+          {mode === "cancel-reason" && (
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+              <View style={styles.editPanel}>
+                <Text style={[styles.editPanelTitle, { color: COLORS.red }]}>Cancel this session?</Text>
+                <Text style={{ fontSize: 12, color: COLORS.textMuted, marginBottom: 8 }}>If the session is within 24 hours, the member's credit will be refunded since you are cancelling.</Text>
+                <TextInput
+                  style={[styles.editInput, { minHeight: 72, textAlignVertical: "top" }]}
+                  value={cancelReason}
+                  onChangeText={setCancelReason}
+                  placeholder="e.g. Unavailable due to illness, please rebook…"
+                  placeholderTextColor={COLORS.textMuted}
+                  multiline
+                  autoFocus
+                />
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.actionBtnDanger, saving && { opacity: 0.5 }]}
+                    onPress={() => {
+                      if (!cancelReason.trim()) { Alert.alert("Required", "Please enter a reason for cancelling."); return }
+                      callAction("cancel", cancelReason.trim())
+                    }}
+                    disabled={saving} activeOpacity={0.8}>
+                    {saving ? <ActivityIndicator size="small" color={COLORS.red} /> : <><X size={14} color={COLORS.red} /><Text style={styles.actionBtnDangerText}>Confirm cancellation</Text></>}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtn, styles.actionBtnGhost]} onPress={() => setMode("idle")} activeOpacity={0.8}>
+                    <Text style={styles.actionBtnGhostText}>Keep session</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          )}
+
           {mode === "edit" && (
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
               <View style={styles.editPanel}>
@@ -542,11 +685,19 @@ function BookingCard({ booking, dimmed, onUpdate }: {
                 <View style={styles.editRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.editLabel}>Date</Text>
-                    <TextInput style={styles.editInput} value={editDate} onChangeText={setEditDate} placeholder="YYYY-MM-DD" placeholderTextColor={COLORS.textMuted} />
+                    <TouchableOpacity style={styles.editInput} onPress={() => setShowDatePicker(true)} activeOpacity={0.7}>
+                      <Text style={{ color: editDate ? COLORS.text : COLORS.textMuted, fontSize: 14 }}>
+                        {editDate ? dateOptions.find((o) => o.value === editDate)?.label ?? editDate : "Select date"}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.editLabel}>Time</Text>
-                    <TextInput style={styles.editInput} value={editTime} onChangeText={setEditTime} placeholder="e.g. 3:00 PM" placeholderTextColor={COLORS.textMuted} />
+                    <Text style={styles.editLabel}>Time (ET)</Text>
+                    <TouchableOpacity style={styles.editInput} onPress={() => { if (!slotsLoading) setShowTimePicker(true) }} activeOpacity={0.7}>
+                      {slotsLoading
+                        ? <ActivityIndicator size="small" color={COLORS.textMuted} />
+                        : <Text style={{ color: editTime ? COLORS.text : COLORS.textMuted, fontSize: 14 }}>{editTime || "Select time"}</Text>}
+                    </TouchableOpacity>
                   </View>
                 </View>
                 <Text style={styles.editLabel}>Your notes</Text>
@@ -560,6 +711,22 @@ function BookingCard({ booking, dimmed, onUpdate }: {
                   </TouchableOpacity>
                 </View>
               </View>
+              <PickerModal
+                visible={showDatePicker}
+                title="Select Date"
+                options={dateOptions}
+                selected={editDate}
+                onSelect={(d) => { setEditDate(d); setEditTime(""); setShowDatePicker(false) }}
+                onClose={() => setShowDatePicker(false)}
+              />
+              <PickerModal
+                visible={showTimePicker}
+                title="Select Time (ET)"
+                options={availableSlots.map((t) => ({ label: t, value: t }))}
+                selected={editTime}
+                onSelect={(t) => { setEditTime(t); setShowTimePicker(false) }}
+                onClose={() => setShowTimePicker(false)}
+              />
             </KeyboardAvoidingView>
           )}
         </View>
@@ -568,9 +735,75 @@ function BookingCard({ booking, dimmed, onUpdate }: {
   )
 }
 
+// ─── Previous Sessions (collapsible sub-sections) ────────────────────────────
+
+function CollapsibleSection({
+  title, count, defaultOpen, children,
+}: { title: string; count: number; defaultOpen: boolean; children: React.ReactNode }) {
+  const COLORS = useColors()
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <View style={{ gap: 8 }}>
+      <TouchableOpacity
+        onPress={() => setOpen((v) => !v)}
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 6, paddingHorizontal: 2 }}
+        activeOpacity={0.7}
+      >
+        <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.textMuted }}>
+          {title}{" "}
+          <Text style={{ fontSize: 12, fontWeight: "400" }}>({count})</Text>
+        </Text>
+        {open ? <ChevronUp size={16} color={COLORS.textMuted} /> : <ChevronDown size={16} color={COLORS.textMuted} />}
+      </TouchableOpacity>
+      {open && children}
+    </View>
+  )
+}
+
+function PreviousSessions({
+  completed, cancelled, declined, onUpdate,
+}: {
+  completed: PrepMasterBooking[]; cancelled: PrepMasterBooking[]; declined: PrepMasterBooking[]
+  onUpdate: (id: string, patch: Partial<PrepMasterBooking>) => void
+}) {
+  const COLORS = useColors()
+  const styles = makeStyles(COLORS)
+  const hasAny = completed.length + cancelled.length + declined.length > 0
+  if (!hasAny) return null
+  return (
+    <View style={[styles.section, { gap: SPACING.md }]}>
+      <Text style={[styles.sectionTitle, { color: COLORS.textMuted }]}>Previous sessions</Text>
+      <View style={{ gap: SPACING.md }}>
+        {completed.length > 0 && (
+          <CollapsibleSection title="Completed" count={completed.length} defaultOpen={false}>
+            <View style={{ gap: SPACING.sm, opacity: 0.75 }}>
+              {completed.map((b) => <BookingCard key={b.id} booking={b} dimmed onUpdate={onUpdate} />)}
+            </View>
+          </CollapsibleSection>
+        )}
+        {cancelled.length > 0 && (
+          <CollapsibleSection title="Cancelled" count={cancelled.length} defaultOpen={false}>
+            <View style={{ gap: SPACING.sm, opacity: 0.75 }}>
+              {cancelled.map((b) => <BookingCard key={b.id} booking={b} dimmed onUpdate={onUpdate} />)}
+            </View>
+          </CollapsibleSection>
+        )}
+        {declined.length > 0 && (
+          <CollapsibleSection title="Declined" count={declined.length} defaultOpen={false}>
+            <View style={{ gap: SPACING.sm, opacity: 0.75 }}>
+              {declined.map((b) => <BookingCard key={b.id} booking={b} dimmed onUpdate={onUpdate} />)}
+            </View>
+          </CollapsibleSection>
+        )}
+      </View>
+    </View>
+  )
+}
+
 // ─── Main Dashboard ──────────────────────────────────────────────────────────
 
 export default function PortalDashboard() {
+  const { openBookingId } = useLocalSearchParams<{ openBookingId?: string }>()
   const { data: session } = useSession()
   const COLORS = useColors()
   const firstName = session?.user?.name?.split(" ")[0] ?? "there"
@@ -600,7 +833,24 @@ export default function PortalDashboard() {
   }, [])
 
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
+
+  // Auto-open booking detail when navigated from inbox notification
+  useEffect(() => {
+    if (!openBookingId || loading || !data) return
+    const all = [...(data.upcoming ?? []), ...(data.completed ?? []), ...(data.cancelled ?? [])]
+    const target = all.find((b) => b.id === openBookingId)
+    if (target) setSelectedBooking(target)
+  }, [openBookingId, loading, data])
+
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false) }, [load])
+
+  // Re-fetch when app comes back to foreground (fixes stale data + calendar reconnect)
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") load()
+    })
+    return () => sub.remove()
+  }, [load])
 
   function handleUpdate(id: string, patch: Partial<PrepMasterBooking>) {
     setData((prev) => {
@@ -645,7 +895,7 @@ export default function PortalDashboard() {
       {/* List / Calendar tabs */}
       <View style={{ flexDirection: "row", marginHorizontal: SPACING.md, marginBottom: SPACING.sm, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, overflow: "hidden" }}>
         {([["list", "List", List], ["calendar", "Calendar", CalendarDays]] as const).map(([value, label, Icon]) => (
-          <TouchableOpacity key={value} style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, backgroundColor: tab === value ? COLORS.primary : "transparent" }} onPress={() => setTab(value)} activeOpacity={0.8}>
+          <TouchableOpacity key={value} style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, backgroundColor: tab === value ? COLORS.primary : "transparent" }} onPress={() => { setTab(value); if (value === "calendar") load() }} activeOpacity={0.8}>
             <Icon size={15} color={tab === value ? "#fff" : COLORS.textMuted} />
             <Text style={{ fontSize: 13, fontWeight: "600", color: tab === value ? "#fff" : COLORS.textMuted }}>{label}</Text>
           </TouchableOpacity>
@@ -678,18 +928,12 @@ export default function PortalDashboard() {
               <View style={styles.emptyCard}><Text style={styles.emptyText}>No upcoming sessions booked yet.</Text></View>
             ) : (data?.upcoming ?? []).map((b) => <BookingCard key={b.id} booking={b} onUpdate={handleUpdate} />)}
           </View>
-          {(data?.completed ?? []).length > 0 && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: COLORS.textMuted }]}>Completed sessions</Text>
-              {(data?.completed ?? []).map((b) => <BookingCard key={b.id} booking={b} dimmed onUpdate={handleUpdate} />)}
-            </View>
-          )}
-          {(data?.cancelled ?? []).length > 0 && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: COLORS.textMuted }]}>Cancelled & Declined</Text>
-              {(data?.cancelled ?? []).map((b) => <BookingCard key={b.id} booking={b} dimmed onUpdate={handleUpdate} />)}
-            </View>
-          )}
+          <PreviousSessions
+            completed={data?.completed ?? []}
+            cancelled={(data?.cancelled ?? []).filter((b) => b.status.toLowerCase().startsWith("cancelled"))}
+            declined={(data?.cancelled ?? []).filter((b) => b.status.toLowerCase() === "declined")}
+            onUpdate={handleUpdate}
+          />
         </ScrollView>
       )}
     </SafeAreaView>
