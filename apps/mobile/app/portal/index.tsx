@@ -565,7 +565,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
           <View style={styles.cardDateRow}>
             <CalendarDays size={14} color={COLORS.primary} />
             <Text style={styles.cardDate}>{formatDate(localDate)}</Text>
-            {localTime ? <><Clock size={13} color={COLORS.textMuted} /><Text style={styles.cardTime}>{formatTime(localTime, localUtcDatetime)}<Text style={{ fontSize: 10, color: COLORS.textMuted }}> (ET)</Text></Text></> : null}
+            {localTime ? <><Clock size={13} color={COLORS.textMuted} /><Text style={styles.cardTime}>{formatTime(localTime, localUtcDatetime)}</Text></> : null}
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
             <Text style={styles.cardDancer}>{booking.dancerName || "Dancer"}</Text>

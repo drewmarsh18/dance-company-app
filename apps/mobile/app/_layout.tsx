@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { AppState } from "react-native"
 import { Stack } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import * as WebBrowser from "expo-web-browser"
@@ -44,8 +45,16 @@ function RootLayoutInner() {
     if (!session?.user) return
     registerForPushNotifications().catch(() => {})
     // Sync device timezone to server so notifications can show both timezones
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-    if (tz) authClient.$fetch(`${API_BASE}/api/me`, { method: "PATCH", body: JSON.stringify({ timezone: tz }) }).catch(() => {})
+    const syncTimezone = () => {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (tz) authClient.$fetch(`${API_BASE}/api/me`, { method: "PATCH", body: JSON.stringify({ timezone: tz }) }).catch(() => {})
+    }
+    syncTimezone()
+    // Re-sync whenever the app returns to the foreground (handles travel/DST changes)
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") syncTimezone()
+    })
+    return () => sub.remove()
   }, [session?.user?.id])
 
   useEffect(() => {
