@@ -45,7 +45,7 @@ export async function PATCH(
         userId: dancerUserId,
         type: "booking_confirmed",
         title: "Booking confirmed",
-        body: `${pm.name} has confirmed your session on ${fmtDate(booking.fields.Date ?? "")} at ${fmtTime(booking.fields.Time ?? "")}.`,
+        body: `${pm.name} has confirmed your session on ${fmtDate(booking.fields.Date ?? "")} at ${fmtTime(booking.fields.Time ?? "")} ET.`,
         bookingId: id,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
@@ -81,7 +81,7 @@ export async function PATCH(
         userId: dancerUserId,
         type: "booking_cancelled",
         title: "Booking declined",
-        body: `${pm.name} has declined your session on ${fmtDate(booking.fields.Date ?? "")} at ${fmtTime(booking.fields.Time ?? "")}. Your credit has been refunded.`,
+        body: `${pm.name} has declined your session on ${fmtDate(booking.fields.Date ?? "")} at ${fmtTime(booking.fields.Time ?? "")} ET. Your credit has been refunded.`,
         bookingId: id,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
@@ -120,7 +120,7 @@ export async function PATCH(
       revalidateTag(`member-${dancerUserId}`, "max")
       const notifBody = within24
         ? `${pm.name} cancelled your session on ${fmtDate(dateStr)} at ${fmtTime(timeStr)}. Your credit has been refunded.`
-        : `${pm.name} cancelled your session on ${fmtDate(dateStr)} at ${fmtTime(timeStr)}.`
+        : `${pm.name} cancelled your session on ${fmtDate(dateStr)} at ${fmtTime(timeStr)} ET.`
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
@@ -192,7 +192,7 @@ export async function PATCH(
       userId: dancerUserId,
       type: "booking_updated",
       title: "Session rescheduled",
-      body: `${pm.name} has rescheduled your session to ${fmtDate(newDate)} at ${fmtTime(newTime)}.`,
+      body: `${pm.name} has rescheduled your session to ${fmtDate(newDate)} at ${fmtTime(newTime)} ET.`,
       bookingId: id,
       pushData: { route: "/member/bookings" },
     }).catch(() => {})

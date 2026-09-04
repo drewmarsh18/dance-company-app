@@ -130,7 +130,7 @@ export async function POST(req: Request) {
     userId: user.id,
     type: "booking_pending",
     title: "Booking requested",
-    body: `Your session with ${prepMasterName} on ${fmtDate(date)} at ${fmtTime(time)} is pending confirmation.`,
+    body: `Your session with ${prepMasterName} on ${fmtDate(date)} at ${fmtTime(time)} ET is pending confirmation.`,
     bookingId: record.id,
     pushData: { route: "/member/bookings" },
   }).catch(() => {})

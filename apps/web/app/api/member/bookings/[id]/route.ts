@@ -168,7 +168,7 @@ export async function PATCH(
     userId: user.id,
     type: "booking_updated",
     title: "Reschedule requested",
-    body: `Your reschedule request for ${fmtDate(newDate)} at ${fmtTime(newTime)} is awaiting approval from ${pmName}.`,
+    body: `Your reschedule request for ${fmtDate(newDate)} at ${fmtTime(newTime)} ET is awaiting approval from ${pmName}.`,
     bookingId: id,
   }).catch(() => {})
 
@@ -194,7 +194,7 @@ export async function PATCH(
         userId: pmUser.id,
         type: "booking_updated",
         title: "Reschedule request",
-        body: `${memberName} wants to reschedule to ${fmtDate(newDate)} at ${fmtTime(newTime)}. Please approve or decline.`,
+        body: `${memberName} wants to reschedule to ${fmtDate(newDate)} at ${fmtTime(newTime)} ET. Please approve or decline.`,
         bookingId: id,
         pushData: { route: "/portal" },
       }).catch(() => {})

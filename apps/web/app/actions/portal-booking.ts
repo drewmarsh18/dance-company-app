@@ -107,7 +107,7 @@ export async function createBookingAsPrepMaster(input: {
         userId: dancer.id,
         type: "booking_confirmed",
         title: "Session booked",
-        body: `${prepMaster.name} has booked a session with you on ${fmtDate(input.date)} at ${fmtTime(input.time)}.`,
+        body: `${prepMaster.name} has booked a session with you on ${fmtDate(input.date)} at ${fmtTime(input.time)} ET.`,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }

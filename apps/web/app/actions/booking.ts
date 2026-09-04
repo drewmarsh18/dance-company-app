@@ -122,6 +122,11 @@ export async function cancelBooking(
 
     const dateLabel = fmtDate(booking.fields.Date ?? "") || "your session"
     const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
+    const cancelledTime = booking.fields.Time ?? ""
+    const clientRecord = await findClientRecord(user.id)
+    const memberName = clientRecord?.fields.Name ?? user.name ?? user.email ?? "A member"
+
+    // Notify the member
     createNotification({
       userId: user.id,
       type: "booking_cancelled",
@@ -136,11 +141,36 @@ export async function cancelBooking(
         dancerName: user.name ?? "Dancer",
         prepMasterName: pmName,
         date: booking.fields.Date ?? dateLabel,
-        time: booking.fields.Time ?? "",
+        time: cancelledTime,
         creditRefunded: !within24,
       })
       sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Cancel email failed:", e))
     }
+
+    // Notify the PrepMaster
+    getPrepMasters().then(async (all) => {
+      const pm = all.find((p) => p.name === pmName)
+      if (!pm?.email) return
+      const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
+      if (pmUser) {
+        createNotification({
+          userId: pmUser.id,
+          type: "booking_cancelled",
+          title: "Session cancelled",
+          body: `${memberName} cancelled their session on ${dateLabel}${within24 ? " (within 24 hours — payable)" : ""}.`,
+          bookingId,
+          pushData: { route: "/portal" },
+        }).catch(() => {})
+      }
+      const { subject, html } = bookingCancelledEmail({
+        dancerName: memberName,
+        prepMasterName: pm.name,
+        date: booking.fields.Date ?? dateLabel,
+        time: cancelledTime,
+        creditRefunded: false,
+      })
+      sendEmail({ to: pm.email, subject, html }).catch(() => {})
+    }).catch(() => {})
 
     revalidatePath("/dashboard")
     return { ok: true, creditRefunded: !within24 }
@@ -180,11 +210,12 @@ export async function rescheduleBooking(
       Status: "Pending",
     })
 
+    // Tell the member their request is pending — not confirmed yet
     createNotification({
       userId: user.id,
       type: "booking_updated",
-      title: "Booking rescheduled",
-      body: `Your session with ${prepMasterName} has been moved to ${fmtDate(newDate)} at ${fmtTime(newTime)}.`,
+      title: "Reschedule requested",
+      body: `Your reschedule request for ${fmtDate(newDate)} at ${fmtTime(newTime)} ET is awaiting approval from ${prepMasterName}.`,
       bookingId,
       pushData: { route: "/member/bookings" },
     }).catch(() => {})
@@ -209,14 +240,14 @@ export async function rescheduleBooking(
       const pm = all.find((p) => p.name === prepMasterName)
       if (!pm?.email) return
 
-      // In-app notification → PrepMaster
+      // In-app notification → PrepMaster (needs their approval)
       const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
       if (pmUser) {
         createNotification({
           userId: pmUser.id,
           type: "booking_updated",
-          title: "Session rescheduled",
-          body: `${memberName} has rescheduled their session to ${fmtDate(newDate)} at ${fmtTime(newTime)}.`,
+          title: "Reschedule request",
+          body: `${memberName} wants to reschedule to ${fmtDate(newDate)} at ${fmtTime(newTime)} ET. Please approve or decline.`,
           bookingId,
           pushData: { route: "/portal" },
         }).catch(() => {})
@@ -319,7 +350,7 @@ export async function createBooking(input: {
       userId: user.id,
       type: "booking_confirmed",
       title: "Booking confirmed",
-      body: `Your session with ${input.prepMasterName} on ${fmtDate(input.date)} at ${fmtTime(input.time)} is confirmed.`,
+      body: `Your session with ${input.prepMasterName} on ${fmtDate(input.date)} at ${fmtTime(input.time)} ET is confirmed.`,
       bookingId: record.id,
       pushData: { route: "/member/bookings" },
     }).catch(() => {})
@@ -361,7 +392,7 @@ export async function createBooking(input: {
           userId: pmUser.id,
           type: "booking_request",
           title: "New session request",
-          body: `${dancerDisplayName} wants to book ${fmtDate(input.date)} at ${fmtTime(input.time)}.`,
+          body: `${dancerDisplayName} wants to book ${fmtDate(input.date)} at ${fmtTime(input.time)} ET.`,
           bookingId: record.id,
           pushCategory: "BOOKING_REQUEST",
           pushData: {
