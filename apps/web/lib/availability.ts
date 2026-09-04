@@ -20,8 +20,8 @@ export type DayAvailability = {
 }
 
 /** Sensible default when a prep master hasn't configured a day yet. */
-export const DEFAULT_START = "15:00"
-export const DEFAULT_END = "19:00"
+export const DEFAULT_START = "07:00"
+export const DEFAULT_END = "23:00"
 
 /** Builds a full 7-day template, merging in any saved windows. */
 export function buildWeekTemplate(
@@ -32,7 +32,7 @@ export function buildWeekTemplate(
     return (
       match ?? {
         dayOfWeek: d.value,
-        enabled: false,
+        enabled: true,
         startTime: DEFAULT_START,
         endTime: DEFAULT_END,
       }
@@ -52,18 +52,22 @@ export function to12Hour(hhmm: string): string {
 }
 
 /**
- * Generates display-formatted hourly slots within [startTime, endTime).
- * e.g. start "15:00", end "18:00" -> ["3:00 PM", "4:00 PM", "5:00 PM"].
+ * Generates display-formatted 15-minute slots within [startTime, endTime).
+ * e.g. start "15:00", end "16:00" -> ["3:00 PM", "3:15 PM", "3:30 PM", "3:45 PM"].
  */
 export function generateHourlySlots(
   startTime: string,
   endTime: string,
 ): string[] {
-  const start = Number(startTime.split(":")[0])
-  const end = Number(endTime.split(":")[0])
+  const [startH, startM = 0] = startTime.split(":").map(Number)
+  const [endH, endM = 0] = endTime.split(":").map(Number)
+  const startMins = startH * 60 + startM
+  const endMins = endH * 60 + endM
   const slots: string[] = []
-  for (let h = start; h < end; h++) {
-    slots.push(to12Hour(`${String(h).padStart(2, "0")}:00`))
+  for (let m = startMins; m < endMins; m += 15) {
+    const h = Math.floor(m / 60)
+    const min = m % 60
+    slots.push(to12Hour(`${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`))
   }
   return slots
 }

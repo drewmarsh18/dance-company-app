@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { X, CalendarClock, Calendar, Clock, Package, StickyNote, ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react-native"
+import { X, CalendarClock, Calendar, Clock, Package, StickyNote, ChevronLeft, ChevronRight } from "lucide-react-native"
+import { TimeWheelPicker, generate15MinSlots } from "@/components/TimeWheelPicker"
 import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
@@ -66,31 +67,11 @@ export function formatTime(timeStr: string, utcDatetime?: string | null) {
 // --- Availability helpers (mirrors apps/web/lib/availability.ts) ---
 type DayAvailability = { dayOfWeek: number; enabled: boolean; startTime: string; endTime: string }
 
-function to12Hour(hhmm: string): string {
-  const [hStr, mStr] = hhmm.split(":")
-  let h = Number(hStr)
-  const m = mStr ?? "00"
-  const period = h >= 12 ? "PM" : "AM"
-  if (h === 0) h = 12
-  else if (h > 12) h -= 12
-  return `${h}:${m} ${period}`
-}
-
-function generateHourlySlots(startTime: string, endTime: string): string[] {
-  const start = Number(startTime.split(":")[0])
-  const end = Number(endTime.split(":")[0])
-  const slots: string[] = []
-  for (let h = start; h < end; h++) {
-    slots.push(to12Hour(`${String(h).padStart(2, "0")}:00`))
-  }
-  return slots
-}
-
 function slotsForDate(dateIso: string, week: DayAvailability[]): string[] {
   const day = new Date(`${dateIso}T00:00:00`).getDay()
   const config = week.find((w) => w.dayOfWeek === day)
   if (!config || !config.enabled) return []
-  return generateHourlySlots(config.startTime, config.endTime)
+  return generate15MinSlots(config.startTime, config.endTime)
 }
 // ---
 
@@ -157,57 +138,6 @@ function MiniCalendar({
   )
 }
 
-function TimeDropdown({
-  value, options, loading, onSelect, COLORS, styles,
-}: {
-  value: string; options: string[]; loading: boolean
-  onSelect: (t: string) => void; COLORS: any; styles: any
-}) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <>
-      <TouchableOpacity
-        style={styles.dropdownTrigger}
-        onPress={() => !loading && options.length > 0 && setOpen(true)}
-        activeOpacity={0.7}
-        disabled={loading || options.length === 0}
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color={COLORS.primary} />
-        ) : (
-          <Text style={value ? styles.dropdownValue : styles.dropdownPlaceholder}>
-            {value || (options.length === 0 ? "No times available this day" : "Select a time")}
-          </Text>
-        )}
-        {!loading && options.length > 0 && <ChevronDown size={16} color={COLORS.textMuted} />}
-      </TouchableOpacity>
-
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <TouchableOpacity style={styles.dropdownOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
-          <View style={styles.dropdownList}>
-            <ScrollView bounces={false}>
-              {options.map((opt) => {
-                const selected = opt === value
-                return (
-                  <TouchableOpacity
-                    key={opt}
-                    style={[styles.dropdownItem, selected && styles.dropdownItemSelected]}
-                    onPress={() => { onSelect(opt); setOpen(false) }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.dropdownItemText, selected && styles.dropdownItemTextSelected]}>{opt}</Text>
-                    {selected && <Check size={14} color={COLORS.primary} />}
-                  </TouchableOpacity>
-                )
-              })}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </>
-  )
-}
 
 export function BookingDetailModal({
   booking, onClose, onCancelled, onRescheduled, onRefresh,
@@ -472,16 +402,18 @@ export function BookingDetailModal({
                   <Clock size={14} color={COLORS.primary} />
                   <Text style={styles.formLabel}>Time</Text>
                 </View>
-                <TimeDropdown
-                  value={editTime}
-                  options={availableSlots}
-                  loading={availLoading || (!!editDate && availWeek.length === 0 && availLoading)}
-                  onSelect={setEditTime}
-                  COLORS={COLORS}
-                  styles={styles}
-                />
-                {!availLoading && editDate && availWeek.length > 0 && availableSlots.length === 0 && (
+                {availLoading ? (
+                  <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 24 }} />
+                ) : !editDate ? (
+                  <Text style={styles.noSlotsNote}>Select a date first.</Text>
+                ) : availableSlots.length === 0 ? (
                   <Text style={styles.noSlotsNote}>{booking.prepMasterName} has no availability on this day. Please pick a different date.</Text>
+                ) : (
+                  <TimeWheelPicker
+                    slots={availableSlots}
+                    value={editTime}
+                    onChange={setEditTime}
+                  />
                 )}
               </View>
 
@@ -562,14 +494,5 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     calCellPast: { color: COLORS.textMuted, opacity: 0.4 },
     calCellTextSelected: { color: "#fff", fontWeight: "700" },
     // Dropdown
-    dropdownTrigger: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.sm, paddingVertical: 12 },
-    dropdownValue: { fontSize: 14, color: COLORS.text, fontWeight: "500" },
-    dropdownPlaceholder: { fontSize: 14, color: COLORS.textMuted },
-    dropdownOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: SPACING.lg },
-    dropdownList: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, maxHeight: 320, overflow: "hidden" },
-    dropdownItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: SPACING.md, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-    dropdownItemSelected: { backgroundColor: COLORS.primaryLight },
-    dropdownItemText: { fontSize: 15, color: COLORS.text },
-    dropdownItemTextSelected: { color: COLORS.primary, fontWeight: "600" },
   })
 }

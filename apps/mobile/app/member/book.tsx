@@ -10,6 +10,7 @@ import { authClient, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 import { getUniversityColor } from "@/lib/university-colors"
+import { TimeWheelPicker, generate15MinSlots } from "@/components/TimeWheelPicker"
 
 const API_BASE = "https://dance-company-app.vercel.app"
 
@@ -51,10 +52,7 @@ function slotsForDate(dateIso: string, week: DayAvailability[]): string[] {
   const day = new Date(`${dateIso}T00:00:00`).getDay()
   const config = week.find((w) => w.dayOfWeek === day)
   if (!config || !config.enabled) return []
-  const start = Number(config.startTime.split(":")[0]); const end = Number(config.endTime.split(":")[0])
-  const slots: string[] = []
-  for (let h = start; h < end; h++) slots.push(to12Hour(`${String(h).padStart(2, "0")}:00`))
-  return slots
+  return generate15MinSlots(config.startTime, config.endTime)
 }
 function planDisplayStatus(plan: MemberPlan): string {
   if (plan.status === "Active" && plan.expiresAt && new Date(plan.expiresAt) < new Date()) return "Inactive"
@@ -256,23 +254,15 @@ function BookingStep({
                 {new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                 {tzAbbr ? <Text style={styles.tzLabel}> · {tzAbbr}</Text> : null}
               </Text>
-              <View style={styles.timeGrid}>
-                {selectedDaySlots.slots.map((slot) => {
-                  const isTaken = selectedDaySlots.taken.has(slot)
-                  const isSlotSel = selectedTime === slot
-                  return (
-                    <TouchableOpacity
-                      key={slot}
-                      style={[styles.timeBtn, isSlotSel && styles.timeBtnSelected, isTaken && styles.timeBtnTaken]}
-                      onPress={() => setSelectedTime(slot)}
-                      disabled={isTaken}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.timeBtnText, isSlotSel && { color: "#fff" }, isTaken && { color: COLORS.textMuted }]}>{slot}</Text>
-                    </TouchableOpacity>
-                  )
-                })}
-              </View>
+              {selectedDaySlots.slots.length === 0 ? (
+                <Text style={[styles.noDateText, { marginTop: SPACING.sm }]}>No available times this day.</Text>
+              ) : (
+                <TimeWheelPicker
+                  slots={selectedDaySlots.slots.filter((s) => !selectedDaySlots.taken.has(s))}
+                  value={selectedTime}
+                  onChange={setSelectedTime}
+                />
+              )}
             </View>
           ) : (
             <View style={styles.noDateSelected}>
