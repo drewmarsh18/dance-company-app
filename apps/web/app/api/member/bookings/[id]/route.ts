@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth"
 import { TABLES, appBase, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingCancelledEmail, bookingUpdatedEmail } from "@/lib/email"
-import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso } from "@/lib/utils"
+import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
 import { getPrepMasters } from "@/lib/airtable"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
@@ -160,15 +160,24 @@ export async function PATCH(
   const newDate = body.date ?? booking.fields.Date ?? ""
   const newTime = body.time ?? booking.fields.Time ?? ""
   const pmName = booking.fields["Prep Master Name"] ?? ""
-  const client = await findClientRecord(user.id)
+  const [client, memberDbRow] = await Promise.all([
+    findClientRecord(user.id),
+    db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1),
+  ])
   const memberName = client?.fields.Name ?? user.name ?? user.email ?? "Your member"
+  const memberTz = memberDbRow[0]?.timezone ?? null
+  const utcForNotif = update["UTC Datetime"] ?? null
 
   // Tell the member their request is pending — not confirmed yet
+  // Member sees their own time; no second timezone needed for this one
+  const memberTimeLabel = utcForNotif && memberTz
+    ? fmtTimeForNotif(utcForNotif, memberTz)
+    : `${fmtTime(newTime)} ET`
   createNotification({
     userId: user.id,
     type: "booking_updated",
     title: "Reschedule requested",
-    body: `Your reschedule request for ${fmtDate(newDate)} at ${fmtTime(newTime)} ET is awaiting approval from ${pmName}.`,
+    body: `Your reschedule request for ${fmtDate(newDate)} at ${memberTimeLabel} is awaiting approval from ${pmName}.`,
     bookingId: id,
   }).catch(() => {})
 
@@ -184,17 +193,21 @@ export async function PATCH(
     sendEmail({ to: user.email, subject, html }).catch(() => {})
   }
 
-  // Notify PrepMaster
+  // Notify PrepMaster — show member's time and PrepMaster's time
   getPrepMasters().then(async (all) => {
     const pm = all.find((p) => p.name === pmName)
     if (!pm?.email) return
-    const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
+    const [pmUser] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pm.email))
     if (pmUser) {
+      const pmTz = pmUser.timezone ?? COMPANY_TZ
+      const pmTimeLabel = utcForNotif
+        ? fmtTimeForNotif(utcForNotif, memberTz ?? COMPANY_TZ, pmTz)
+        : `${fmtTime(newTime)} ET`
       createNotification({
         userId: pmUser.id,
         type: "booking_updated",
         title: "Reschedule request",
-        body: `${memberName} wants to reschedule to ${fmtDate(newDate)} at ${fmtTime(newTime)} ET. Please approve or decline.`,
+        body: `${memberName} wants to reschedule to ${fmtDate(newDate)} at ${pmTimeLabel}. Please approve or decline.`,
         bookingId: id,
         pushData: { route: "/portal" },
       }).catch(() => {})

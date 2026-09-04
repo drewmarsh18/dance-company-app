@@ -24,7 +24,6 @@ import {
 } from "@/lib/push-notifications"
 import { useRouter } from "expo-router"
 import { useSession, authClient } from "@/lib/auth-client"
-
 const API_BASE = "https://dance-company-app.vercel.app"
 import { ThemeProvider, useTheme } from "@/lib/theme-context"
 
@@ -44,12 +43,9 @@ function RootLayoutInner() {
   useEffect(() => {
     if (!session?.user) return
     registerForPushNotifications().catch(() => {})
-    // Check account approval status
-    authClient.$fetch(`${API_BASE}/api/me`).then(({ data }) => {
-      const status = (data as any)?.status
-      if (status === "pending") router.replace("/(auth)/pending")
-      else if (status === "denied") router.replace("/(auth)/denied")
-    }).catch(() => {})
+    // Sync device timezone to server so notifications can show both timezones
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (tz) authClient.$fetch(`${API_BASE}/api/me`, { method: "PATCH", body: JSON.stringify({ timezone: tz }) }).catch(() => {})
   }, [session?.user?.id])
 
   useEffect(() => {

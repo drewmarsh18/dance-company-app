@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth"
 import { getPrepMasterByEmail, TABLES, appBase, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingUpdatedEmail, bookingCancelledEmail } from "@/lib/email"
-import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso } from "@/lib/utils"
+import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -41,11 +41,19 @@ export async function PATCH(
     const dancerUserId = booking.fields["User ID"]
     if (dancerUserId) {
       revalidateTag(`member-${dancerUserId}`, "max")
+      const [pmRow, dancerRow] = await Promise.all([
+        db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1),
+        db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1),
+      ])
+      const pmTz = pmRow[0]?.timezone ?? COMPANY_TZ
+      const dTz = dancerRow[0]?.timezone ?? null
+      const utcStr = booking.fields["UTC Datetime"] ?? etToUtcIso(booking.fields.Date ?? "", booking.fields.Time ?? "", pmTz)
+      const timeLabel = utcStr ? fmtTimeForNotif(utcStr, pmTz, dTz) : `${fmtTime(booking.fields.Time ?? "")} ET`
       createNotification({
         userId: dancerUserId,
         type: "booking_confirmed",
         title: "Booking confirmed",
-        body: `${pm.name} has confirmed your session on ${fmtDate(booking.fields.Date ?? "")} at ${fmtTime(booking.fields.Time ?? "")} ET.`,
+        body: `${pm.name} has confirmed your session on ${fmtDate(booking.fields.Date ?? "")} at ${timeLabel}.`,
         bookingId: id,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
@@ -161,9 +169,12 @@ export async function PATCH(
   if (body.time) update.Time = body.time
   if (body.prepMasterNotes !== undefined) update["Prep Master Notes"] = body.prepMasterNotes
   if (body.date || body.time) {
+    const [pmTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
+    const pmTz = pmTzRow?.timezone ?? COMPANY_TZ
     const utc = etToUtcIso(
       body.date ?? booking.fields.Date ?? "",
       body.time ?? booking.fields.Time ?? "",
+      pmTz,
     )
     if (utc) update["UTC Datetime"] = utc
   }
@@ -178,21 +189,29 @@ export async function PATCH(
   const dancerUserId = booking.fields["User ID"]
 
   let dancerName = dancerEmail ?? "Your member"
+  let dancerTz: string | null = null
   if (dancerUserId) {
     const safeId = dancerUserId.replace(/'/g, "\\'")
-    const memberRecords = await appBase.list<ClientFields>(TABLES.clients, {
-      filterByFormula: `{User ID} = '${safeId}'`,
-      maxRecords: 1,
-    })
-    if (memberRecords[0]?.fields.Name) dancerName = memberRecords[0].fields.Name
+    const [memberRecord, dbRow] = await Promise.all([
+      appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeId}'`, maxRecords: 1 }),
+      db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1),
+    ])
+    if (memberRecord[0]?.fields.Name) dancerName = memberRecord[0].fields.Name
+    dancerTz = dbRow[0]?.timezone ?? null
   }
+  const [pmDbRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
+  const pmTz = pmDbRow?.timezone ?? COMPANY_TZ
 
   if (dancerUserId) {
+    const utcForNotif = update["UTC Datetime"] ?? booking.fields["UTC Datetime"] ?? etToUtcIso(newDate, newTime, pmTz)
+    const timeLabel = utcForNotif
+      ? fmtTimeForNotif(utcForNotif, pmTz, dancerTz)
+      : `${fmtTime(newTime)} ET`
     createNotification({
       userId: dancerUserId,
       type: "booking_updated",
       title: "Session rescheduled",
-      body: `${pm.name} has rescheduled your session to ${fmtDate(newDate)} at ${fmtTime(newTime)} ET.`,
+      body: `${pm.name} has rescheduled your session to ${fmtDate(newDate)} at ${timeLabel}.`,
       bookingId: id,
       pushData: { route: "/member/bookings" },
     }).catch(() => {})

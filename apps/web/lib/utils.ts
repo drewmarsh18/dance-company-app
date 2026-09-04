@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-const COMPANY_TZ = process.env.NEXT_PUBLIC_COMPANY_TIMEZONE ?? "America/New_York"
+export const COMPANY_TZ = process.env.NEXT_PUBLIC_COMPANY_TIMEZONE ?? "America/New_York"
 
 /**
  * Converts a stored date ("YYYY-MM-DD") + 12-hour time ("3:00 PM") in the
@@ -41,6 +41,27 @@ export function isWithin24Hours(date: string, time: string): boolean {
   const utcIso = etToUtcIso(date, time)
   if (!utcIso) return false
   return new Date(utcIso).getTime() - Date.now() < 24 * 60 * 60 * 1000
+}
+
+/**
+ * Formats a UTC ISO string for a notification body, showing the time in two
+ * timezones: the sender's (e.g. PrepMaster) and the recipient's (e.g. member).
+ * Returns e.g. "12:00 PM MT (2:00 PM ET)" or just "12:00 PM MT" if both are the same.
+ */
+export function fmtTimeForNotif(utcIso: string, senderTz: string, recipientTz?: string | null): string {
+  const d = new Date(utcIso)
+  function fmt(tz: string) {
+    return d.toLocaleTimeString("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true })
+  }
+  function abbr(tz: string) {
+    return new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "short" })
+      .formatToParts(d).find((p) => p.type === "timeZoneName")?.value ?? tz
+  }
+  const senderStr = `${fmt(senderTz)} ${abbr(senderTz)}`
+  if (!recipientTz || recipientTz === senderTz) return senderStr
+  const recipStr = `${fmt(recipientTz)} ${abbr(recipientTz)}`
+  if (senderStr === recipStr) return senderStr
+  return `${senderStr} (${recipStr} your time)`
 }
 
 /** Formats a YYYY-MM-DD date string as "Wed, Jul 15" — matches the app display format. */
