@@ -5,7 +5,7 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useFocusEffect, useRouter } from "expo-router"
-import { Inbox as InboxIcon2, CheckCheck, Calendar, Package, ShieldCheck, Info, MailOpen, Mail } from "lucide-react-native"
+import { Inbox as InboxIcon2, CheckCheck, CalendarDays, CalendarX, CalendarClock, Package, ShieldCheck, Info, MailOpen, Mail } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { useTheme } from "@/lib/theme-context"
 import { SPACING, RADIUS } from "@/constants/theme"
@@ -25,12 +25,15 @@ type Notif = {
   createdAt: string
 }
 
-function typeIcon(type: string, color: string) {
+function typeIcon(type: string) {
   const size = 18
-  if (type.startsWith("booking")) return <Calendar size={size} color={color} />
-  if (type.startsWith("account")) return <ShieldCheck size={size} color={color} />
-  if (type.startsWith("plan") || type.startsWith("credit")) return <Package size={size} color={color} />
-  return <Info size={size} color={color} />
+  if (type === "booking_confirmed") return { icon: <CalendarDays size={size} color="#16a34a" />, bg: "#dcfce7" }
+  if (type === "booking_cancelled") return { icon: <CalendarX size={size} color="#ef4444" />, bg: "#fee2e2" }
+  if (type === "booking_updated")   return { icon: <CalendarClock size={size} color="#f472b6" />, bg: null }
+  if (type.startsWith("booking"))   return { icon: <CalendarClock size={size} color="#f472b6" />, bg: null }
+  if (type.startsWith("account"))   return { icon: <ShieldCheck size={size} color="#f472b6" />, bg: null }
+  if (type.startsWith("plan") || type.startsWith("credit")) return { icon: <Package size={size} color="#f472b6" />, bg: null }
+  return { icon: <Info size={size} color="#f472b6" />, bg: null }
 }
 
 function timeAgo(iso: string): string {
@@ -117,9 +120,11 @@ function SwipeableRow({
           activeOpacity={item.bookingId ? 0.7 : 1}
           onPress={() => { if (item.bookingId) onNavigate(item) }}
         >
-          <View style={[styles.iconWrap, { backgroundColor: item.read ? COLORS.surface : (COLORS as any).primaryLight ?? COLORS.surface }]}>
-            {typeIcon(item.type, item.read ? COLORS.textMuted : COLORS.primary)}
-          </View>
+          {(() => {
+            const { icon, bg } = typeIcon(item.type)
+            const iconBg = item.read ? COLORS.surface : (bg ?? ((COLORS as any).primaryLight ?? COLORS.surface))
+            return <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>{icon}</View>
+          })()}
           <View style={styles.rowBody}>
             <View style={styles.rowTop}>
               <Text style={[styles.rowTitle, !item.read && styles.rowTitleUnread]} numberOfLines={1}>
