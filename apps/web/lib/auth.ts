@@ -164,17 +164,37 @@ export const auth = betterAuth({
           const isAdmin = adminEmails.includes(email)
 
           // Always set an explicit status immediately — never rely on the DB default
-          // PrepMasters are recognized by the invite table; check inline to avoid circular import
+          // PrepMasters are recognized by: (1) invite table, OR (2) Airtable Workers roster.
+          // Checking both means PrepMasters are auto-approved even if their invite record
+          // wasn't created yet (e.g. admin hasn't visited the PrepMasters tab).
           let isPrepMaster = false
           try {
             const { prepMasterInvite } = await import("@/lib/db/schema")
             const { eq: eqOp, and, ne } = await import("drizzle-orm")
-            const [invite] = await db
-              .select({ status: prepMasterInvite.status })
-              .from(prepMasterInvite)
-              .where(and(eqOp(prepMasterInvite.email, email), ne(prepMasterInvite.status, "revoked")))
-              .limit(1)
-            isPrepMaster = Boolean(invite)
+            const { getPrepMasterByEmail, isAirtableConfigured } = await import("@/lib/airtable")
+            const [inviteCheck, workerCheck] = await Promise.allSettled([
+              db
+                .select({ status: prepMasterInvite.status })
+                .from(prepMasterInvite)
+                .where(and(eqOp(prepMasterInvite.email, email), ne(prepMasterInvite.status, "revoked")))
+                .limit(1),
+              isAirtableConfigured() ? getPrepMasterByEmail(email) : Promise.resolve(null),
+            ])
+            const invite = inviteCheck.status === "fulfilled" ? inviteCheck.value[0] : null
+            const worker = workerCheck.status === "fulfilled" ? workerCheck.value : null
+            isPrepMaster = Boolean(invite) || Boolean(worker)
+            // Auto-create the invite record so future lookups don't need Airtable
+            if (!invite && worker) {
+              const { randomUUID } = await import("crypto")
+              const { prepMasterInvite: pmi } = await import("@/lib/db/schema")
+              await db.insert(pmi).values({
+                id: randomUUID(),
+                email,
+                name: worker.name,
+                invitedBy: "system",
+                status: "pending",
+              }).onConflictDoNothing()
+            }
           } catch { /* non-fatal */ }
 
           if (isAdmin || isPrepMaster) {

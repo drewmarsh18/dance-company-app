@@ -22,16 +22,18 @@ export default async function DashboardPage() {
   console.log("[page] start")
   const user = await getSessionUserWithRole()
   console.log("[page] got user", Date.now() - t0 + "ms")
-  const firstName = user?.name?.split(" ")[0] ?? "Dancer"
 
   if (!isAirtableConfigured()) {
     return (
       <div className="flex flex-col gap-6">
-        <Greeting name={firstName} />
+        <Greeting name={user?.name?.split(" ")[0] ?? "Dancer"} isParent={false} />
         <AirtableSetupNotice />
       </div>
     )
   }
+
+  // PrepMasters must never access the member dashboard — send them to their portal
+  if (user?.role === "prep_master") redirect("/portal")
 
   const profileCheck = await getOrCreateProfile()
   if (profileCheck.isNewProfile) redirect("/onboarding")
@@ -40,9 +42,11 @@ export default async function DashboardPage() {
   let bookings: Booking[] = []
   let plans: MemberPlan[] = []
   let error: string | null = null
+  let isParent = false
+  let displayName = user?.name?.split(" ")[0] ?? "Dancer"
 
   const resolvedUser = user ? { id: user.id, email: user.email, name: user.name ?? "" } : undefined
-  const noCreate = user?.role === "admin"
+  const noCreate = user?.role === "admin" || user?.role === "prep_master"
   try {
     console.log("[page] fetching profile/bookings/plans")
     const [profile, myBookings, myPlans] = await Promise.all([
@@ -53,6 +57,8 @@ export default async function DashboardPage() {
     credits = profile.creditsRemaining
     bookings = myBookings
     plans = myPlans
+    isParent = profile.isParentView
+    displayName = (profile.name ?? "").split(" ")[0] || displayName
     console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
   } catch (err) {
     console.log("[page] error in data fetch", Date.now() - t0 + "ms", err)
@@ -104,7 +110,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <Greeting name={firstName} />
+      <Greeting name={displayName} isParent={isParent} />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -132,7 +138,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <p className="text-sm text-muted-foreground">
-              Browse prep masters and book your next private session.
+              Browse PrepMasters and book your next private session.
             </p>
             <Button asChild className="w-fit">
               <Link href="/dashboard/coaches">Book a session</Link>
@@ -149,10 +155,10 @@ export default async function DashboardPage() {
               <CalendarClock className="size-10 text-muted-foreground" />
               <p className="font-medium">No upcoming sessions yet</p>
               <p className="max-w-sm text-sm text-muted-foreground">
-                When you book a private session with a prep master, it will appear here.
+                When you book a private session with a PrepMaster, it will appear here.
               </p>
               <Button asChild variant="outline">
-                <Link href="/dashboard/coaches">Find a prep master</Link>
+                <Link href="/dashboard/coaches">Find a PrepMaster</Link>
               </Button>
             </CardContent>
           </Card>
@@ -196,14 +202,16 @@ export default async function DashboardPage() {
   )
 }
 
-function Greeting({ name }: { name: string }) {
+function Greeting({ name, isParent }: { name: string; isParent: boolean }) {
   return (
     <div>
       <h1 className="font-heading text-3xl font-bold tracking-tight">
-        Welcome, {name}.
+        {isParent ? `${name}'s account` : `Welcome, ${name}.`}
       </h1>
       <p className="mt-1 text-muted-foreground">
-        Here&apos;s what&apos;s happening with your training.
+        {isParent
+          ? `You're viewing ${name}'s sessions and credits as a parent.`
+          : "Here's what's happening with your training."}
       </p>
     </div>
   )
