@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import { getSessionUserWithRole } from "@/lib/roles"
 import { db } from "@/lib/db"
-import { user as userTable } from "@/lib/db/schema"
+import { user as userTable, prepMasterInvite } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { createNotification } from "@/app/actions/notifications"
+import { sendPushToUser } from "@/lib/push"
 import { appBase, TABLES } from "@/lib/airtable"
 import type { ClientFields } from "@/lib/airtable"
 
@@ -25,8 +26,19 @@ export async function PATCH(
 
   await db.update(userTable).set({ status, updatedAt: new Date() }).where(eq(userTable.id, id))
 
-  // When approving, ensure an Airtable member record exists
-  if (status === "active") {
+  // Check if this user is a PrepMaster — they must not get a member (client) record
+  let isPrepMaster = false
+  try {
+    const [invite] = await db
+      .select({ id: prepMasterInvite.id })
+      .from(prepMasterInvite)
+      .where(eq(prepMasterInvite.email, target.email.toLowerCase()))
+      .limit(1)
+    isPrepMaster = Boolean(invite)
+  } catch { /* non-fatal */ }
+
+  // When approving a member (not a PrepMaster), ensure an Airtable client record exists
+  if (status === "active" && !isPrepMaster) {
     try {
       const existing = await appBase.list<ClientFields>(TABLES.clients, {
         filterByFormula: `{User ID} = '${id.replace(/'/g, "\\'")}'`,
@@ -49,10 +61,13 @@ export async function PATCH(
   // Notify the user
   const title = status === "active" ? "Account approved!" : "Account not approved"
   const body = status === "active"
-    ? "Your College Dance Prep account has been approved. You can now book sessions."
+    ? isPrepMaster
+      ? "Your College Dance Prep account has been approved. You can now access the PrepMaster portal."
+      : "Your College Dance Prep account has been approved. You can now book sessions."
     : "Your account request was not approved. Contact us if you think this is a mistake."
 
   createNotification({ userId: id, type: `account_${status}`, title, body }).catch(() => {})
+  sendPushToUser(id, { title, body, data: { type: `account_${status}` } }).catch(() => {})
 
   return NextResponse.json({ ok: true })
 }
