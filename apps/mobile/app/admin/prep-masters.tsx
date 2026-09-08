@@ -1,12 +1,12 @@
-import { useState, useCallback } from "react"
+import React, { useState, useCallback } from "react"
 import {
-  View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  Modal, ScrollView, RefreshControl, ActivityIndicator, Alert, Switch,
+  View, Text, StyleSheet, TextInput, TouchableOpacity,
+  Modal, ScrollView, RefreshControl, ActivityIndicator, Alert, Switch, FlatList,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import {
   Search, ChevronDown, ChevronUp, Plus, X, ArrowLeft,
-  DollarSign, CalendarDays, User, Mail, Phone, Home, ChevronRight,
+  DollarSign, CalendarDays, User, Mail, Phone, Home, ChevronRight, GraduationCap,
 } from "lucide-react-native"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
@@ -18,6 +18,16 @@ import type { AdminWorker, AdminBooking } from "@/lib/admin-types"
 
 const API = "https://dance-company-app.vercel.app"
 const PACK_SESSION_PRICE = 99
+
+const UNIVERSITIES = [
+  "Alabama","Arizona","ASU","Boise","Cincinnati","Coastal Carolina","CSU","CU Boulder",
+  "ECU","Florida","FSU","GCU","Indiana","Iowa State","Kansas State","Kansas University",
+  "Kentucky","Louisville","LSU Tiger Girls","Mississippi State","NC State","Ole Miss",
+  "Ohio State Club Team","Oklahoma","Oregon","Penn State","Pitt","Purdue","Samford",
+  "Sam Houston State","SDSU","South Carolina","TCU","Tennessee","Texas State","U Miami",
+  "UCLA","UCSB","UK","UNLV","Utah","Vanderbilt","Virginia Tech","Washington",
+  "Western Michigan","Wisconsin","WVU","Wichita State",
+]
 const PRICE_POINTS = [
   { label: "Pack hour", revenue: 99 },
   { label: "30 min per-private", revenue: 65 },
@@ -96,42 +106,81 @@ export default function AdminPrepMastersScreen() {
           </ScrollView>
         </View>
       )}
-      <FlatList
-        data={filtered}
-        keyExtractor={(w) => w.id}
+      <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
-        ItemSeparatorComponent={() => <View style={{ height: SPACING.sm }} />}
-        ListEmptyComponent={<Text style={styles.empty}>{workers.length === 0 ? "No PrepMasters yet." : "No PrepMasters match your search."}</Text>}
-        renderItem={({ item: w }) => {
-          const sessionCount = bookings.filter((b) => b.prepMasterName === w.name && b.status.toLowerCase() !== "cancelled").length
-          return (
-            <TouchableOpacity style={styles.card} onPress={() => setSelected(w)} activeOpacity={0.7}>
-              <View style={styles.avatar}><Text style={styles.avatarText}>{initials(w.name || "?")}</Text></View>
-              <View style={{ flex: 1, gap: 4, minWidth: 0, overflow: "hidden" }}>
-                <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">{w.name}</Text>
-                {w.university ? (
-                  <View style={[styles.uniChip, { backgroundColor: getUniversityColor(w.university).bg }]}>
-                    <Text style={[styles.uniChipText, { color: getUniversityColor(w.university).text }]} numberOfLines={1}>{w.university}</Text>
-                  </View>
-                ) : w.region ? <Text style={styles.sub} numberOfLines={1}>{w.region}</Text> : null}
-              </View>
-              <View style={{ alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
-                <Text style={styles.sub}>{sessionCount} session{sessionCount !== 1 ? "s" : ""}</Text>
-                <View style={[styles.badge, { backgroundColor: w.active ? COLORS.greenLight : COLORS.grayLight }]}>
-                  <Text style={[styles.badgeText, { color: w.active ? COLORS.green : COLORS.textMuted }]}>{w.active ? "Active" : "Inactive"}</Text>
-                </View>
-              </View>
-              <ChevronRight size={16} color={COLORS.textMuted} />
-            </TouchableOpacity>
-          )
-        }}
-      />
+        contentContainerStyle={{ paddingBottom: 100, paddingTop: SPACING.xs }}
+      >
+        {filtered.length === 0 ? (
+          <Text style={styles.empty}>{workers.length === 0 ? "No PrepMasters yet." : "No PrepMasters match your search."}</Text>
+        ) : (
+          <>
+            {[{ label: "Active", items: filtered.filter((w) => w.active), defaultOpen: true },
+              { label: "Inactive", items: filtered.filter((w) => !w.active), defaultOpen: false }]
+              .filter((g) => g.items.length > 0)
+              .map((g) => (
+                <PMCollapsibleGroup key={g.label} label={g.label} count={g.items.length} defaultOpen={g.defaultOpen}>
+                  {g.items.map((w) => {
+                    const sessionCount = bookings.filter((b) => b.prepMasterName === w.name && b.status.toLowerCase() !== "cancelled").length
+                    return (
+                      <TouchableOpacity key={w.id} style={styles.card} onPress={() => setSelected(w)} activeOpacity={0.7}>
+                        <View style={styles.avatar}><Text style={styles.avatarText}>{initials(w.name || "?")}</Text></View>
+                        <View style={{ flex: 1, gap: 4, minWidth: 0, overflow: "hidden" }}>
+                          <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">{w.name}</Text>
+                          {w.university ? (
+                            <View style={[styles.uniChip, { backgroundColor: getUniversityColor(w.university).bg }]}>
+                              <Text style={[styles.uniChipText, { color: getUniversityColor(w.university).text }]} numberOfLines={1}>{w.university}</Text>
+                            </View>
+                          ) : w.region ? <Text style={styles.sub} numberOfLines={1}>{w.region}</Text> : null}
+                        </View>
+                        <View style={{ alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
+                          <Text style={styles.sub}>{sessionCount} session{sessionCount !== 1 ? "s" : ""}</Text>
+                          <View style={{ flexDirection: "row", gap: 4 }}>
+                            <View style={[styles.badge, {
+                              backgroundColor: w.inviteStatus === "accepted" ? COLORS.primaryLight : w.inviteStatus === "revoked" ? COLORS.redLight : w.inviteStatus === "pending" ? COLORS.amberLight : COLORS.grayLight,
+                            }]}>
+                              <Text style={[styles.badgeText, {
+                                color: w.inviteStatus === "accepted" ? COLORS.primary : w.inviteStatus === "revoked" ? COLORS.red : w.inviteStatus === "pending" ? COLORS.amber : COLORS.textMuted,
+                              }]}>{w.inviteStatus === "accepted" ? "Joined" : w.inviteStatus === "revoked" ? "Revoked" : w.inviteStatus === "pending" ? "Invited" : "Not invited"}</Text>
+                            </View>
+                            <View style={[styles.badge, { backgroundColor: w.active ? COLORS.greenLight : COLORS.grayLight }]}>
+                              <Text style={[styles.badgeText, { color: w.active ? COLORS.green : COLORS.textMuted }]}>{w.active ? "Active" : "Inactive"}</Text>
+                            </View>
+                          </View>
+                        </View>
+                        <ChevronRight size={16} color={COLORS.textMuted} />
+                      </TouchableOpacity>
+                    )
+                  })}
+                </PMCollapsibleGroup>
+              ))}
+          </>
+        )}
+      </ScrollView>
       <Modal visible={showAddForm} animationType="slide" presentationStyle="pageSheet">
         <AddPrepMasterForm onClose={() => setShowAddForm(false)} onSuccess={(worker) => { setLocalWorkers([worker, ...workers]); setShowAddForm(false) }} />
       </Modal>
     </SafeAreaView>
+  )
+}
+
+function PMCollapsibleGroup({ label, count, defaultOpen, children }: { label: string; count: number; defaultOpen: boolean; children: React.ReactNode }) {
+  const COLORS = useColors()
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <View style={{ marginBottom: SPACING.sm }}>
+      <TouchableOpacity
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 10, paddingHorizontal: SPACING.md }}
+        onPress={() => setOpen((v) => !v)}
+        activeOpacity={0.7}
+      >
+        <Text style={{ fontSize: 11, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          {label} <Text style={{ fontWeight: "400" }}>({count})</Text>
+        </Text>
+        {open ? <ChevronUp size={14} color={COLORS.textMuted} /> : <ChevronDown size={14} color={COLORS.textMuted} />}
+      </TouchableOpacity>
+      {open && <View style={{ paddingHorizontal: SPACING.md, gap: SPACING.sm }}>{children}</View>}
+    </View>
   )
 }
 
@@ -142,6 +191,8 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved }: {
   const styles = makeStyles(COLORS)
   const [name, setName] = useState(worker.name); const [email, setEmail] = useState(worker.email)
   const [phone, setPhone] = useState(worker.phone); const [address, setAddress] = useState(worker.address)
+  const [university, setUniversity] = useState(worker.university ?? "")
+  const [uniPickerOpen, setUniPickerOpen] = useState(false)
   const [hourlyRate, setHourlyRate] = useState(String(worker.hourlyRate))
   const [active, setActive] = useState(worker.active)
   const [saving, setSaving] = useState(false)
@@ -161,11 +212,11 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved }: {
     if (Number.isNaN(rate) || rate < 0) { Alert.alert("Error", "Pay rate must be a valid number."); return }
     setSaving(true)
     const { error } = await authClient.$fetch(`${API}/api/admin/workers/${worker.id}`, {
-      method: "PATCH", body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim(), address: address.trim(), hourlyRate: rate, active }), headers: { "Content-Type": "application/json" },
+      method: "PATCH", body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim(), address: address.trim(), university: university.trim(), hourlyRate: rate, active }), headers: { "Content-Type": "application/json" },
     })
     setSaving(false)
     if (error) { Alert.alert("Error", "Failed to update PrepMaster."); return }
-    onSaved({ ...worker, name: name.trim(), email: email.trim(), phone: phone.trim(), address: address.trim(), hourlyRate: rate, active })
+    onSaved({ ...worker, name: name.trim(), email: email.trim(), phone: phone.trim(), address: address.trim(), university: university.trim(), hourlyRate: rate, active })
   }
 
   return (
@@ -191,6 +242,16 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved }: {
               <EditField label="Email" icon={<Mail size={13} color={COLORS.textMuted} />} value={email} onChange={setEmail} keyboardType="email-address" />
               <EditField label="Phone" icon={<Phone size={13} color={COLORS.textMuted} />} value={phone} onChange={setPhone} keyboardType="phone-pad" />
               <EditField label="Address" icon={<Home size={13} color={COLORS.textMuted} />} value={address} onChange={setAddress} />
+              <View style={styles.editField}>
+                <View style={styles.editFieldLabel}><GraduationCap size={13} color={COLORS.textMuted} /><Text style={styles.editFieldLabelText}>University</Text></View>
+                <TouchableOpacity style={[styles.formInput, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]} onPress={() => setUniPickerOpen(true)} activeOpacity={0.7}>
+                  {university ? (() => {
+                    const uc = getUniversityColor(university)
+                    return <View style={[styles.uniChip, { backgroundColor: uc.bg }]}><Text style={[styles.uniChipText, { color: uc.text }]}>{university}</Text></View>
+                  })() : <Text style={{ fontSize: 14, color: COLORS.textMuted }}>Select university</Text>}
+                  <ChevronDown size={14} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
               <EditField label="Pay rate per session ($)" icon={<DollarSign size={13} color={COLORS.textMuted} />} value={hourlyRate} onChange={setHourlyRate} keyboardType="decimal-pad" />
               <View style={styles.activeRow}>
                 <Text style={styles.activeLabel}>Active — visible to dancers for booking</Text>
@@ -281,6 +342,34 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved }: {
           )}
         </View>
       </ScrollView>
+
+      <Modal visible={uniPickerOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setUniPickerOpen(false)}>
+        <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select University</Text>
+            <TouchableOpacity onPress={() => setUniPickerOpen(false)} hitSlop={8}><X size={22} color={COLORS.text} /></TouchableOpacity>
+          </View>
+          <FlatList
+            data={UNIVERSITIES}
+            keyExtractor={(item) => item}
+            contentContainerStyle={{ padding: SPACING.md, gap: SPACING.sm }}
+            renderItem={({ item }) => {
+              const uc = getUniversityColor(item)
+              const selected = item === university
+              return (
+                <TouchableOpacity
+                  style={[{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8, paddingHorizontal: SPACING.sm, borderRadius: RADIUS.sm }, selected && { backgroundColor: COLORS.primaryLight }]}
+                  onPress={() => { setUniversity(item); setUniPickerOpen(false) }}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.uniChip, { backgroundColor: uc.bg }]}><Text style={[styles.uniChipText, { color: uc.text, fontSize: 13 }]}>{item}</Text></View>
+                  {selected && <Text style={{ fontSize: 16, color: COLORS.primary, fontWeight: "700" }}>✓</Text>}
+                </TouchableOpacity>
+              )
+            }}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   )
 }
