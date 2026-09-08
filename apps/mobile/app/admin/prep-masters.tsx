@@ -245,9 +245,14 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved, onDeleted }: {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.profileBody}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <ArrowLeft size={16} color={COLORS.primary} /><Text style={styles.backText}>All PrepMasters</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
+            <ArrowLeft size={16} color={COLORS.primary} /><Text style={styles.backText}>All PrepMasters</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleDelete} disabled={deleting} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.deleteTiny}>{deleting ? "Deleting…" : "Delete PrepMaster"}</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.section}>
           <TouchableOpacity style={styles.profileCardHeader} onPress={() => setInfoOpen((v) => !v)} activeOpacity={0.7}>
             <View style={{ flex: 1 }}>
@@ -282,9 +287,6 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved, onDeleted }: {
               </View>
               <TouchableOpacity style={[styles.btnPrimary, saving && styles.btnDisabled]} onPress={handleSave} disabled={saving || deleting} activeOpacity={0.7}>
                 <Text style={styles.btnPrimaryText}>{saving ? "Saving…" : "Save changes"}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.btnDanger, deleting && styles.btnDisabled]} onPress={handleDelete} disabled={saving || deleting} activeOpacity={0.7}>
-                <Text style={styles.btnDangerText}>{deleting ? "Deleting…" : "Delete PrepMaster"}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -525,8 +527,7 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     activeLabel: { fontSize: 14, fontWeight: "500", color: COLORS.text, flex: 1 },
     btnPrimary: { backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, paddingVertical: 10, alignItems: "center" },
     btnPrimaryText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-    btnDanger: { backgroundColor: COLORS.red, borderRadius: RADIUS.sm, paddingVertical: 10, alignItems: "center", marginTop: 4 },
-    btnDangerText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+    deleteTiny: { fontSize: 12, color: COLORS.red, fontWeight: "500" },
     btnDisabled: { opacity: 0.4 },
     statGrid: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
     statTile: { flex: 1, minWidth: "45%", borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.sm, backgroundColor: COLORS.background },
