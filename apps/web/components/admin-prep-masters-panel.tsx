@@ -17,11 +17,12 @@ import { PER_PRIVATE, PACKAGES } from "@/lib/packages"
 
 const UNIVERSITIES = [
   "Alabama","Arizona","ASU","Boise","Cincinnati","Coastal Carolina","CSU","CU Boulder",
-  "ECU","FSU","GCU","Indiana","Kansas State","Kansas University","Louisville",
-  "LSU Tiger Girls","Mississippi State","NC State","Ole Miss","Ohio State Club Team",
-  "Oregon","Penn State","Pitt","Purdue","Samford","Sam Houston State","SDSU",
-  "South Carolina","Tennessee","Texas State","U Miami","UCLA","UCSB","UK","UNLV",
-  "Utah","Vanderbilt","Virginia Tech","Washington","Western Michigan","Wisconsin","WVU","Wichita State",
+  "ECU","Florida","FSU","GCU","Indiana","Iowa State","Kansas State","Kansas University",
+  "Kentucky","Louisville","LSU Tiger Girls","Mississippi State","NC State","Ole Miss",
+  "Ohio State Club Team","Oklahoma","Oregon","Penn State","Pitt","Purdue","Samford",
+  "Sam Houston State","SDSU","South Carolina","TCU","Tennessee","Texas State","U Miami",
+  "UCLA","UCSB","UK","UNLV","Utah","Vanderbilt","Virginia Tech","Washington",
+  "Western Michigan","Wisconsin","WVU","Wichita State",
 ]
 
 const PACK_SESSION_PRICE = PACKAGES[0].perSession
