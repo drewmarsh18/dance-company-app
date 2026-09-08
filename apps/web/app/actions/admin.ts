@@ -160,6 +160,7 @@ export async function updatePrepMaster(
   try {
     await assertAdmin()
     await adminUpdateWorker(workerId, fields)
+    revalidateTag("admin")
     revalidatePath("/admin")
     return { ok: true }
   } catch (err) {
