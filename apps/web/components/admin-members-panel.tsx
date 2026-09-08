@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useRef } from "react"
 import { toast } from "sonner"
 import { addComplimentaryCredits, adminAssignPlan, createMember, adminRemovePlan, adminSetCredits } from "@/app/actions/admin"
 import type { AdminMember, AdminBooking, MemberPlan } from "@/lib/airtable"
@@ -43,12 +43,16 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
   const [expanded, setExpanded] = useState<string | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [localMembers, setLocalMembers] = useState<AdminMember[]>(members)
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ active: true, leads: false, inactive: false })
+  function toggleSection(key: string) { setOpenSections((prev) => ({ ...prev, [key]: !prev[key] })) }
 
   const filtered = query.trim()
     ? localMembers.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()) || m.email.toLowerCase().includes(query.toLowerCase()))
     : localMembers
   const [selectedPackage, setSelectedPackage] = useState<Record<string, string>>({})
   const [localCredits, setLocalCredits] = useState<Record<string, number>>({})
+  const [parentEmailEditing, setParentEmailEditing] = useState<Record<string, string>>({})
+  const [parentEmailSaving, setParentEmailSaving] = useState<Record<string, boolean>>({})
   const [editingCredits, setEditingCredits] = useState<Record<string, string>>({})
   const [localPlans, setLocalPlans] = useState<MemberPlan[]>(plans)
   const [isPending, startTransition] = useTransition()
@@ -129,6 +133,49 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
     })
   }
 
+  async function handleSaveParentEmail(member: AdminMember) {
+    const email = (parentEmailEditing[member.id] ?? member.parentEmail ?? "").trim()
+    setParentEmailSaving((prev) => ({ ...prev, [member.id]: true }))
+    try {
+      const res = await fetch(`/api/admin/members/${member.id}/parent`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parentEmail: email, memberName: member.name }),
+      })
+      if (!res.ok) throw new Error("Failed")
+      const json = await res.json()
+      setLocalMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, parentEmail: email } : m))
+      setParentEmailEditing((prev) => { const n = { ...prev }; delete n[member.id]; return n })
+      if (json.emailError) {
+        toast.success(email ? `Parent email set to ${email}` : "Parent email cleared", { description: `Note: invite email failed — ${json.emailError}` })
+      } else {
+        toast.success(email ? `Parent email set and invite sent to ${email}` : "Parent email cleared")
+      }
+    } catch {
+      toast.error("Failed to save parent email.")
+    } finally {
+      setParentEmailSaving((prev) => ({ ...prev, [member.id]: false }))
+    }
+  }
+
+  function handleDeleteTestAccount(member: AdminMember) {
+    if (!confirm(`Permanently delete ${member.email} from both the auth database and Airtable? This cannot be undone.`)) return
+    startTransition(async () => {
+      const res = await fetch("/api/admin/delete-user", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: member.email }),
+      })
+      if (res.ok) {
+        setLocalMembers((prev) => prev.filter((m) => m.id !== member.id))
+        setExpanded(null)
+        toast.success(`Auth account for ${member.email} deleted.`)
+      } else {
+        toast.error("Failed to delete account.")
+      }
+    })
+  }
+
   function handleAssignPlan(member: AdminMember) {
     const packageId = selectedPackage[member.id]
     if (!packageId) {
@@ -188,8 +235,31 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
           {query ? <>No members match &ldquo;{query}&rdquo;.</> : "No members yet."}
         </p>
       )}
-      {filtered.map((member) => {
-        const isOpen = expanded === member.id
+      {(["active", "leads", "inactive"] as const).map((sectionKey) => {
+        const sectionMembers = filtered.filter((m) => {
+          const s = memberStatus(m)
+          if (sectionKey === "active") return s === "active"
+          if (sectionKey === "leads") return s === "lead"
+          return s === "inactive"
+        })
+        if (sectionMembers.length === 0) return null
+        const sectionLabel = sectionKey === "active" ? "Active Members" : sectionKey === "leads" ? "Leads" : "Inactive"
+        const isOpen = openSections[sectionKey]
+        return (
+          <div key={sectionKey} className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => toggleSection(sectionKey)}
+              className="flex items-center justify-between rounded-md px-1 py-1 text-left hover:bg-muted/50 transition-colors"
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                {sectionLabel}
+                <span className="text-xs font-normal text-muted-foreground">({sectionMembers.length})</span>
+              </span>
+              {isOpen ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
+            </button>
+            {isOpen && sectionMembers.map((member) => {
+        const isCardOpen = expanded === member.id
         const history = memberBookings(member)
         const memberPlanList = memberPlans(member)
         const activePlan = memberPlanList.find((p) => planDisplayStatus(p) === "Active")
@@ -198,7 +268,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
 
         return (
           <Card key={member.id}>
-            <CardHeader className="cursor-pointer pb-3" onClick={() => setExpanded(isOpen ? null : member.id)}>
+            <CardHeader className="cursor-pointer pb-3" onClick={() => setExpanded(isCardOpen ? null : member.id)}>
               <div className="flex items-center justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold">
@@ -230,16 +300,16 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label={isOpen ? "Collapse" : "Expand"}
-                    onClick={(e) => { e.stopPropagation(); setExpanded(isOpen ? null : member.id) }}
+                    aria-label={isCardOpen ? "Collapse" : "Expand"}
+                    onClick={(e) => { e.stopPropagation(); setExpanded(isCardOpen ? null : member.id) }}
                   >
-                    {isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                    {isCardOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
                   </Button>
                 </div>
               </div>
             </CardHeader>
 
-            {isOpen && (
+            {isCardOpen && (
               <CardContent className="flex flex-col gap-5 pt-0">
                 <Separator />
 
@@ -249,7 +319,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                     {member.phone && (
                       <div>
                         <span className="text-muted-foreground">Phone </span>
-                        <span className="font-medium">{member.phone}</span>
+                        <span className="font-medium">{formatPhone(member.phone)}</span>
                       </div>
                     )}
                     {member.goals && (
@@ -297,70 +367,12 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
 
                 {/* Plan history + single sessions */}
                 {memberPlanList.length > 0 && (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-sm font-medium">
-                      Plan history ({memberPlanList.length})
-                    </p>
-                    <ul className="flex flex-col gap-1.5">
-                      {memberPlanList.map((plan) => {
-                        const purchaseDate = plan.purchasedAt
-                          ? new Date(plan.purchasedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                          : null
-                        const expiryDate = plan.expiresAt
-                          ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                          : null
-                        const planStatus = planDisplayStatus(plan)
-                        const activeSingleCount = memberPlanList.filter(
-                          (p) => planDisplayStatus(p) === "Active" && p.sessions === 1
-                        ).length
-                        const displayCount = planStatus !== "Active"
-                          ? plan.sessions
-                          : plan.sessions === 1
-                            ? 1
-                            : Math.max(0, creditsFor(member) - activeSingleCount)
-                        return (
-                          <li
-                            key={plan.id}
-                            className="flex flex-col gap-1 rounded-md border px-3 py-2 text-sm"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <Package className="size-3.5 shrink-0 text-primary" />
-                                <span className="font-medium">{plan.planName}</span>
-                                <span className="text-muted-foreground">
-                                  {displayCount} {displayCount === 1 ? "credit" : "credits"} · ${plan.pricePaid}
-                                  {purchaseDate ? ` · ${purchaseDate}` : ""}
-                                </span>
-                              </div>
-                              <div className="flex shrink-0 items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className={`capitalize text-xs ${planStatus === "Active" ? "border-green-300 bg-green-100 text-green-700" : planStatus === "Used" ? "border-amber-300 bg-amber-100 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}
-                                >
-                                  {planStatus}
-                                </Badge>
-                                {planStatus !== "Used" && (
-                                  <button
-                                    disabled={isPending}
-                                    onClick={() => handleRemovePlan(member, plan)}
-                                    className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
-                                    aria-label="Remove plan"
-                                  >
-                                    <Trash2 className="size-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            {expiryDate && (
-                              <p className="pl-5 text-xs text-muted-foreground">
-                                Expires {expiryDate}
-                              </p>
-                            )}
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </div>
+                  <PlanHistory
+                    plans={memberPlanList}
+                    credits={creditsFor(member)}
+                    isPending={isPending}
+                    onRemove={(plan) => handleRemovePlan(member, plan)}
+                  />
                 )}
 
                 {/* Add single session */}
@@ -403,6 +415,54 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                       Save
                     </Button>
                     <span className="text-xs text-muted-foreground">Current: {credits}</span>
+                  </div>
+                </div>
+
+                {/* Parent email */}
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-medium">Parent / Guardian email</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      autoComplete="off"
+                      placeholder="parent@example.com"
+                      value={parentEmailEditing[member.id] ?? member.parentEmail ?? ""}
+                      onChange={(e) => setParentEmailEditing((prev) => ({ ...prev, [member.id]: e.target.value }))}
+                      className="h-8 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={parentEmailSaving[member.id]}
+                      onClick={() => handleSaveParentEmail(member)}
+                    >
+                      {parentEmailSaving[member.id] ? "Saving…" : "Save Email"}
+                    </Button>
+                  </div>
+                  {(member.parentEmail || parentEmailEditing[member.id]) && (
+                    <p className="text-xs text-muted-foreground">
+                      A parent account with this email can log in to view {member.name || "this member"}&apos;s bookings and credits.
+                      {!member.parentEmail && " An invite email will be sent when you save."}
+                    </p>
+                  )}
+                </div>
+
+                {/* Danger zone */}
+                <div className="flex flex-col gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-destructive">Permanent Account Deletion</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs text-muted-foreground">Delete this user from both the auth database and Airtable so the email can be re-used for testing.</p>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={isPending}
+                      onClick={() => handleDeleteTestAccount(member)}
+                      className="shrink-0"
+                    >
+                      <Trash2 className="mr-1.5 size-3.5" />
+                      Delete account
+                    </Button>
                   </div>
                 </div>
 
@@ -451,6 +511,104 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
               </CardContent>
             )}
           </Card>
+        )
+      })}
+            </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "")
+  const d = digits.startsWith("1") && digits.length === 11 ? digits.slice(1) : digits
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
+  return raw
+}
+
+const PLAN_STATUS_ORDER = ["Active", "Expired", "Used"] as const
+type PlanStatusGroup = (typeof PLAN_STATUS_ORDER)[number]
+
+function PlanHistory({ plans, credits, isPending, onRemove }: {
+  plans: MemberPlan[]
+  credits: number
+  isPending: boolean
+  onRemove: (plan: MemberPlan) => void
+}) {
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({ Used: true })
+  function toggleGroup(g: string) { setCollapsedGroups((prev) => ({ ...prev, [g]: !prev[g] })) }
+
+  const activeSingleCount = plans.filter((p) => planDisplayStatus(p) === "Active" && p.sessions === 1).length
+  const grouped = Object.fromEntries(
+    PLAN_STATUS_ORDER.map((s) => [s, plans.filter((p) => planDisplayStatus(p) === s)])
+  ) as Record<PlanStatusGroup, MemberPlan[]>
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm font-medium">Plan history ({plans.length})</p>
+      {PLAN_STATUS_ORDER.map((group) => {
+        const groupPlans = grouped[group]
+        if (groupPlans.length === 0) return null
+        const isCollapsed = collapsedGroups[group] ?? false
+        return (
+          <div key={group} className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={() => toggleGroup(group)}
+              className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {isCollapsed ? <ChevronDown className="size-3" /> : <ChevronUp className="size-3" />}
+              {group} ({groupPlans.length})
+            </button>
+            {!isCollapsed && (
+              <ul className="flex flex-col gap-1.5">
+                {groupPlans.map((plan) => {
+                  const purchaseDate = plan.purchasedAt
+                    ? new Date(plan.purchasedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                    : null
+                  const expiryDate = plan.expiresAt
+                    ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                    : null
+                  const planStatus = planDisplayStatus(plan)
+                  const displayCount = planStatus !== "Active"
+                    ? plan.sessions
+                    : plan.sessions === 1
+                      ? 1
+                      : Math.max(0, credits - activeSingleCount)
+                  return (
+                    <li key={plan.id} className="flex flex-col gap-1 rounded-md border px-3 py-2 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Package className="size-3.5 shrink-0 text-primary" />
+                          <span className="font-medium">{plan.planName}</span>
+                          <span className="text-muted-foreground">
+                            {displayCount} {displayCount === 1 ? "credit" : "credits"} · ${plan.pricePaid}
+                            {purchaseDate ? ` · ${purchaseDate}` : ""}
+                          </span>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {planStatus !== "Used" && (
+                            <button
+                              disabled={isPending}
+                              onClick={() => onRemove(plan)}
+                              className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                              aria-label="Remove plan"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {expiryDate && (
+                        <p className="pl-5 text-xs text-muted-foreground">Expires {expiryDate}</p>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
         )
       })}
     </div>
