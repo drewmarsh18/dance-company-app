@@ -7,6 +7,7 @@ import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 import * as WebBrowser from "expo-web-browser"
 import * as Google from "expo-auth-session/providers/google"
+import * as AppleAuthentication from "expo-apple-authentication"
 import { signIn, useSession, authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
@@ -14,6 +15,10 @@ import { useColors } from "@/lib/theme-context"
 WebBrowser.maybeCompleteAuthSession()
 
 const GOOGLE_IOS_CLIENT_ID = "31400941000-8g9ud8c2pfgkb1590hb0606jg70jq152.apps.googleusercontent.com"
+const GOOGLE_REDIRECT_URI = `com.googleusercontent.apps.31400941000-8g9ud8c2pfgkb1590hb0606jg70jq152:/oauthredirect`
+
+// expo-apple-authentication is only available in production/standalone builds
+const appleAuthAvailable = !!AppleAuthentication.AppleAuthenticationButton
 
 export default function SignInScreen() {
   const router = useRouter()
@@ -22,11 +27,13 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [appleLoading, setAppleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const { data: session } = useSession()
   const [request, response, promptAsync] = Google.useAuthRequest({
     iosClientId: GOOGLE_IOS_CLIENT_ID,
+    redirectUri: GOOGLE_REDIRECT_URI,
     // Only request basic profile scopes here — calendar.events is a sensitive
     // scope that triggers Google's "unverified app" warning. Users can connect
     // Google Calendar separately via the Enable Calendar sync button in Profile.
@@ -79,14 +86,7 @@ export default function SignInScreen() {
         }
       } catch {}
 
-      const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
-      const role = (me as any)?.role ?? "dancer"
-      const status = (me as any)?.status ?? "active"
-      if (status === "pending") router.replace("/(auth)/pending")
-      else if (status === "denied") router.replace("/(auth)/denied")
-      else if (role === "admin") router.replace("/admin")
-      else if (role === "prep_master") router.replace("/portal")
-      else router.replace("/member")
+      await routeAfterAuth()
     } catch { setError("Google sign-in failed. Please try again.") }
     finally { setGoogleLoading(false) }
   }
@@ -97,16 +97,57 @@ export default function SignInScreen() {
     try {
       const result = await signIn.email({ email: email.trim(), password })
       if (result.error) { setError(result.error.message ?? "Invalid email or password."); return }
-      const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
-      const role = (me as any)?.role ?? "dancer"
-      const status = (me as any)?.status ?? "active"
-      if (status === "pending") router.replace("/(auth)/pending")
-      else if (status === "denied") router.replace("/(auth)/denied")
-      else if (role === "admin") router.replace("/admin")
-      else if (role === "prep_master") router.replace("/portal")
-      else router.replace("/member")
+      await routeAfterAuth()
     } catch { setError("Something went wrong. Please try again.") }
     finally { setLoading(false) }
+  }
+
+  async function routeAfterAuth() {
+    const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
+    const role = (me as any)?.role ?? "dancer"
+    const status = (me as any)?.status ?? "active"
+    if (status === "pending") router.replace("/(auth)/pending")
+    else if (status === "denied") router.replace("/(auth)/denied")
+    else if (role === "admin") router.replace("/admin")
+    else if (role === "prep_master") router.replace("/portal")
+    else router.replace("/member")
+  }
+
+  async function handleAppleSignIn() {
+    setError(null)
+    setAppleLoading(true)
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      })
+      if (!credential.identityToken) throw new Error("No identity token from Apple.")
+      // Build a display name from the credential (only provided on first sign-in)
+      const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
+        .filter(Boolean).join(" ")
+      const result = await (signIn as any).social({
+        provider: "apple",
+        idToken: { token: credential.identityToken },
+      })
+      if (result?.error) { setError(result.error.message ?? "Apple sign-in failed."); return }
+      // Apple only gives the name on the very first sign-in — persist it if we got one
+      if (fullName) {
+        await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/update-user", {
+          method: "POST",
+          body: JSON.stringify({ name: fullName }),
+          headers: { "Content-Type": "application/json" },
+        }).catch(() => {})
+      }
+      await routeAfterAuth()
+    } catch (err: any) {
+      if (err?.code !== "ERR_REQUEST_CANCELED") {
+        setError(err?.message ?? "Apple sign-in failed. Please try again.")
+      }
+    } finally {
+      setAppleLoading(false)
+    }
   }
 
   function handleGoogleSignIn() { setError(null); setGoogleLoading(true); promptAsync() }
@@ -124,9 +165,21 @@ export default function SignInScreen() {
           <Text style={styles.heading}>Welcome back</Text>
           <Text style={styles.sub}>Sign in to your account</Text>
           {error && <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>}
-          <TouchableOpacity style={[styles.googleBtn, googleLoading && styles.btnDisabled]} onPress={handleGoogleSignIn} disabled={googleLoading || loading} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.googleBtn, googleLoading && styles.btnDisabled]} onPress={handleGoogleSignIn} disabled={googleLoading || loading || appleLoading} activeOpacity={0.8}>
             {googleLoading ? <ActivityIndicator color={COLORS.text} size="small" /> : <><Text style={styles.googleIcon}>G</Text><Text style={styles.googleBtnText}>Continue with Google</Text></>}
           </TouchableOpacity>
+          {appleAuthAvailable && (
+            <>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={RADIUS.sm}
+                style={[styles.appleBtn, appleLoading && styles.btnDisabled]}
+                onPress={handleAppleSignIn}
+              />
+              <Text style={styles.appleNote}>Use the same email as your existing account to sign in.</Text>
+            </>
+          )}
           <View style={styles.dividerRow}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>or</Text>
@@ -137,7 +190,14 @@ export default function SignInScreen() {
             <TextInput style={styles.input} placeholder="you@example.com" placeholderTextColor={COLORS.textMuted} autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} editable={!loading} />
           </View>
           <View style={styles.field}>
-            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordLabelRow}>
+              <Text style={styles.label}>Password</Text>
+              <Link href="/(auth)/forgot-password" asChild>
+                <TouchableOpacity activeOpacity={0.7}>
+                  <Text style={styles.forgotLink}>Forgot password?</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
             <TextInput style={styles.input} placeholder="••••••••" placeholderTextColor={COLORS.textMuted} secureTextEntry value={password} onChangeText={setPassword} editable={!loading} onSubmitEditing={handleSignIn} returnKeyType="go" />
           </View>
           <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleSignIn} disabled={loading} activeOpacity={0.8}>
@@ -165,7 +225,9 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     sub: { fontSize: 14, color: COLORS.textMuted, marginBottom: SPACING.lg },
     errorBox: { backgroundColor: COLORS.redLight, borderRadius: RADIUS.sm, padding: SPACING.sm, marginBottom: SPACING.md },
     errorText: { fontSize: 13, color: COLORS.red, fontWeight: "500" },
-    googleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, marginBottom: SPACING.md },
+    googleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, marginBottom: SPACING.sm },
+    appleBtn: { height: 50, marginBottom: 6 },
+    appleNote: { fontSize: 11, color: COLORS.textMuted, textAlign: "center", marginBottom: SPACING.md, lineHeight: 16 },
     googleIcon: { fontSize: 16, fontWeight: "800", color: "#4285F4" },
     googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
     dividerRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, marginBottom: SPACING.md },
@@ -177,6 +239,8 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     btn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center", marginTop: SPACING.sm },
     btnDisabled: { opacity: 0.6 },
     btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+    passwordLabelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+    forgotLink: { fontSize: 13, color: COLORS.primary, fontWeight: "600" },
     footer: { flexDirection: "row", justifyContent: "center", marginTop: SPACING.lg },
     footerText: { fontSize: 14, color: COLORS.textMuted },
     footerLink: { fontSize: 14, color: COLORS.primary, fontWeight: "600" },
