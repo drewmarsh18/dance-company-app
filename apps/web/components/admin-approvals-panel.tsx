@@ -9,6 +9,7 @@ type PendingUser = {
   email: string
   status: string
   createdAt: string
+  accountType: "prepmaster" | "member"
 }
 
 export function AdminApprovalsPanel() {
@@ -58,7 +59,14 @@ export function AdminApprovalsPanel() {
             {pending.map((u) => (
               <div key={u.id} className="flex items-center justify-between gap-4 p-4">
                 <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">{u.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground truncate">{u.name}</p>
+                    {u.accountType === "prepmaster" ? (
+                      <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">PrepMaster</span>
+                    ) : (
+                      <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">Member</span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground truncate">{u.email}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Signed up {new Date(u.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -97,7 +105,14 @@ export function AdminApprovalsPanel() {
             {denied.map((u) => (
               <div key={u.id} className="flex items-center justify-between gap-4 p-4">
                 <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">{u.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground truncate">{u.name}</p>
+                    {u.accountType === "prepmaster" ? (
+                      <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">PrepMaster</span>
+                    ) : (
+                      <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">Member</span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground truncate">{u.email}</p>
                 </div>
                 <button

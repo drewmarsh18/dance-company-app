@@ -138,11 +138,11 @@ export default function AdminPrepMastersScreen() {
                           <Text style={styles.sub}>{sessionCount} session{sessionCount !== 1 ? "s" : ""}</Text>
                           <View style={{ flexDirection: "row", gap: 4 }}>
                             <View style={[styles.badge, {
-                              backgroundColor: w.inviteStatus === "accepted" ? COLORS.primaryLight : w.inviteStatus === "revoked" ? COLORS.redLight : w.inviteStatus === "pending" ? COLORS.amberLight : COLORS.grayLight,
+                              backgroundColor: w.inviteStatus === "accepted" ? COLORS.primaryLight : w.inviteStatus === "revoked" ? COLORS.redLight : COLORS.amberLight,
                             }]}>
                               <Text style={[styles.badgeText, {
-                                color: w.inviteStatus === "accepted" ? COLORS.primary : w.inviteStatus === "revoked" ? COLORS.red : w.inviteStatus === "pending" ? COLORS.amber : COLORS.textMuted,
-                              }]}>{w.inviteStatus === "accepted" ? "Joined" : w.inviteStatus === "revoked" ? "Revoked" : w.inviteStatus === "pending" ? "Invited" : "Not invited"}</Text>
+                                color: w.inviteStatus === "accepted" ? COLORS.primary : w.inviteStatus === "revoked" ? COLORS.red : COLORS.amber,
+                              }]}>{w.inviteStatus === "accepted" ? "Joined" : w.inviteStatus === "revoked" ? "Revoked" : "Pending"}</Text>
                             </View>
                             <View style={[styles.badge, { backgroundColor: w.active ? COLORS.greenLight : COLORS.grayLight }]}>
                               <Text style={[styles.badgeText, { color: w.active ? COLORS.green : COLORS.textMuted }]}>{w.active ? "Active" : "Inactive"}</Text>
