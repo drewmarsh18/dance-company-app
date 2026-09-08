@@ -650,6 +650,10 @@ export async function adminUpdateWorker(
   await update<WorkerFields>(TABLES.workers, workerId, patch)
 }
 
+export async function adminDeleteWorker(workerId: string): Promise<void> {
+  await destroy(TABLES.workers, workerId)
+}
+
 export async function adminAddCredits(
   memberId: string,
   currentCredits: number,

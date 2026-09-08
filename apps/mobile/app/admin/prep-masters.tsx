@@ -75,6 +75,7 @@ export default function AdminPrepMastersScreen() {
         bookings={bookings.filter((b) => b.prepMasterName === selected.name)}
         onBack={() => setSelected(null)}
         onSaved={(updated) => { setSelected(updated); setLocalWorkers((prev) => (prev ?? workers).map((w) => w.id === updated.id ? updated : w)) }}
+        onDeleted={() => { setSelected(null); setLocalWorkers((prev) => (prev ?? workers).filter((w) => w.id !== selected.id)) }}
       />
     )
   }
@@ -184,8 +185,8 @@ function PMCollapsibleGroup({ label, count, defaultOpen, children }: { label: st
   )
 }
 
-function PrepMasterProfile({ worker, bookings, onBack, onSaved }: {
-  worker: AdminWorker; bookings: AdminBooking[]; onBack: () => void; onSaved: (w: AdminWorker) => void
+function PrepMasterProfile({ worker, bookings, onBack, onSaved, onDeleted }: {
+  worker: AdminWorker; bookings: AdminBooking[]; onBack: () => void; onSaved: (w: AdminWorker) => void; onDeleted: () => void
 }) {
   const COLORS = useColors()
   const styles = makeStyles(COLORS)
@@ -196,6 +197,7 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved }: {
   const [hourlyRate, setHourlyRate] = useState(String(worker.hourlyRate))
   const [active, setActive] = useState(worker.active)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false); const [historyOpen, setHistoryOpen] = useState(false)
   const [filterMonth, setFilterMonth] = useState(""); const [expandedBooking, setExpandedBooking] = useState<string | null>(null)
 
@@ -206,6 +208,27 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved }: {
   const margin = totalRevenue - totalPay
   const months = Array.from(new Set(bookings.map((b) => b.date?.slice(0, 7)).filter(Boolean))).sort().reverse()
   const filteredBookings = filterMonth ? bookings.filter((b) => b.date?.startsWith(filterMonth)) : bookings
+
+  function handleDelete() {
+    Alert.alert(
+      "Delete PrepMaster",
+      `Permanently delete ${worker.name}? This removes them from Airtable and their login account. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: async () => {
+          setDeleting(true)
+          const { data, error } = await authClient.$fetch(`${API}/api/admin/workers/${worker.id}`, {
+            method: "DELETE",
+            body: JSON.stringify({ email: worker.email }),
+            headers: { "Content-Type": "application/json" },
+          })
+          setDeleting(false)
+          if (error) { Alert.alert("Error", "Failed to delete PrepMaster."); return }
+          onDeleted()
+        }},
+      ],
+    )
+  }
 
   async function handleSave() {
     const rate = parseFloat(hourlyRate)
@@ -257,8 +280,11 @@ function PrepMasterProfile({ worker, bookings, onBack, onSaved }: {
                 <Text style={styles.activeLabel}>Active — visible to dancers for booking</Text>
                 <Switch value={active} onValueChange={setActive} trackColor={{ true: COLORS.primary }} />
               </View>
-              <TouchableOpacity style={[styles.btnPrimary, saving && styles.btnDisabled]} onPress={handleSave} disabled={saving} activeOpacity={0.7}>
+              <TouchableOpacity style={[styles.btnPrimary, saving && styles.btnDisabled]} onPress={handleSave} disabled={saving || deleting} activeOpacity={0.7}>
                 <Text style={styles.btnPrimaryText}>{saving ? "Saving…" : "Save changes"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btnDanger, deleting && styles.btnDisabled]} onPress={handleDelete} disabled={saving || deleting} activeOpacity={0.7}>
+                <Text style={styles.btnDangerText}>{deleting ? "Deleting…" : "Delete PrepMaster"}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -499,6 +525,8 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     activeLabel: { fontSize: 14, fontWeight: "500", color: COLORS.text, flex: 1 },
     btnPrimary: { backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, paddingVertical: 10, alignItems: "center" },
     btnPrimaryText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+    btnDanger: { backgroundColor: COLORS.red, borderRadius: RADIUS.sm, paddingVertical: 10, alignItems: "center", marginTop: 4 },
+    btnDangerText: { color: "#fff", fontWeight: "600", fontSize: 14 },
     btnDisabled: { opacity: 0.4 },
     statGrid: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
     statTile: { flex: 1, minWidth: "45%", borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.sm, backgroundColor: COLORS.background },

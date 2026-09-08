@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { updatePrepMaster, addPrepMaster } from "@/app/actions/admin"
+import { updatePrepMaster, addPrepMaster, deletePrepMaster } from "@/app/actions/admin"
 import type { AdminWorker, AdminBooking } from "@/lib/airtable"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Users, DollarSign, Phone, Mail, Home, CalendarDays, ChevronDown, ChevronUp, PlusCircle, X, GraduationCap } from "lucide-react"
+import { ArrowLeft, Users, DollarSign, Phone, Mail, Home, CalendarDays, ChevronDown, ChevronUp, PlusCircle, X, GraduationCap, Trash2 } from "lucide-react"
 import { getUniversityColor } from "@/lib/university-colors"
 import { BookingFilterBar, applyFilters, type SortDir } from "@/components/booking-filter-bar"
 import { PER_PRIVATE, PACKAGES } from "@/lib/packages"
@@ -196,10 +196,22 @@ function PrepMasterProfile({
   const [hourlyRate, setHourlyRate] = useState(String(worker.hourlyRate))
   const [active, setActive] = useState(worker.active)
   const [isPending, startTransition] = useTransition()
+  const [isDeleting, setIsDeleting] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(true)
 
   const completedBookings = bookings.filter((b) => b.status.toLowerCase() !== "cancelled")
+
+  function handleDelete() {
+    if (!window.confirm(`Permanently delete ${worker.name}? This removes them from Airtable and their login account. This cannot be undone.`)) return
+    setIsDeleting(true)
+    startTransition(async () => {
+      const result = await deletePrepMaster(worker.id, worker.email)
+      setIsDeleting(false)
+      if (result.ok) { toast.success(`${worker.name} has been deleted.`); onBack() }
+      else toast.error(result.error)
+    })
+  }
 
   function handleSave() {
     startTransition(async () => {
@@ -318,11 +330,17 @@ function PrepMasterProfile({
               </label>
             </div>
 
-            <div className="flex gap-2">
-              <Button disabled={isPending} onClick={handleSave}>
-                {isPending ? "Saving…" : "Save changes"}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex gap-2">
+                <Button disabled={isPending || isDeleting} onClick={handleSave}>
+                  {isPending ? "Saving…" : "Save changes"}
+                </Button>
+                <Button variant="ghost" onClick={onBack} disabled={isPending || isDeleting}>Cancel</Button>
+              </div>
+              <Button variant="destructive" size="sm" onClick={handleDelete} disabled={isPending || isDeleting}>
+                <Trash2 className="mr-1.5 size-3.5" />
+                {isDeleting ? "Deleting…" : "Delete PrepMaster"}
               </Button>
-              <Button variant="ghost" onClick={onBack}>Cancel</Button>
             </div>
           </CardContent>
         )}

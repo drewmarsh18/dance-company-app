@@ -15,6 +15,7 @@ import {
   adminAddCredits,
   adminGetAllPlans,
   adminUpdateWorker,
+  adminDeleteWorker,
   adminCreateMember,
   adminCreateWorker,
   createMemberPlan,
@@ -168,6 +169,29 @@ export async function updatePrepMaster(
       ok: false,
       error: err instanceof Error ? err.message : "Failed to update PrepMaster.",
     }
+  }
+}
+
+export async function deletePrepMaster(
+  workerId: string,
+  workerEmail: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await assertAdmin()
+    // Delete from Airtable
+    await adminDeleteWorker(workerId)
+    // Delete DB user account if one exists
+    const users = await db.select().from(userTable).where(eq(userTable.email, workerEmail))
+    if (users[0]) {
+      await db.delete(userTable).where(eq(userTable.id, users[0].id))
+    }
+    // Remove any pending invite record
+    await db.delete(prepMasterInvite).where(eq(prepMasterInvite.email, workerEmail))
+    revalidateTag("admin")
+    revalidatePath("/admin")
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to delete PrepMaster." }
   }
 }
 
