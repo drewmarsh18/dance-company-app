@@ -1,10 +1,9 @@
 import { betterAuth } from "better-auth"
 import { expo } from "@better-auth/expo"
-import { Resend } from "resend"
 import { pool, db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
-import { sendEmail, newMemberPendingEmail } from "@/lib/email"
+import { sendEmail, sendPasswordResetEmail, newMemberPendingEmail } from "@/lib/email"
 import { sendPushToUser } from "@/lib/push"
 
 export const auth = betterAuth({
@@ -22,26 +21,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     sendResetPassword: async ({ user, url }) => {
-      if (!process.env.RESEND_API_KEY) return
-      const resend = new Resend(process.env.RESEND_API_KEY)
-      await resend.emails.send({
-        from: "College Dance Prep <onboarding@resend.dev>",
-        to: user.email,
-        subject: "Reset your password",
-        html: `
-          <div style="font-family:-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:32px 16px">
-            <div style="background:#e91e8c;border-radius:8px 8px 0 0;padding:24px 32px;text-align:center">
-              <div style="color:#fff;font-size:20px;font-weight:600">College Dance Prep</div>
-            </div>
-            <div style="background:#fff;border:1px solid #e4e4e7;border-top:none;border-radius:0 0 8px 8px;padding:28px 32px">
-              <p style="margin:0 0 16px;font-size:15px;color:#111">Hi ${user.name ?? user.email},</p>
-              <p style="margin:0 0 24px;font-size:15px;color:#444">We received a request to reset your password. Click the button below — this link expires in 1 hour.</p>
-              <a href="${url}" style="display:inline-block;background:#e91e8c;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:15px">Reset password</a>
-              <p style="margin:24px 0 0;font-size:13px;color:#9ca3af">If you didn't request this, you can safely ignore this email.</p>
-            </div>
-          </div>
-        `,
-      })
+      await sendPasswordResetEmail({ name: user.name, email: user.email, url })
     },
   },
   socialProviders: {

@@ -2,6 +2,7 @@ import nodemailer from "nodemailer"
 
 const REPLY_TO = "collegedanceprep@gmail.com"
 const YEAR = new Date().getFullYear()
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
 
 function getTransporter() {
   return nodemailer.createTransport({
@@ -257,5 +258,44 @@ export function bookingUpdatedEmail({
   return {
     subject: `Session rescheduled — ${date} at ${time}`,
     html: emailBase("Session rescheduled", body),
+  }
+}
+
+export async function sendPasswordResetEmail({ name, email, url }: { name: string; email: string; url: string }) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(name ?? email)},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 24px">We received a request to reset your password. Click the button below — this link expires in 1 hour.</p>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${url}" style="display:inline-block;background:#e91e8c;color:#ffffff;text-decoration:none;padding:13px 32px;border-radius:6px;font-weight:600;font-size:15px">
+        Reset password
+      </a>
+    </div>
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0">If you didn't request this, you can safely ignore this email.</p>`
+  await sendEmail({
+    to: email,
+    subject: "Reset your password",
+    html: emailBase("Password reset", body),
+  })
+}
+
+export function parentInviteEmail({ childName, parentEmail }: { childName: string; parentEmail: string }) {
+  const joinUrl = `${APP_URL}/join?email=${encodeURIComponent(parentEmail)}&child=${encodeURIComponent(childName)}`
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi there,</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">
+      You've been added as a parent or guardian for <strong>${childName}</strong> on College Dance Prep.
+      Click the button below to create your account — your email is already pre-filled and linked to ${childName}'s profile.
+    </p>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${joinUrl}" style="display:inline-block;background:#e91e8c;color:#ffffff;text-decoration:none;padding:13px 32px;border-radius:6px;font-weight:600;font-size:15px">
+        Create your account
+      </a>
+    </div>
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0">
+      Just set a password and you&apos;re in. Reply to this email if you have any questions.
+    </p>`
+  return {
+    subject: `You've been added as a parent on College Dance Prep`,
+    html: emailBase("Parent access", body),
   }
 }
