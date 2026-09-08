@@ -197,7 +197,7 @@ function PrepMasterProfile({
   const [active, setActive] = useState(worker.active)
   const [isPending, startTransition] = useTransition()
   const [isDeleting, setIsDeleting] = useState(false)
-  const [infoOpen, setInfoOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(true)
 
   const completedBookings = bookings.filter((b) => b.status.toLowerCase() !== "cancelled")
