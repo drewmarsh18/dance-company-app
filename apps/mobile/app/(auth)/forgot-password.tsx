@@ -25,7 +25,7 @@ export default function ForgotPasswordScreen() {
     setError(null)
     setLoading(true)
     try {
-      const result = await authClient.forgetPassword({
+      const result = await authClient.requestPasswordReset({
         email: email.trim().toLowerCase(),
         redirectTo: `${API_BASE}/reset-password`,
       })
