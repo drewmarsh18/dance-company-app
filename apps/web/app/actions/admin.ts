@@ -76,6 +76,31 @@ export async function getAdminData(): Promise<{
         .where(inArray(prepMasterInvite.email, emails))
     : []
   const inviteMap = Object.fromEntries(invites.map((i) => [i.email.toLowerCase(), i.status]))
+
+  // Auto-create pending invite records for workers who don't have one yet,
+  // so they can sign in and the admin sees "Pending" instead of nothing.
+  const workersWithoutInvite = workers.filter((w) => {
+    const e = w.email.trim().toLowerCase()
+    return e && !inviteMap[e]
+  })
+  if (workersWithoutInvite.length > 0) {
+    await db
+      .insert(prepMasterInvite)
+      .values(
+        workersWithoutInvite.map((w) => ({
+          id: randomUUID(),
+          email: w.email.trim().toLowerCase(),
+          name: w.name,
+          invitedBy: "system",
+          status: "pending" as const,
+        })),
+      )
+      .onConflictDoNothing()
+    for (const w of workersWithoutInvite) {
+      inviteMap[w.email.trim().toLowerCase()] = "pending"
+    }
+  }
+
   const workersWithStatus = workers.map((w) => ({
     ...w,
     inviteStatus: (inviteMap[w.email.trim().toLowerCase()] ?? null) as AdminWorker["inviteStatus"],

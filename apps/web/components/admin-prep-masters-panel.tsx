@@ -132,11 +132,9 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
                       ? "border-blue-300 bg-blue-100 text-blue-700"
                       : worker.inviteStatus === "revoked"
                         ? "border-red-200 bg-red-50 text-red-500"
-                        : worker.inviteStatus === "pending"
-                          ? "border-amber-300 bg-amber-100 text-amber-700"
-                          : "border-gray-200 bg-gray-100 text-gray-500"
+                        : "border-amber-300 bg-amber-100 text-amber-700"
                   }>
-                    {worker.inviteStatus === "accepted" ? "Joined" : worker.inviteStatus === "revoked" ? "Revoked" : worker.inviteStatus === "pending" ? "Invited" : "Not invited"}
+                    {worker.inviteStatus === "accepted" ? "Joined" : worker.inviteStatus === "revoked" ? "Revoked" : "Pending"}
                   </Badge>
                 </div>
               </div>
