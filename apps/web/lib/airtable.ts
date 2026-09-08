@@ -207,8 +207,10 @@ export type PrepMaster = {
   id: string
   name: string
   email: string
+  phone: string
   region: string
   university: string
+  address: string
 }
 
 function toPrepMaster(r: AirtableRecord<WorkerFields>): PrepMaster {
@@ -216,8 +218,10 @@ function toPrepMaster(r: AirtableRecord<WorkerFields>): PrepMaster {
     id: r.id,
     name: r.fields["Full Name"] ?? "Unnamed PrepMaster",
     email: r.fields.Email ?? "",
+    phone: r.fields.Phone ?? "",
     region: r.fields.Region ?? "",
     university: r.fields.University ?? "",
+    address: r.fields.Address ?? "",
     // Hourly Rate is intentionally NOT included here.
   }
 }
@@ -272,6 +276,7 @@ export type PrepMasterBooking = {
   dancerEmail: string
   dancerPhone: string
   userId: string
+  sessionType: string | null
 }
 
 export async function getBookingsForPrepMaster(
@@ -305,6 +310,7 @@ export async function getBookingsForPrepMaster(
       dancerEmail: client?.email ?? r.fields["Client Email"] ?? "",
       dancerPhone: client?.phone ?? "",
       userId: uid,
+      sessionType: (r.fields["Session Type"] as string) ?? null,
     }
   })
 }
@@ -494,6 +500,7 @@ export type AdminMember = {
   phone: string
   goals: string
   creditsRemaining: number
+  parentEmail: string
 }
 
 export type AdminWorker = {
@@ -506,6 +513,7 @@ export type AdminWorker = {
   address: string
   hourlyRate: number
   active: boolean
+  inviteStatus?: "pending" | "accepted" | "revoked" | null
 }
 
 export type AdminBooking = {
@@ -534,7 +542,12 @@ export async function adminGetAllMembers(): Promise<AdminMember[]> {
     phone: r.fields.Phone ?? "",
     goals: r.fields.Goals ?? "",
     creditsRemaining: r.fields["Credits Remaining"] ?? 0,
+    parentEmail: r.fields["Parent Email"] ?? "",
   }))
+}
+
+export async function adminUpdateMemberParentEmail(recordId: string, parentEmail: string) {
+  await update<ClientFields>(TABLES.clients, recordId, { "Parent Email": parentEmail || undefined })
 }
 
 export async function adminGetAllBookings(): Promise<AdminBooking[]> {
