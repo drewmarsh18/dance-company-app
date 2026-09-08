@@ -34,8 +34,8 @@ export default function ForgotPasswordScreen() {
       } else {
         setSent(true)
       }
-    } catch {
-      setError("Something went wrong. Please try again.")
+    } catch (err: any) {
+      setError(err?.message ?? JSON.stringify(err) ?? "Something went wrong. Please try again.")
     } finally {
       setLoading(false)
     }
