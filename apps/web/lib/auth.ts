@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth"
 import { expo } from "@better-auth/expo"
+import { Resend } from "resend"
 import { pool, db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -22,7 +23,6 @@ export const auth = betterAuth({
     enabled: true,
     sendResetPassword: async ({ user, url }) => {
       if (!process.env.RESEND_API_KEY) return
-      const { Resend } = await import("resend")
       const resend = new Resend(process.env.RESEND_API_KEY)
       await resend.emails.send({
         from: "College Dance Prep <onboarding@resend.dev>",
