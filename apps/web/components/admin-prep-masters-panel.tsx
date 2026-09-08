@@ -10,10 +10,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Users, DollarSign, Phone, Mail, Home, CalendarDays, ChevronDown, ChevronUp, PlusCircle, X } from "lucide-react"
+import { ArrowLeft, Users, DollarSign, Phone, Mail, Home, CalendarDays, ChevronDown, ChevronUp, PlusCircle, X, GraduationCap } from "lucide-react"
 import { getUniversityColor } from "@/lib/university-colors"
 import { BookingFilterBar, applyFilters, type SortDir } from "@/components/booking-filter-bar"
 import { PER_PRIVATE, PACKAGES } from "@/lib/packages"
+
+const UNIVERSITIES = [
+  "Alabama","Arizona","ASU","Boise","Cincinnati","Coastal Carolina","CSU","CU Boulder",
+  "ECU","FSU","GCU","Indiana","Kansas State","Kansas University","Louisville",
+  "LSU Tiger Girls","Mississippi State","NC State","Ole Miss","Ohio State Club Team",
+  "Oregon","Penn State","Pitt","Purdue","Samford","Sam Houston State","SDSU",
+  "South Carolina","Tennessee","Texas State","U Miami","UCLA","UCSB","UK","UNLV",
+  "Utah","Vanderbilt","Virginia Tech","Washington","Western Michigan","Wisconsin","WVU","Wichita State",
+]
 
 const PACK_SESSION_PRICE = PACKAGES[0].perSession
 const PRICE_POINTS = [
@@ -117,6 +126,17 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
                   <Badge variant="outline" className={worker.active ? "border-green-300 bg-green-100 text-green-700" : "border-gray-200 bg-gray-100 text-gray-500"}>
                     {worker.active ? "Active" : "Inactive"}
                   </Badge>
+                  <Badge variant="outline" className={
+                    worker.inviteStatus === "accepted"
+                      ? "border-blue-300 bg-blue-100 text-blue-700"
+                      : worker.inviteStatus === "revoked"
+                        ? "border-red-200 bg-red-50 text-red-500"
+                        : worker.inviteStatus === "pending"
+                          ? "border-amber-300 bg-amber-100 text-amber-700"
+                          : "border-gray-200 bg-gray-100 text-gray-500"
+                  }>
+                    {worker.inviteStatus === "accepted" ? "Joined" : worker.inviteStatus === "revoked" ? "Revoked" : worker.inviteStatus === "pending" ? "Invited" : "Not invited"}
+                  </Badge>
                 </div>
               </div>
             </CardHeader>
@@ -192,12 +212,13 @@ function PrepMasterProfile({
         email: email.trim(),
         phone: phone.trim(),
         address: address.trim(),
+        university: university.trim(),
         hourlyRate: rate,
         active,
       })
       if (result.ok) {
         toast.success("PrepMaster updated.")
-        onSaved({ ...worker, name: name.trim(), email: email.trim(), phone: phone.trim(), address: address.trim(), hourlyRate: rate, active })
+        onSaved({ ...worker, name: name.trim(), email: email.trim(), phone: phone.trim(), address: address.trim(), university: university.trim(), hourlyRate: rate, active })
       } else {
         toast.error(result.error)
       }
@@ -241,6 +262,32 @@ function PrepMasterProfile({
               <Field label="Email" icon={<Mail className="size-3.5" />} value={email} onChange={setEmail} type="email" />
               <Field label="Phone" icon={<Phone className="size-3.5" />} value={phone} onChange={setPhone} type="tel" />
               <Field label="Address" icon={<Home className="size-3.5" />} value={address} onChange={setAddress} />
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <GraduationCap className="size-3.5" />
+                  University
+                </label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={university}
+                    onChange={(e) => setUniversity(e.target.value)}
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">— None —</option>
+                    {UNIVERSITIES.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                  {university && (() => {
+                    const { bg, text } = getUniversityColor(university)
+                    return (
+                      <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap" style={{ backgroundColor: bg, color: text }}>
+                        {university}
+                      </span>
+                    )
+                  })()}
+                </div>
+              </div>
               <div className="flex flex-col gap-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                   <DollarSign className="size-3.5" />

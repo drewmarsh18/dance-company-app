@@ -633,6 +633,7 @@ export async function adminUpdateWorker(
     phone?: string
     region?: string
     address?: string
+    university?: string
     hourlyRate?: number
     active?: boolean
   },
@@ -643,6 +644,7 @@ export async function adminUpdateWorker(
   if (fields.phone !== undefined) patch.Phone = fields.phone
   if (fields.region !== undefined) patch.Region = fields.region
   if (fields.address !== undefined) patch.Address = fields.address
+  if (fields.university !== undefined) patch.University = fields.university
   if (fields.hourlyRate !== undefined) patch["Hourly Rate"] = fields.hourlyRate
   if (fields.active !== undefined) patch.Active = fields.active
   await update<WorkerFields>(TABLES.workers, workerId, patch)

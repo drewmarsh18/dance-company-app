@@ -6,8 +6,8 @@ import { revalidatePath, revalidateTag } from "next/cache"
 import { auth } from "@/lib/auth"
 import { isAdminEmail } from "@/lib/roles"
 import { db } from "@/lib/db"
-import { prepMasterInvite } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
+import { prepMasterInvite, user as userTable } from "@/lib/db/schema"
+import { eq, inArray } from "drizzle-orm"
 import {
   adminGetAllMembers,
   adminGetAllBookings,
@@ -57,7 +57,30 @@ export async function getAdminData(): Promise<{
     adminGetAllWorkers(),
     adminGetAllPlans(),
   ])
-  return { members, bookings, workers, plans, packages: PACKAGES }
+
+  // Exclude members whose auth account is still pending (they appear in the Approvals tab instead)
+  const pendingUsers = await db
+    .select({ email: userTable.email })
+    .from(userTable)
+    .where(eq(userTable.status, "pending"))
+  const pendingEmails = new Set(pendingUsers.map((u) => u.email.toLowerCase()))
+  const approvedMembers = members.filter((m) => !pendingEmails.has(m.email.toLowerCase()))
+
+  // Join invite status from DB onto each worker by email
+  const emails = workers.map((w) => w.email.trim().toLowerCase()).filter(Boolean)
+  const invites = emails.length > 0
+    ? await db
+        .select({ email: prepMasterInvite.email, status: prepMasterInvite.status })
+        .from(prepMasterInvite)
+        .where(inArray(prepMasterInvite.email, emails))
+    : []
+  const inviteMap = Object.fromEntries(invites.map((i) => [i.email.toLowerCase(), i.status]))
+  const workersWithStatus = workers.map((w) => ({
+    ...w,
+    inviteStatus: (inviteMap[w.email.trim().toLowerCase()] ?? null) as AdminWorker["inviteStatus"],
+  }))
+
+  return { members: approvedMembers, bookings, workers: workersWithStatus, plans, packages: PACKAGES }
 }
 
 export async function addComplimentaryCredits(
@@ -129,6 +152,7 @@ export async function updatePrepMaster(
     phone?: string
     region?: string
     address?: string
+    university?: string
     hourlyRate?: number
     active?: boolean
   },
