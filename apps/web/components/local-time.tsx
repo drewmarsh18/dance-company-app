@@ -1,19 +1,21 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { slotToLocalTime, localTimezoneAbbr, userIsInDifferentTimezone, COMPANY_TIMEZONE } from "@/lib/time"
+import { localTimezoneAbbr } from "@/lib/time"
 
 /**
- * Renders a time slot string in the user's local timezone.
- * Falls back to the stored string on the server (no hydration mismatch).
+ * Renders a booking time in the viewer's local timezone.
+ * Prefers utcDatetime (ISO string) for accuracy; falls back to raw slot string.
  */
 export function LocalTime({
   slot,
   dateIso,
+  utcDatetime,
   className,
 }: {
   slot: string
   dateIso: string
+  utcDatetime?: string | null
   className?: string
 }) {
   const [localSlot, setLocalSlot] = useState(slot)
@@ -21,14 +23,20 @@ export function LocalTime({
 
   useEffect(() => {
     try {
-      setLocalSlot(slotToLocalTime(slot, dateIso, COMPANY_TIMEZONE))
-      if (userIsInDifferentTimezone()) {
+      if (utcDatetime) {
+        const d = new Date(utcDatetime)
+        const formatted = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+        setLocalSlot(formatted)
+        // Show tz abbreviation always when we have a real UTC source
         setAbbr(localTimezoneAbbr())
+      } else {
+        // Legacy fallback: raw slot string, no conversion (better than wrong conversion)
+        setLocalSlot(slot)
       }
     } catch {
-      // keep original
+      setLocalSlot(slot)
     }
-  }, [slot, dateIso])
+  }, [slot, dateIso, utcDatetime])
 
   return (
     <span className={className}>

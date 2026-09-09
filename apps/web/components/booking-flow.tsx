@@ -119,7 +119,10 @@ export function BookingFlow({
   }, [weekDays, week, bookedSlots, today])
 
   const canGoBack = weekOffset > 0
-  const canSubmit = selectedDate && selectedTime && selectedDuration && (effectiveOption || noStructuredCredits) && !isPending
+  // Auto-select locked duration when it becomes known
+  const activeDuration = lockedDuration ?? selectedDuration
+
+  const canSubmit = selectedDate && selectedTime && activeDuration && (effectiveOption || noStructuredCredits) && !isPending
 
   function selectSlot(iso: string, slot: string) {
     setSelectedDate(iso)
@@ -130,8 +133,18 @@ export function BookingFlow({
     if (planName.includes("30")) return "private-30"
     if (planName.includes("45")) return "private-45"
     if (planName.includes("60")) return "private-60"
+    if (planName.includes("90")) return "private-90"
     return "pack-hour"
   }
+
+  // If the active plan is a single per-private session, lock duration to that length
+  const lockedDuration = useMemo<"private-30" | "private-45" | "private-60" | "private-90" | null>(() => {
+    const plan = effectiveOption?.plan
+    if (!plan) return null
+    const st = planSessionType(plan.planName)
+    if (st === "pack-hour") return null
+    return st as "private-30" | "private-45" | "private-60" | "private-90"
+  }, [effectiveOption])
 
   function handleConfirm() {
     if (!selectedDate || !selectedTime) return
@@ -145,7 +158,7 @@ export function BookingFlow({
         notes,
         planId: plan?.id,
         planSessions: plan?.sessions,
-        sessionType: selectedDuration ?? (plan ? planSessionType(plan.planName) : "pack-hour"),
+        sessionType: activeDuration ?? (plan ? planSessionType(plan.planName) : "pack-hour"),
       })
       if (result.ok) {
         toast.success("Session booked!", {
@@ -327,25 +340,35 @@ export function BookingFlow({
       {/* Session duration */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <StepBadge n={2 + stepOffset} done={!!selectedDuration} />
+          <StepBadge n={2 + stepOffset} done={!!activeDuration} />
           <h2 className="font-heading text-lg font-bold tracking-tight">Session length</h2>
         </div>
         <div className="flex gap-2">
-          {DURATIONS.map((d) => (
-            <button
-              key={d.value}
-              type="button"
-              onClick={() => setSelectedDuration(d.value)}
-              className={cn(
-                "flex flex-1 flex-col items-center rounded-lg border px-3 py-3 text-sm transition-colors",
-                selectedDuration === d.value ? "border-primary bg-primary/5" : "bg-card hover:border-primary/50",
-              )}
-            >
-              <span className={cn("font-bold text-base", selectedDuration === d.value ? "text-primary" : "text-foreground")}>{d.label}</span>
-              <span className="text-xs text-muted-foreground">{d.sub}</span>
-            </button>
-          ))}
+          {DURATIONS.map((d) => {
+            const isLocked = !!lockedDuration
+            const isSelected = activeDuration === d.value
+            const isDisabled = isLocked && d.value !== lockedDuration
+            return (
+              <button
+                key={d.value}
+                type="button"
+                onClick={() => !isLocked && setSelectedDuration(d.value)}
+                disabled={isDisabled}
+                className={cn(
+                  "flex flex-1 flex-col items-center rounded-lg border px-3 py-3 text-sm transition-colors",
+                  isSelected ? "border-primary bg-primary/5" : "bg-card hover:border-primary/50",
+                  isDisabled && "opacity-30 cursor-not-allowed hover:border-border",
+                )}
+              >
+                <span className={cn("font-bold text-base", isSelected ? "text-primary" : "text-foreground")}>{d.label}</span>
+                <span className="text-xs text-muted-foreground">{d.sub}</span>
+              </button>
+            )
+          })}
         </div>
+        {lockedDuration && (
+          <p className="text-xs text-muted-foreground">Duration is fixed for this session type.</p>
+        )}
       </section>
 
       {/* Notes */}
@@ -378,7 +401,7 @@ export function BookingFlow({
                   day: "numeric",
                 })}{" "}
                 · {selectedTime}
-                {selectedDuration && ` · ${DURATIONS.find((d) => d.value === selectedDuration)?.label}`}
+                {activeDuration && ` · ${DURATIONS.find((d) => d.value === activeDuration)?.label}`}
               </p>
             ) : (
               <p className="text-muted-foreground">Select a date, time, and session length to continue.</p>

@@ -59,6 +59,7 @@ export function BookingRow({ booking, availability }: Props) {
   const [localStatus, setLocalStatus] = useState(booking.status)
   const [localDate, setLocalDate] = useState(booking.date)
   const [localTime, setLocalTime] = useState(booking.time)
+  const [localUtc, setLocalUtc] = useState(booking.utcDatetime ?? null)
   const [isPending, startTransition] = useTransition()
 
   const availableDays = buildAvailableDays(availability)
@@ -87,6 +88,7 @@ export function BookingRow({ booking, availability }: Props) {
       if (result.ok) {
         setLocalDate(selectedDate)
         setLocalTime(selectedTime)
+        setLocalUtc(null) // cleared after reschedule; UTC will be recalculated server-side on approval
         setLocalStatus("Pending")
         setMode("idle")
         setSelectedDate("")
@@ -120,7 +122,7 @@ export function BookingRow({ booking, availability }: Props) {
             <div>
               <p className="font-medium">{booking.prepMasterName || "PrepMaster"}</p>
               <p className="text-sm text-muted-foreground">
-                {displayFormatted}{localTime ? <> · <LocalTime slot={localTime} dateIso={localDate} /></> : ""}
+                {displayFormatted}{localTime ? <> · <LocalTime slot={localTime} dateIso={localDate} utcDatetime={localUtc} /></> : ""}
               </p>
               {within24 && !isCancelled && (
                 <p className="text-xs text-amber-500 mt-0.5">Within 24 hours — cancel only</p>

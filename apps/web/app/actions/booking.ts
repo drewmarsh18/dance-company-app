@@ -342,6 +342,8 @@ export async function createBooking(input: {
     }
 
     // 4) Create the booking, then deduct one credit.
+    // Compute UTC now (before record creation) so we can store it on the record.
+    const utcForCreate = etToUtcIso(input.date, input.time, pmTz)
     const record = await appBase.create<BookingFields>(TABLES.bookings, {
       "User ID": effectiveUserId,
       "Client Email": effectiveEmail,
@@ -351,6 +353,7 @@ export async function createBooking(input: {
       Status: "Pending",
       Notes: input.notes ?? "",
       "Session Type": input.sessionType ?? "pack-hour",
+      ...(utcForCreate ? { "UTC Datetime": utcForCreate } : {}),
     })
 
     const newCredits = credits - 1
@@ -369,7 +372,6 @@ export async function createBooking(input: {
     }
 
     // In-app notification for the dancer (use effectiveUserId so it goes to the child, not the parent)
-    const utcForCreate = etToUtcIso(input.date, input.time, pmTz)
     const [memberCreateRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, effectiveUserId)).limit(1)
     const memberCreateLabel = utcForCreate ? fmtTimeForNotif(utcForCreate, pmTz, memberCreateRow?.timezone ?? null) : fmtTime(input.time)
     createNotification({
