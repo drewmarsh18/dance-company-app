@@ -67,7 +67,7 @@ export function CreditsCard({
           const displayCount = !isActive
             ? plan.sessions
             : plan.sessions === 1
-              ? 1
+              ? Math.max(0, credits)
               : Math.max(0, credits - activeSingleCount)
           const expiryDate = plan.expiresAt
             ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })

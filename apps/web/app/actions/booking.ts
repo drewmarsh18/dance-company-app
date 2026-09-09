@@ -382,7 +382,7 @@ export async function createBooking(input: {
     if (input.planId && input.planSessions === 1) {
       await setPlanStatus(input.planId, "Used")
     } else if (newCredits === 0) {
-      const planToMark = input.planId ? { id: input.planId } : await getActivePlanForUser(user.id)
+      const planToMark = input.planId ? { id: input.planId } : await getActivePlanForUser(effectiveUserId)
       if (planToMark) await setPlanStatus(planToMark.id, "Used")
     }
 
