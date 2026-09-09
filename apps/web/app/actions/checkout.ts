@@ -5,6 +5,7 @@ import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { stripe, APP_URL } from "@/lib/stripe"
 import { PACKAGES, PER_PRIVATE } from "@/lib/packages"
+import { resolveClientProfile } from "@/lib/profile-core"
 
 export async function createCheckoutSession(itemId: string) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -15,6 +16,14 @@ export async function createCheckoutSession(itemId: string) {
   const perPrivate = !pkg ? PER_PRIVATE.find((s) => s.id === itemId) : null
   const item = pkg ?? perPrivate
   if (!item) throw new Error("Unknown item: " + itemId)
+
+  // Resolve effective profile so parent purchases credit the child's account
+  const profile = await resolveClientProfile(
+    { id: session.user.id, email: session.user.email, name: session.user.name ?? "" },
+    true,
+  )
+  const effectiveUserId = profile.effectiveUserId || session.user.id
+  const effectiveEmail = profile.email || session.user.email
 
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -37,8 +46,8 @@ export async function createCheckoutSession(itemId: string) {
       },
     ],
     metadata: {
-      userId: session.user.id,
-      userEmail: session.user.email,
+      userId: effectiveUserId,
+      userEmail: effectiveEmail,
       itemId,
       itemType: pkg ? "pack" : "per-private",
       sessions: pkg ? String(pkg.sessions) : "1",
