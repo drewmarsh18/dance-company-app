@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import {
   TABLES,
   appBase,
@@ -88,6 +88,7 @@ async function findClientRecord(userId: string) {
 
 export async function cancelBooking(
   bookingId: string,
+  cancellationReason?: string,
 ): Promise<{ ok: true; creditRefunded: boolean } | { ok: false; error: string }> {
   try {
     const user = await getSessionUser()
@@ -108,6 +109,7 @@ export async function cancelBooking(
 
     await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
       Status: within24 ? "Cancelled (Late)" : "Cancelled",
+      ...(cancellationReason ? { "Cancellation Reason": cancellationReason } : {}),
     })
 
     // Refund credit only when cancelled outside the 24-hour window
@@ -184,6 +186,7 @@ export async function cancelBooking(
     }).catch(() => {})
 
     revalidatePath("/dashboard")
+    revalidateTag(`member-${effectiveUserId}`)
     return { ok: true, creditRefunded: !within24 }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to cancel." }
@@ -293,6 +296,7 @@ export async function rescheduleBooking(
     }).catch(() => {})
 
     revalidatePath("/dashboard")
+    revalidateTag(`member-${effectiveUserId}`)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to reschedule." }
@@ -474,6 +478,7 @@ export async function createBooking(input: {
     })
 
     revalidatePath("/dashboard")
+    revalidateTag(`member-${effectiveUserId}`)
     return { ok: true, id: record.id }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to create booking"

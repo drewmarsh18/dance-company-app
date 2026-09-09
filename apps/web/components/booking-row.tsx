@@ -53,7 +53,8 @@ export function BookingRow({ booking, availability }: Props) {
         ? "destructive"
         : "secondary"
 
-  const [mode, setMode] = useState<"idle" | "adjust" | "confirm-cancel">("idle")
+  const [mode, setMode] = useState<"idle" | "adjust" | "confirm-cancel" | "cancel-reason">("idle")
+  const [cancelReason, setCancelReason] = useState("")
   const [selectedDate, setSelectedDate] = useState("")
   const [selectedTime, setSelectedTime] = useState("")
   const [localStatus, setLocalStatus] = useState(booking.status)
@@ -66,11 +67,16 @@ export function BookingRow({ booking, availability }: Props) {
   const timeSlots = selectedDate ? slotsForDate(selectedDate, availability) : []
 
   function handleCancel() {
+    if (!cancelReason.trim()) {
+      toast.error("Please enter a reason for cancellation.")
+      return
+    }
     startTransition(async () => {
-      const result = await cancelBooking(booking.id)
+      const result = await cancelBooking(booking.id, cancelReason.trim())
       if (result.ok) {
         setLocalStatus("Cancelled")
         setMode("idle")
+        setCancelReason("")
         toast.success(result.creditRefunded ? "Booking cancelled. Your credit has been refunded." : "Booking cancelled. No credit refund within 24 hours.")
       } else {
         toast.error(result.error)
@@ -186,7 +192,7 @@ export function BookingRow({ booking, availability }: Props) {
           </div>
         )}
 
-        {/* Cancel confirmation */}
+        {/* Cancel — step 1: confirm intent */}
         {mode === "confirm-cancel" && (
           <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
             <p className="text-sm font-medium">Cancel this booking?</p>
@@ -196,8 +202,30 @@ export function BookingRow({ booking, availability }: Props) {
                 : "Your session credit will be refunded."}
             </p>
             <div className="flex gap-2">
-              <Button size="sm" variant="destructive" disabled={isPending} onClick={handleCancel}>
-                {isPending ? "Cancelling…" : "Yes, cancel it"}
+              <Button size="sm" variant="destructive" onClick={() => { setCancelReason(""); setMode("cancel-reason") }}>
+                Continue
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setMode("idle")}>
+                Keep booking
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel — step 2: enter reason */}
+        {mode === "cancel-reason" && (
+          <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+            <p className="text-sm font-medium">Cancellation reason</p>
+            <textarea
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+              rows={3}
+              placeholder="Please explain why you're cancelling…"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <Button size="sm" variant="destructive" disabled={isPending || !cancelReason.trim()} onClick={handleCancel}>
+                {isPending ? "Cancelling…" : "Confirm cancellation"}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setMode("idle")}>
                 Keep booking
