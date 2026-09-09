@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { cancelBooking, rescheduleBooking } from "@/app/actions/booking"
 import { isWithin24Hours } from "@/lib/utils"
@@ -53,6 +54,7 @@ export function BookingRow({ booking, availability }: Props) {
         ? "destructive"
         : "secondary"
 
+  const router = useRouter()
   const [mode, setMode] = useState<"idle" | "adjust" | "confirm-cancel" | "cancel-reason">("idle")
   const [cancelReason, setCancelReason] = useState("")
   const [selectedDate, setSelectedDate] = useState("")
@@ -78,6 +80,7 @@ export function BookingRow({ booking, availability }: Props) {
         setMode("idle")
         setCancelReason("")
         toast.success(result.creditRefunded ? "Booking cancelled. Your credit has been refunded." : "Booking cancelled. No credit refund within 24 hours.")
+        router.refresh()
       } else {
         toast.error(result.error)
       }
@@ -100,6 +103,7 @@ export function BookingRow({ booking, availability }: Props) {
         setSelectedDate("")
         setSelectedTime("")
         toast.success("Reschedule request sent. Awaiting PrepMaster approval.")
+        router.refresh()
       } else {
         toast.error(result.error)
       }
