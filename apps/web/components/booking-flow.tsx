@@ -278,41 +278,42 @@ export function BookingFlow({
         </div>
 
         {/* Calendar grid — negative margin so it goes full-bleed on mobile */}
+        {/* Single scroll container so header and slots share the same grid — no scrollbar misalignment */}
         <div className="-mx-5 sm:mx-0 overflow-hidden rounded-none sm:rounded-xl border-y sm:border bg-card">
-          {/* Sticky day headers */}
-          <div className="grid grid-cols-7 border-b bg-card/95 backdrop-blur-sm">
-            {weekSlots.map(({ date, iso, isPast, slots }) => {
-              const isSelected = selectedDate === iso
-              const hasSlots = slots.length > 0
-              const isToday = toIso(date) === toIso(today)
-              return (
-                <div
-                  key={iso}
-                  className={cn(
-                    "flex flex-col items-center py-2.5 border-r last:border-r-0 select-none",
-                    isPast || !hasSlots ? "opacity-35" : "",
-                    isSelected ? "bg-primary/10" : "",
-                  )}
-                >
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {date.toLocaleDateString("en-US", { weekday: "short" })}
-                  </span>
-                  <span
+          <div className="h-[52vh] overflow-y-scroll overscroll-contain">
+            <div className="grid grid-cols-7">
+              {/* Sticky day headers rendered as first row inside the same grid */}
+              {weekSlots.map(({ date, iso, isPast, slots }) => {
+                const isSelected = selectedDate === iso
+                const hasSlots = slots.length > 0
+                const isToday = toIso(date) === toIso(today)
+                return (
+                  <div
+                    key={`hdr-${iso}`}
                     className={cn(
-                      "mt-0.5 flex size-7 items-center justify-center rounded-full font-heading text-sm font-bold leading-none",
-                      isToday && !isSelected ? "ring-1 ring-primary text-primary" : "",
-                      isSelected ? "bg-primary text-primary-foreground" : "text-foreground",
+                      "sticky top-0 z-10 flex flex-col items-center py-2.5 border-r border-b last:border-r-0 select-none bg-card/95 backdrop-blur-sm",
+                      isPast || !hasSlots ? "opacity-35" : "",
+                      isSelected ? "bg-primary/10" : "",
                     )}
                   >
-                    {date.getDate()}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {date.toLocaleDateString("en-US", { weekday: "short" })}
+                    </span>
+                    <span
+                      className={cn(
+                        "mt-0.5 flex size-7 items-center justify-center rounded-full font-heading text-sm font-bold leading-none",
+                        isToday && !isSelected ? "ring-1 ring-primary text-primary" : "",
+                        isSelected ? "bg-primary text-primary-foreground" : "text-foreground",
+                      )}
+                    >
+                      {date.getDate()}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
 
-          {/* Scrollable slot rows */}
-          <div className="h-[52vh] overflow-y-auto overscroll-contain">
+            {/* Slot rows — separate grid that shares the same container width */}
             <div className="grid grid-cols-7">
               {weekSlots.map(({ date, iso, slots, taken, isPast }) => {
                 const isColSelected = selectedDate === iso
