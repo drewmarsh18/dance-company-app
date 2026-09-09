@@ -834,13 +834,23 @@ export default function PortalDashboard() {
 
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
 
-  // Auto-open booking detail when navigated from inbox notification
+  // When arriving from an inbox notification, force a fresh load then open the booking.
+  // The portal tab can be already-mounted with stale data, so we must re-fetch first.
+  const openBookingIdRef = useRef<string | undefined>(undefined)
   useEffect(() => {
-    if (!openBookingId || loading || !data) return
-    const all = [...(data.upcoming ?? []), ...(data.completed ?? []), ...(data.cancelled ?? [])]
-    const target = all.find((b) => b.id === openBookingId)
-    if (target) setSelectedBooking(target)
-  }, [openBookingId, loading, data])
+    if (!openBookingId || openBookingId === openBookingIdRef.current) return
+    openBookingIdRef.current = openBookingId
+    // Re-fetch so we always open the latest version of the booking
+    load().then(() => {
+      setData((latest) => {
+        if (!latest) return latest
+        const all = [...(latest.upcoming ?? []), ...(latest.completed ?? []), ...(latest.cancelled ?? [])]
+        const target = all.find((b) => b.id === openBookingId)
+        if (target) setSelectedBooking(target)
+        return latest
+      })
+    })
+  }, [openBookingId, load])
 
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false) }, [load])
 
@@ -878,7 +888,14 @@ export default function PortalDashboard() {
           <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }} activeOpacity={1} onPress={() => setSelectedBooking(null)} />
           <View style={{ backgroundColor: COLORS.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32 }}>
             <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: "center", marginTop: 12, marginBottom: 16 }} />
-            <BookingCard booking={selectedBooking} onUpdate={(id, patch) => { handleUpdate(id, patch); if (patch.status === "Declined") setSelectedBooking(null) }} />
+            <BookingCard booking={selectedBooking} onUpdate={(id, patch) => {
+              handleUpdate(id, patch)
+              // Close the sheet and re-fetch on any terminal action so the list reflects the new state
+              if (patch.status === "Confirmed" || patch.status === "Declined" || patch.status === "Cancelled") {
+                setSelectedBooking(null)
+                load()
+              }
+            }} />
           </View>
         </View>
       )}
