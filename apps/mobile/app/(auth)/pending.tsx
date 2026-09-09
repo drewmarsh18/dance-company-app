@@ -27,7 +27,7 @@ export default function PendingScreen() {
           Your account is under review. An admin will approve your account shortly.
           You'll receive a notification once you're approved.
         </Text>
-        <Text style={styles.contact}>Questions? Email support@collegedanceprep.com</Text>
+        <Text style={styles.contact}>Questions? Email collegedanceprep@gmail.com</Text>
         <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>

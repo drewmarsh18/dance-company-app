@@ -7,6 +7,10 @@ import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 import * as WebBrowser from "expo-web-browser"
 import * as Google from "expo-auth-session/providers/google"
+import * as AppleAuthentication from "expo-apple-authentication"
+import * as SecureStore from "expo-secure-store"
+
+const appleAuthAvailable = !!AppleAuthentication.AppleAuthenticationButton
 import { signUp, signIn, authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
@@ -27,6 +31,7 @@ export default function SignUpScreen() {
   const [parentEmail, setParentEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [appleLoading, setAppleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [, response, promptAsync] = Google.useAuthRequest({
@@ -73,17 +78,65 @@ export default function SignUpScreen() {
         }
       } catch {}
 
-      const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
-      const role = (me as any)?.role ?? "dancer"
-      const status = (me as any)?.status ?? "active"
-
-      if (status === "pending") router.replace("/(auth)/welcome")
-      else if (status === "denied") router.replace("/(auth)/denied")
-      else if (role === "admin") router.replace("/admin")
-      else if (role === "prep_master") router.replace("/portal")
-      else router.replace("/member")
+      await routeAfterSocialAuth()
     } catch { setError("Google sign-up failed. Please try again.") }
     finally { setGoogleLoading(false) }
+  }
+
+  async function routeAfterSocialAuth() {
+    const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
+    const role = (me as any)?.role ?? "dancer"
+    const status = (me as any)?.status ?? "pending"
+    const userId = (me as any)?.id
+    if (status === "denied") { router.replace("/(auth)/denied"); return }
+    if (role === "admin") { router.replace("/admin"); return }
+    if (role === "prep_master") { router.replace("/portal"); return }
+    if (role === "dancer" && userId) {
+      const welcomeKey = `welcome_seen_${userId}`
+      const seen = await SecureStore.getItemAsync(welcomeKey)
+      if (!seen) {
+        await SecureStore.setItemAsync(welcomeKey, "1")
+        router.replace("/(auth)/welcome")
+        return
+      }
+    }
+    if (status === "pending") router.replace("/(auth)/pending")
+    else router.replace("/member")
+  }
+
+  async function handleAppleSignUp() {
+    setError(null)
+    setAppleLoading(true)
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      })
+      if (!credential.identityToken) throw new Error("No identity token from Apple.")
+      const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
+        .filter(Boolean).join(" ")
+      const result = await (signIn as any).social({
+        provider: "apple",
+        idToken: { token: credential.identityToken },
+      })
+      if (result?.error) { setError(result.error.message ?? "Apple sign-up failed."); return }
+      if (fullName) {
+        await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/update-user", {
+          method: "POST",
+          body: JSON.stringify({ name: fullName }),
+          headers: { "Content-Type": "application/json" },
+        }).catch(() => {})
+      }
+      await routeAfterSocialAuth()
+    } catch (err: any) {
+      if (err?.code !== "ERR_REQUEST_CANCELED") {
+        setError(err?.message ?? "Apple sign-up failed. Please try again.")
+      }
+    } finally {
+      setAppleLoading(false)
+    }
   }
 
   function handleGoogleSignUp() { setError(null); setGoogleLoading(true); promptAsync() }
@@ -132,9 +185,21 @@ export default function SignUpScreen() {
           <Text style={styles.sub}>Join College Dance Prep</Text>
           {error && <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>}
 
-          <TouchableOpacity style={[styles.googleBtn, googleLoading && styles.btnDisabled]} onPress={handleGoogleSignUp} disabled={googleLoading || loading} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.googleBtn, googleLoading && styles.btnDisabled]} onPress={handleGoogleSignUp} disabled={googleLoading || loading || appleLoading} activeOpacity={0.8}>
             {googleLoading ? <ActivityIndicator color={COLORS.text} size="small" /> : <><Text style={styles.googleIcon}>G</Text><Text style={styles.googleBtnText}>Continue with Google</Text></>}
           </TouchableOpacity>
+          {appleAuthAvailable && (
+            <>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={RADIUS.sm}
+                style={[styles.appleBtn, appleLoading && styles.btnDisabled]}
+                onPress={handleAppleSignUp}
+              />
+              <Text style={styles.appleNote}>Use your real email (not "Hide My Email") so your account links correctly.</Text>
+            </>
+          )}
 
           <View style={styles.dividerRow}>
             <View style={styles.dividerLine} />
@@ -215,7 +280,9 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     input: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, fontSize: 15, color: COLORS.text },
     inputMulti: { minHeight: 72, textAlignVertical: "top" },
     hint: { fontSize: 12, color: COLORS.textMuted, marginTop: 5, lineHeight: 17 },
-    googleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, marginBottom: SPACING.md },
+    googleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, marginBottom: SPACING.sm },
+    appleBtn: { height: 50, marginBottom: 6 },
+    appleNote: { fontSize: 11, color: COLORS.textMuted, textAlign: "center", marginBottom: SPACING.md, lineHeight: 16 },
     googleIcon: { fontSize: 16, fontWeight: "800", color: "#4285F4" },
     googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
     dividerRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, marginBottom: SPACING.md },

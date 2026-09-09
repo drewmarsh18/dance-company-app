@@ -18,6 +18,7 @@ export type AdminWorker = {
   address: string
   hourlyRate: number
   active: boolean
+  inviteStatus?: "pending" | "accepted" | "revoked" | null
 }
 
 export type AdminBooking = {

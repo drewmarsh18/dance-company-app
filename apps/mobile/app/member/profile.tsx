@@ -109,7 +109,7 @@ export default function MemberProfileScreen() {
   }
 
   async function handleDisconnectCalendar() {
-    Alert.alert("Disconnect Google Calendar", "Remove calendar access?", [
+    Alert.alert("Disconnect Google Calendar", "Are you sure you want to disconnect Google Calendar?", [
       { text: "Cancel", style: "cancel" },
       { text: "Disconnect", style: "destructive", onPress: async () => {
         await authClient.$fetch(`${API_BASE}/api/google-calendar/disconnect`, { method: "POST" })
@@ -131,6 +131,29 @@ export default function MemberProfileScreen() {
 
   async function handleSignOut() { await signOut(); router.replace("/(auth)/sign-in") }
 
+  function handleDeleteAccount() {
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account and all associated data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await authClient.$fetch(`${API_BASE}/api/member/delete-account`, { method: "DELETE" })
+              await signOut()
+              router.replace("/(auth)/sign-in")
+            } catch {
+              Alert.alert("Error", "Failed to delete account. Please try again.")
+            }
+          },
+        },
+      ],
+    )
+  }
+
   const styles = makeStyles(COLORS)
 
   const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: any }[] = [
@@ -151,7 +174,12 @@ export default function MemberProfileScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>Profile</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Profile</Text>
+            <TouchableOpacity onPress={handleDeleteAccount} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.deleteTiny}>Delete Account</Text>
+            </TouchableOpacity>
+          </View>
           {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
 
           <View style={styles.avatarWrap}>
@@ -160,6 +188,33 @@ export default function MemberProfileScreen() {
             </View>
             <Text style={styles.avatarEmail}>{profile?.email ?? session?.user?.email ?? ""}</Text>
           </View>
+
+          {(actualRole === "admin" || actualRole === "prep_master") && (
+            <>
+              <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Switch view</Text></View>
+              <View style={styles.card}>
+                {actualRole === "admin" && (
+                  <>
+                    <TouchableOpacity style={styles.switchRow} onPress={() => router.replace("/admin" as any)} activeOpacity={0.7}>
+                      <LayoutDashboard size={18} color={COLORS.primary} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.switchLabel}>Admin view</Text>
+                        <Text style={styles.switchSub}>Manage members and bookings</Text>
+                      </View>
+                    </TouchableOpacity>
+                    <View style={styles.divider} />
+                  </>
+                )}
+                <TouchableOpacity style={styles.switchRow} onPress={() => router.replace("/portal" as any)} activeOpacity={0.7}>
+                  <ShieldCheck size={18} color={COLORS.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.switchLabel}>PrepMaster View</Text>
+                    <Text style={styles.switchSub}>See the app as a Prep Master</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
           <View style={styles.card}>
             <Field label="Name" value={name} onChangeText={(v) => { setName(v); setDirty(true) }} COLORS={COLORS} styles={styles} />
@@ -194,81 +249,41 @@ export default function MemberProfileScreen() {
 
           {/* Connected accounts */}
           <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Connected accounts</Text></View>
-          <View style={styles.card}>
-            {isGoogleLinked ? (
-              // Google sign-in users: show unified Google + Calendar status
-              <>
-                <View style={[styles.accountRow, styles.accountRowLinked]}>
-                  <Link size={18} color={COLORS.green} />
-                  <Text style={[styles.googleBtnText, { color: COLORS.green }]}>Google connected</Text>
-                </View>
-                <View style={styles.divider} />
-                <TouchableOpacity
-                  style={[styles.accountRow, calendarConnected && styles.accountRowLinked]}
-                  onPress={calendarConnected ? handleDisconnectCalendar : handleConnectCalendar}
-                  activeOpacity={0.8}
-                >
-                  {calendarConnected
-                    ? <CalendarCheck size={18} color={COLORS.green} />
-                    : <CalendarX size={18} color={COLORS.textMuted} />}
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.googleBtnText, calendarConnected && { color: COLORS.green }]}>
-                      {calendarConnected ? "Google Calendar synced" : "Enable Calendar sync"}
-                    </Text>
-                    {!calendarConnected && (
-                      <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>
-                        Sync your bookings to Google Calendar
-                      </Text>
-                    )}
-                  </View>
+          <View style={styles.connectedRow}>
+            <View style={styles.connectedItem}>
+              <View style={[styles.dot, isGoogleLinked ? styles.dotOn : styles.dotOff]} />
+              {isGoogleLinked ? (
+                <Text style={styles.connectedLabel}>Google Auth</Text>
+              ) : (
+                <TouchableOpacity onPress={handleConnectGoogle} disabled={googleLinking} activeOpacity={0.7}>
+                  {googleLinking
+                    ? <ActivityIndicator size="small" color={COLORS.textMuted} style={{ marginLeft: 2 }} />
+                    : <Text style={[styles.connectedLabel, styles.connectedAction]}>Google Auth</Text>}
                 </TouchableOpacity>
-              </>
-            ) : (
-              // Email+password users: one button to connect Google (includes calendar)
-              <TouchableOpacity
-                style={styles.accountRow}
-                onPress={handleConnectGoogle}
-                disabled={googleLinking}
-                activeOpacity={0.8}
-              >
-                {googleLinking
-                  ? <ActivityIndicator size="small" color={COLORS.text} />
-                  : <Link size={18} color={COLORS.text} />}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.googleBtnText}>Connect Google account</Text>
-                  <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>
-                    Links Google sign-in and Calendar sync
+              )}
+            </View>
+            <View style={styles.connectedItem}>
+              <View style={[styles.dot, calendarConnected ? styles.dotOn : styles.dotOff]} />
+              {isGoogleLinked ? (
+                <TouchableOpacity onPress={calendarConnected ? handleDisconnectCalendar : handleConnectCalendar} activeOpacity={0.7}>
+                  <Text style={[styles.connectedLabel, !calendarConnected && styles.connectedAction]}>
+                    Google Calendar
                   </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+                </TouchableOpacity>
+              ) : (
+                <Text style={[styles.connectedLabel, { color: COLORS.textMuted }]}>Google Calendar</Text>
+              )}
+            </View>
           </View>
 
-          {(actualRole === "admin" || actualRole === "prep_master") && (
-            <>
-              <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Switch view</Text></View>
-              <View style={styles.card}>
-                {actualRole === "admin" && (
-                  <>
-                    <TouchableOpacity style={styles.switchRow} onPress={() => router.replace("/admin")} activeOpacity={0.7}>
-                      <LayoutDashboard size={18} color={COLORS.primary} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.switchRowLabel}>Admin view</Text>
-                        <Text style={styles.switchRowSub}>Manage members and bookings</Text>
-                      </View>
-                    </TouchableOpacity>
-                    <View style={styles.divider} />
-                  </>
-                )}
-                <TouchableOpacity style={styles.switchRow} onPress={() => router.replace("/portal")} activeOpacity={0.7}>
-                  <ShieldCheck size={18} color={COLORS.primary} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.switchRowLabel}>PrepMaster portal</Text>
-                    <Text style={styles.switchRowSub}>See the app as a PrepMaster</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </>
+          {profile?.isParentView && (
+            <TouchableOpacity
+              style={[styles.signOutBtn, { marginBottom: 0, borderColor: COLORS.primary }]}
+              onPress={() => router.replace("/(auth)/child-picker")}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.signOutText, { color: COLORS.primary }]}>Switch child</Text>
+            </TouchableOpacity>
           )}
 
           <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
@@ -325,15 +340,21 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     themeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
     themeBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
     themeBtnText: { fontSize: 13, fontWeight: "600", color: COLORS.textMuted },
-    googleBtn: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, backgroundColor: COLORS.surface },
-    googleBtnLinked: { borderColor: COLORS.green, backgroundColor: COLORS.greenLight },
-    googleBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
-    accountRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, padding: SPACING.md },
-    accountRowLinked: { backgroundColor: COLORS.greenLight },
+    connectedRow: { flexDirection: "row", gap: SPACING.lg },
+    connectedItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+    dot: { width: 7, height: 7, borderRadius: 4 },
+    dotOn: { backgroundColor: COLORS.green },
+    dotOff: { backgroundColor: COLORS.border },
+    connectedLabel: { fontSize: 13, color: COLORS.text, fontWeight: "500" },
+    connectedAction: { color: COLORS.textMuted },
     switchRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, padding: SPACING.md },
     switchRowLabel: { fontSize: 15, fontWeight: "600", color: COLORS.text },
     switchRowSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
+    switchLabel: { fontSize: 15, fontWeight: "600", color: COLORS.text },
+    switchSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
     signOutBtn: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center" },
     signOutText: { fontSize: 15, fontWeight: "600", color: COLORS.textSecondary },
+    titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    deleteTiny: { fontSize: 12, color: COLORS.red, fontWeight: "500" },
   })
 }

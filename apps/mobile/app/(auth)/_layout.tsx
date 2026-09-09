@@ -7,6 +7,7 @@ export default function AuthLayout() {
       <Stack.Screen name="sign-up" />
       <Stack.Screen name="pending" />
       <Stack.Screen name="denied" />
+      <Stack.Screen name="child-picker" />
     </Stack>
   )
 }

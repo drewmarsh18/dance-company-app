@@ -128,17 +128,18 @@ function BookingStep({
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [notes, setNotes] = useState("")
-  const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60" | null>(null)
-  const CREDIT_COST: Record<string, number> = { "private-30": 0.5, "private-45": 0.75, "private-60": 1 }
+  const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60" | "private-90" | null>(null)
+  const CREDIT_COST: Record<string, number> = { "private-30": 0.5, "private-45": 0.75, "private-60": 1, "private-90": 1.5 }
   const creditCost = selectedDuration ? (CREDIT_COST[selectedDuration] ?? 1) : 1
   const activePlans = useMemo(() => plans.filter((p) => planDisplayStatus(p) === "Active"), [plans])
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(activePlans.length === 1 ? activePlans[0].id : null)
   const showPlanPicker = activePlans.length > 1
 
-  const DURATIONS: { value: "private-30" | "private-45" | "private-60"; label: string }[] = [
+  const DURATIONS: { value: "private-30" | "private-45" | "private-60" | "private-90"; label: string }[] = [
     { value: "private-30", label: "30 min" },
     { value: "private-45", label: "45 min" },
     { value: "private-60", label: "60 min" },
+    { value: "private-90", label: "90 min" },
   ]
 
   const currentSunday = useMemo(() => { const s = weekStart(today); s.setDate(s.getDate() + weekOffset * 7); return s }, [today, weekOffset])
@@ -361,7 +362,7 @@ export default function BookScreen() {
   }, [plans, credits, router])
 
   const CREDIT_COST: Record<string, number> = {
-    "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5,
+    "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5,
   }
 
   const handleConfirm = useCallback(async (args: {

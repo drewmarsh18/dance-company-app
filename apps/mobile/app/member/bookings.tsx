@@ -4,7 +4,7 @@ import {
   ActivityIndicator, TouchableOpacity, Dimensions,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useRouter, useLocalSearchParams } from "expo-router"
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router"
 import { Plus, ChevronRight, List, CalendarDays, ChevronLeft } from "lucide-react-native"
 import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
@@ -519,6 +519,10 @@ export default function MemberBookingsScreen() {
   }, [])
 
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
+
+  // Re-fetch calendar connection status whenever this screen comes into focus
+  // (e.g. after returning from the Profile screen after connecting Google Calendar)
+  useFocusEffect(useCallback(() => { load() }, [load]))
 
   // Auto-open booking detail when navigated from inbox notification
   useEffect(() => {

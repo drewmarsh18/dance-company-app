@@ -1,3 +1,4 @@
+import React from "react"
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, RefreshControl, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useState, useCallback } from "react"
@@ -38,6 +39,58 @@ function BookingItem({ booking: b }: { booking: AdminBooking }) {
           <Text style={styles.notesText}>{b.notes?.trim() || "No notes for this booking."}</Text>
         </View>
       )}
+    </View>
+  )
+}
+
+const STATUS_GROUPS = [
+  { key: "confirmed",  label: "Confirmed",       match: (s: string) => s === "confirmed" },
+  { key: "pending",    label: "Pending",          match: (s: string) => s === "pending" },
+  { key: "completed",  label: "Completed",        match: (s: string) => s === "completed" },
+  { key: "cancelled",  label: "Cancelled",        match: (s: string) => s.startsWith("cancelled") },
+  { key: "declined",   label: "Declined",         match: (s: string) => s === "declined" },
+  { key: "other",      label: "Other",            match: () => true },
+]
+
+function CollapsibleGroup({ label, count, children }: { label: string; count: number; children: React.ReactNode }) {
+  const COLORS = useColors()
+  const [open, setOpen] = useState(false)
+  return (
+    <View style={{ marginBottom: SPACING.sm }}>
+      <TouchableOpacity
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8, paddingHorizontal: 4 }}
+        onPress={() => setOpen((v) => !v)}
+        activeOpacity={0.7}
+      >
+        <Text style={{ fontSize: 11, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          {label} <Text style={{ fontWeight: "400" }}>({count})</Text>
+        </Text>
+        {open ? <ChevronUp size={14} color={COLORS.textMuted} /> : <ChevronDown size={14} color={COLORS.textMuted} />}
+      </TouchableOpacity>
+      {open && <View style={{ gap: SPACING.sm }}>{children}</View>}
+    </View>
+  )
+}
+
+function GroupedBookings({ bookings }: { bookings: AdminBooking[] }) {
+  const groups = STATUS_GROUPS.map((g) => ({
+    ...g,
+    items: bookings.filter((b) => {
+      const s = b.status?.toLowerCase() ?? ""
+      // Assign to the first matching group only
+      const idx = STATUS_GROUPS.findIndex((sg) => sg.match(s))
+      return STATUS_GROUPS[idx]?.key === g.key
+    }),
+  })).filter((g) => g.items.length > 0)
+
+  if (groups.length === 0) return null
+  return (
+    <View style={{ padding: SPACING.md, gap: 2 }}>
+      {groups.map((g) => (
+        <CollapsibleGroup key={g.key} label={g.label} count={g.items.length}>
+          {g.items.map((b) => <BookingItem key={b.id} booking={b} />)}
+        </CollapsibleGroup>
+      ))}
     </View>
   )
 }
@@ -186,7 +239,7 @@ export default function AdminOverviewScreen() {
           {thisMonth.length === 0 ? (
             <Text style={[styles.empty, { padding: SPACING.md }]}>No bookings this month yet.</Text>
           ) : (
-            <FlatList data={thisMonth} keyExtractor={(b) => b.id} contentContainerStyle={{ padding: SPACING.md, gap: SPACING.sm }} renderItem={({ item: b }) => <BookingItem booking={b} />} />
+            <ScrollView><GroupedBookings bookings={thisMonth} /></ScrollView>
           )}
         </SafeAreaView>
       </Modal>

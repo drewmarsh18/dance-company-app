@@ -79,7 +79,7 @@ export default function PortalScheduleScreen() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [selectedDate, setSelectedDate] = useState(toIso(new Date()))
   const [selectedTime, setSelectedTime] = useState("")
-  const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60">("private-60")
+  const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60" | "private-90">("private-60")
   const [bookNotes, setBookNotes] = useState("")
   const [booking, setBooking] = useState(false)
 
@@ -103,11 +103,12 @@ export default function PortalScheduleScreen() {
 
   function openBooking() { if (!showBook) { setShowBook(true); loadClients() } else { setShowBook(false) } }
 
-  const CREDIT_COST: Record<string, number> = { "private-30": 0.5, "private-45": 0.75, "private-60": 1 }
+  const CREDIT_COST: Record<string, number> = { "private-30": 0.5, "private-45": 0.75, "private-60": 1, "private-90": 1.5 }
   const DURATION_OPTIONS = [
     { value: "private-30" as const, label: "30 min", credits: "0.5 credits" },
     { value: "private-45" as const, label: "45 min", credits: "0.75 credits" },
     { value: "private-60" as const, label: "60 min", credits: "1 credit" },
+    { value: "private-90" as const, label: "90 min", credits: "1.5 credits" },
   ]
 
   async function handleBook() {

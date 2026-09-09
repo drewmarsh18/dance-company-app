@@ -27,7 +27,7 @@ export default function DeniedScreen() {
           Your account request was not approved. If you believe this is a mistake,
           please reach out and we'll look into it.
         </Text>
-        <Text style={styles.contact}>Contact us at support@collegedanceprep.com</Text>
+        <Text style={styles.contact}>Contact us at collegedanceprep@gmail.com</Text>
         <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>

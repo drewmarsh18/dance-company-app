@@ -26,7 +26,7 @@ type Notif = {
 }
 
 function typeIcon(type: string) {
-  const size = 18
+  const size = 16
   if (type === "booking_confirmed") return { icon: <CalendarDays size={size} color="#16a34a" />, bg: "#dcfce7" }
   if (type === "booking_cancelled") return { icon: <CalendarX size={size} color="#ef4444" />, bg: "#fee2e2" }
   if (type === "booking_updated")   return { icon: <CalendarClock size={size} color="#f472b6" />, bg: null }
@@ -116,9 +116,9 @@ function SwipeableRow({
         {...panResponder.panHandlers}
       >
         <TouchableOpacity
-          style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
-          activeOpacity={item.bookingId ? 0.7 : 1}
-          onPress={() => { if (item.bookingId) onNavigate(item) }}
+          style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10 }}
+          activeOpacity={0.7}
+          onPress={() => { if (item.bookingId) onNavigate(item); else if (!item.read) onToggleRead(item) }}
         >
           {(() => {
             const { icon, bg } = typeIcon(item.type)
@@ -170,6 +170,7 @@ export default function InboxScreen() {
     setNotifs((prev) => prev.map((n) => n.id === item.id ? { ...n, read: newRead } : n))
     await authClient.$fetch(`${API_BASE}/api/notifications`, {
       method: "PATCH",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: item.id, read: newRead }),
     })
   }
@@ -180,6 +181,7 @@ export default function InboxScreen() {
       setNotifs((prev) => prev.map((n) => n.id === item.id ? { ...n, read: true } : n))
       authClient.$fetch(`${API_BASE}/api/notifications`, {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: item.id, read: true }),
       }).catch(() => {})
     }
@@ -190,6 +192,7 @@ export default function InboxScreen() {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
     await authClient.$fetch(`${API_BASE}/api/notifications`, {
       method: "PATCH",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     })
   }
@@ -323,8 +326,8 @@ function makeStyles(COLORS: any) {
     },
     rowUnread: { backgroundColor: COLORS.surface },
     iconWrap: {
-      width: 38,
-      height: 38,
+      width: 32,
+      height: 32,
       borderRadius: RADIUS.sm,
       alignItems: "center",
       justifyContent: "center",

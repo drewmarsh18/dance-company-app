@@ -1,8 +1,11 @@
 import { useEffect } from "react"
-import { View, ActivityIndicator, StyleSheet } from "react-native"
+import { View, ActivityIndicator } from "react-native"
 import { useRouter } from "expo-router"
 import { authClient, useSession } from "@/lib/auth-client"
 import { useColors } from "@/lib/theme-context"
+import * as SecureStore from "expo-secure-store"
+
+const PRIMER_KEY = "notify_primer_seen"
 
 export default function Index() {
   const { data: session, isPending } = useSession()
@@ -18,15 +21,40 @@ export default function Index() {
     }
 
     authClient.$fetch("https://dance-company-app.vercel.app/api/me")
-      .then(({ data, error }) => {
-        if (error || !data) { router.replace("/member"); return }
+      .then(async ({ data, error }) => {
+        if (error || !data) { router.replace("/(auth)/sign-in"); return }
         const role: string = (data as any).role ?? "dancer"
-        if (role === "admin") router.replace("/admin")
-        else if (role === "prep_master") router.replace("/portal")
-        else router.replace("/member")
+        const status: string = (data as any).status ?? "active"
+        const userId = (data as any).id
+
+        if (status === "denied") { router.replace("/(auth)/denied"); return }
+
+        // For dancers who haven't completed onboarding, show it first regardless of
+        // pending status — welcome.tsx routes them to pending after they save/skip.
+        if (role === "dancer" && userId && !(data as any).isParent) {
+          const seen = await SecureStore.getItemAsync(`welcome_seen_${userId}`)
+          if (!seen) {
+            await SecureStore.setItemAsync(`welcome_seen_${userId}`, "1")
+            router.replace("/(auth)/welcome")
+            return
+          }
+        }
+
+        if (status === "pending") { router.replace("/(auth)/pending"); return }
+        const primerSeen = await SecureStore.getItemAsync(PRIMER_KEY)
+        if (!primerSeen) { router.replace("/(auth)/notify-primer"); return }
+        if (role === "admin") { router.replace("/admin"); return }
+        if (role === "prep_master") { router.replace("/portal"); return }
+        if (role === "dancer" && userId) {
+          if ((data as any).isParent) {
+            router.replace("/(auth)/child-picker")
+            return
+          }
+        }
+        router.replace("/member")
       })
       .catch(() => {
-        router.replace("/member")
+        router.replace("/(auth)/sign-in")
       })
   }, [session, isPending])
 

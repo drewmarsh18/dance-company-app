@@ -62,8 +62,13 @@ export default function AdminProfileScreen() {
   }
 
   async function handleDisconnectCalendar() {
-    await authClient.$fetch(`${API_BASE}/api/google-calendar`, { method: "DELETE" })
-    setCalendarConnected(false)
+    Alert.alert("Disconnect Google Calendar", "Are you sure you want to disconnect Google Calendar?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Disconnect", style: "destructive", onPress: async () => {
+        await authClient.$fetch(`${API_BASE}/api/google-calendar`, { method: "DELETE" })
+        setCalendarConnected(false)
+      }},
+    ])
   }
 
   const name = freshName ?? session?.user?.name ?? ""
@@ -74,6 +79,29 @@ export default function AdminProfileScreen() {
       { text: "Cancel", style: "cancel" },
       { text: "Sign out", style: "destructive", onPress: async () => { await signOut(); router.replace("/(auth)/sign-in") } },
     ])
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account and all associated data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await authClient.$fetch(`${API_BASE}/api/member/delete-account`, { method: "DELETE" })
+              await signOut()
+              router.replace("/(auth)/sign-in")
+            } catch {
+              Alert.alert("Error", "Failed to delete account. Please try again.")
+            }
+          },
+        },
+      ],
+    )
   }
 
   const styles = makeStyles(COLORS)
@@ -87,6 +115,12 @@ export default function AdminProfileScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.content}>
+        <View style={styles.titleRow}>
+          <View />
+          <TouchableOpacity onPress={handleDeleteAccount} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.deleteTiny}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.avatarWrap}>
           <View style={styles.avatar}><Text style={styles.avatarText}>{initials(name || email || "?")}</Text></View>
           <Text style={styles.name}>{name || "(no name)"}</Text>
@@ -107,53 +141,40 @@ export default function AdminProfileScreen() {
           <TouchableOpacity style={styles.row} onPress={() => router.replace("/portal")} activeOpacity={0.7}>
             <View style={styles.rowIcon}><LayoutDashboard size={18} color={COLORS.primary} /></View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>PrepMaster portal</Text>
-              <Text style={styles.rowSub}>See the app as a PrepMaster</Text>
+              <Text style={styles.rowTitle}>PrepMaster View</Text>
+              <Text style={styles.rowSub}>See the app as a Prep Master</Text>
             </View>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>CONNECTED ACCOUNTS</Text>
-          {isGoogleLinked ? (
-            <>
-              <View style={[styles.row, styles.accountRowLinked]}>
-                <Link size={18} color={COLORS.green} />
-                <Text style={[styles.rowTitle, { color: COLORS.green }]}>Google connected</Text>
-              </View>
-              <View style={styles.divider} />
-              <TouchableOpacity
-                style={[styles.row, styles.accountRow, calendarConnected && styles.accountRowLinked]}
-                onPress={calendarConnected ? handleDisconnectCalendar : handleConnectCalendar}
-                activeOpacity={0.8}
-              >
-                {calendarConnected
-                  ? <CalendarCheck size={18} color={COLORS.green} />
-                  : <CalendarX size={18} color={COLORS.textMuted} />}
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.rowTitle, calendarConnected && { color: COLORS.green }]}>
-                    {calendarConnected ? "Google Calendar synced" : "Enable Calendar sync"}
+        <View>
+          <Text style={[styles.sectionLabel, { marginBottom: 8 }]}>CONNECTED ACCOUNTS</Text>
+          <View style={styles.connectedRow}>
+            <View style={styles.connectedItem}>
+              <View style={[styles.dot, isGoogleLinked ? styles.dotOn : styles.dotOff]} />
+              {isGoogleLinked ? (
+                <Text style={styles.connectedLabel}>Google Auth</Text>
+              ) : (
+                <TouchableOpacity onPress={handleConnectGoogle} disabled={googleLinking} activeOpacity={0.7}>
+                  {googleLinking
+                    ? <ActivityIndicator size="small" color={COLORS.textMuted} style={{ marginLeft: 2 }} />
+                    : <Text style={[styles.connectedLabel, styles.connectedAction]}>Google Auth</Text>}
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={styles.connectedItem}>
+              <View style={[styles.dot, calendarConnected ? styles.dotOn : styles.dotOff]} />
+              {isGoogleLinked ? (
+                <TouchableOpacity onPress={calendarConnected ? handleDisconnectCalendar : handleConnectCalendar} activeOpacity={0.7}>
+                  <Text style={[styles.connectedLabel, !calendarConnected && styles.connectedAction]}>
+                    Google Calendar
                   </Text>
-                  {!calendarConnected && <Text style={styles.rowSub}>Sync your bookings to Google Calendar</Text>}
-                </View>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <TouchableOpacity
-              style={[styles.row, styles.accountRow]}
-              onPress={handleConnectGoogle}
-              disabled={googleLinking}
-              activeOpacity={0.8}
-            >
-              {googleLinking
-                ? <ActivityIndicator size="small" color={COLORS.text} />
-                : <Link size={18} color={COLORS.text} />}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rowTitle}>Connect Google account</Text>
-                <Text style={styles.rowSub}>Links Google sign-in and Calendar sync</Text>
-              </View>
-            </TouchableOpacity>
-          )}
+                </TouchableOpacity>
+              ) : (
+                <Text style={[styles.connectedLabel, { color: COLORS.textMuted }]}>Google Calendar</Text>
+              )}
+            </View>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -211,5 +232,14 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     accountRowLinked: { backgroundColor: COLORS.greenLight },
     signOutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: SPACING.md, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
     signOutText: { fontSize: 15, fontWeight: "600", color: COLORS.red },
+    titleRow: { flexDirection: "row", justifyContent: "flex-end" },
+    deleteTiny: { fontSize: 12, color: COLORS.red, fontWeight: "500" },
+    connectedRow: { flexDirection: "row", gap: SPACING.lg },
+    connectedItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+    dot: { width: 7, height: 7, borderRadius: 4 },
+    dotOn: { backgroundColor: COLORS.green },
+    dotOff: { backgroundColor: COLORS.border },
+    connectedLabel: { fontSize: 13, color: COLORS.text, fontWeight: "500" },
+    connectedAction: { color: COLORS.textMuted },
   })
 }

@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from "react"
-import { Tabs, usePathname, useRouter, useFocusEffect } from "expo-router"
+import React, { useEffect, useState } from "react"
+import { Tabs, usePathname, useRouter } from "expo-router"
 import { Home, Calendar, Package, User, Inbox } from "lucide-react-native"
 import { useTheme } from "@/lib/theme-context"
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
@@ -24,13 +24,13 @@ function GlassTabBar() {
   const pathname = usePathname()
   const [unread, setUnread] = useState(0)
 
-  useFocusEffect(useCallback(() => {
+  useEffect(() => {
     authClient.$fetch(`${API_BASE}/api/notifications`).then(({ data }: any) => {
       if (data?.notifications) {
         setUnread(data.notifications.filter((n: any) => !n.read).length)
       }
     }).catch(() => {})
-  }, []))
+  }, [pathname])
 
   return (
     <BlurView
@@ -49,7 +49,6 @@ function GlassTabBar() {
             key={href}
             style={styles.tab}
             onPress={() => {
-              if (name === "inbox") setUnread(0)
               router.push(href as any)
             }}
             activeOpacity={0.7}
