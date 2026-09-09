@@ -17,7 +17,7 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: 'College Dance Prep — Book Private Sessions',
   description:
-    'Train with elite prep masters. Book private dance sessions, track your credits, and level up your craft with College Dance Prep.',
+    'Train with elite PrepMasters. Book private dance sessions, track your credits, and level up your craft with College Dance Prep.',
   generator: 'v0.app',
   verification: {
     google: '3-17bIudf47hr2Ks5P_MugY4Q8TMrai2kohoBB3hxOE',

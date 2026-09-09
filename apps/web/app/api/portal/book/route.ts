@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     .limit(1)
 
   // Credit deduction for PM-scheduled sessions
-  const CREDIT_COST: Record<string, number> = { "private-30": 0.5, "private-45": 0.75, "private-60": 1 }
+  const CREDIT_COST: Record<string, number> = { "private-30": 0.5, "private-45": 0.75, "private-60": 1, "private-90": 1.5 }
   const creditCost = CREDIT_COST[sessionType ?? "private-60"] ?? 1
   if (dancer?.id) {
     const safeId = dancer.id.replace(/'/g, "\\'")
@@ -79,6 +79,9 @@ export async function POST(req: Request) {
     const clientRecord = clientRecords[0]
     if (clientRecord) {
       const current = (clientRecord.fields["Credits Remaining"] ?? 0) as number
+      if (current < creditCost) {
+        return NextResponse.json({ ok: false, error: "NO_CREDITS" })
+      }
       await appBase.update(TABLES.clients, clientRecord.id, {
         "Credits Remaining": Math.round((current - creditCost) * 100) / 100,
       })

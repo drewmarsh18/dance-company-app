@@ -15,6 +15,20 @@
       "when": 1785799288637,
       "tag": "0001_dashing_starfox",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788550847912,
+      "tag": "0002_add_user_timezone",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788554224422,
+      "tag": "0003_add_parent_active_child",
+      "breakpoints": true
     }
   ]
 }

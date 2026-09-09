@@ -115,6 +115,14 @@ export const googleCalendarToken = pgTable("google_calendar_token", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
 
+// Tracks which child a parent has currently selected when they have multiple linked children.
+// Keyed by the parent's auth user ID; childUserId is the Airtable User ID of the selected child.
+export const parentActiveChild = pgTable("parent_active_child", {
+  parentUserId: text("parentUserId").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  childUserId: text("childUserId").notNull(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
 // Expo push tokens — one row per user device. A user can have multiple devices.
 export const pushToken = pgTable(
   "push_token",

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { TABLES, appBase, type ClientFields, type MemberPlan, getPlansForUser } from "@/lib/airtable"
+import { sendEmail, parentInviteEmail } from "@/lib/email"
 import { resolveClientProfile } from "@/lib/profile-core"
 
 export type { ClientProfile } from "@/lib/profile-core"
@@ -36,9 +37,10 @@ export async function updateProfile(input: {
   phone: string
   goals: string
   parentEmail?: string
+  memberName?: string
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    await getSessionUser()
+    const user = await getSessionUser()
     await appBase.update<ClientFields>(TABLES.clients, input.recordId, {
       ...(input.name ? { Name: input.name } : {}),
       Phone: input.phone,
@@ -46,6 +48,14 @@ export async function updateProfile(input: {
       ...(input.parentEmail !== undefined ? { "Parent Email": input.parentEmail } : {}),
     })
     revalidatePath("/dashboard/profile")
+
+    // Send parent invite email when a parent email is provided
+    if (input.parentEmail?.trim()) {
+      const childName = input.memberName ?? input.name ?? user.name ?? "your child"
+      const { subject, html } = parentInviteEmail({ childName, parentEmail: input.parentEmail.trim() })
+      sendEmail({ to: input.parentEmail.trim(), subject, html }).catch(() => {})
+    }
+
     return { ok: true }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to update profile"

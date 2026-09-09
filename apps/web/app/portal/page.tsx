@@ -8,6 +8,7 @@ import { isCalendarConnected } from "@/lib/google-calendar"
 import { AirtableSetupNotice } from "@/components/airtable-setup-notice"
 import { AppointmentCard } from "@/components/appointment-card"
 import { GoogleCalendarButton } from "@/components/google-calendar-button"
+import { PreviousSessionsPanel } from "@/components/previous-sessions-panel"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
@@ -55,17 +56,17 @@ export default async function PortalPage() {
     user ? isCalendarConnected(user.id) : Promise.resolve(false),
   ])
   const today = startOfToday()
-  const isCancelled = (b: { status: string }) => b.status.toLowerCase().startsWith("cancelled")
+  const statusLc = (b: { status: string }) => b.status.toLowerCase()
+  const isPast = (b: { date: string }) => b.date && new Date(`${b.date}T00:00:00`) < today
+  const isActive = (b: { status: string }) =>
+    !statusLc(b).startsWith("cancelled") && statusLc(b) !== "declined"
 
-  const upcoming = bookings.filter(
-    (b) => !isCancelled(b) && (!b.date || new Date(`${b.date}T00:00:00`) >= today),
-  )
-  const completed = bookings.filter(
-    (b) => !isCancelled(b) && b.date && new Date(`${b.date}T00:00:00`) < today,
-  )
-  const cancelled = bookings.filter(isCancelled)
+  const upcoming = bookings.filter((b) => isActive(b) && (!b.date || !isPast(b)))
+  const completed = bookings.filter((b) => isActive(b) && isPast(b))
+  const cancelled = bookings.filter((b) => statusLc(b).startsWith("cancelled"))
+  const declined = bookings.filter((b) => statusLc(b) === "declined")
 
-  const pendingCount = upcoming.filter((b) => b.status.toLowerCase() === "pending").length
+  const pendingCount = upcoming.filter((b) => statusLc(b) === "pending").length
 
   return (
     <div className="flex flex-col gap-8">
@@ -103,27 +104,7 @@ export default async function PortalPage() {
         )}
       </section>
 
-      {completed.length > 0 && (
-        <section className="flex flex-col gap-4">
-          <h2 className="font-heading text-xl font-semibold text-muted-foreground">Completed sessions</h2>
-          <div className="flex flex-col gap-3 opacity-75">
-            {completed.map((b) => (
-              <AppointmentCard key={b.id} booking={b} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {cancelled.length > 0 && (
-        <section className="flex flex-col gap-4">
-          <h2 className="font-heading text-xl font-semibold text-muted-foreground">Cancelled sessions</h2>
-          <div className="flex flex-col gap-3 opacity-75">
-            {cancelled.map((b) => (
-              <AppointmentCard key={b.id} booking={b} />
-            ))}
-          </div>
-        </section>
-      )}
+      <PreviousSessionsPanel completed={completed} cancelled={cancelled} declined={declined} />
     </div>
   )
 }

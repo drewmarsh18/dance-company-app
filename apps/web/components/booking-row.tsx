@@ -91,7 +91,7 @@ export function BookingRow({ booking, availability }: Props) {
         setMode("idle")
         setSelectedDate("")
         setSelectedTime("")
-        toast.success("Booking rescheduled.")
+        toast.success("Reschedule request sent. Awaiting PrepMaster approval.")
       } else {
         toast.error(result.error)
       }

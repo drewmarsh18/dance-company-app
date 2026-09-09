@@ -42,7 +42,7 @@ export default async function HomePage() {
             </li>
             <li className="flex items-center gap-2">
               <Trophy className="size-4 text-primary" />
-              Vetted prep masters
+              Vetted PrepMasters
             </li>
             <li className="flex items-center gap-2">
               <Sparkles className="size-4 text-primary" />

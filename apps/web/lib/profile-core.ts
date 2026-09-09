@@ -1,4 +1,7 @@
 import { TABLES, appBase, getPlansForUser, type ClientFields } from "@/lib/airtable"
+import { db } from "@/lib/db"
+import { parentActiveChild } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 
 export type ClientProfile = {
   recordId: string
@@ -33,14 +36,12 @@ async function findClientByEmail(email: string) {
   return records[0] ?? null
 }
 
-async function findClientByParentEmail(parentEmail: string) {
+async function findClientsByParentEmail(parentEmail: string) {
   const safe = parentEmail.trim().toLowerCase().replace(/'/g, "\\'")
-  const records = await appBase.list<ClientFields>(TABLES.clients, {
+  return appBase.list<ClientFields>(TABLES.clients, {
     filterByFormula: `LOWER({Parent Email}) = '${safe}'`,
-    maxRecords: 1,
     revalidate: 0,
   })
-  return records[0] ?? null
 }
 
 export async function resolveClientProfile(
@@ -65,17 +66,26 @@ export async function resolveClientProfile(
   }
 
   if (!record) {
-    const byParentEmail = await findClientByParentEmail(user.email ?? "")
-    if (byParentEmail) {
+    const children = await findClientsByParentEmail(user.email ?? "")
+    if (children.length > 0) {
+      // Pick the active child — fall back to first if no selection stored
+      let chosen = children[0]
+      if (children.length > 1) {
+        const [sel] = await db.select().from(parentActiveChild).where(eq(parentActiveChild.parentUserId, user.id)).limit(1)
+        if (sel) {
+          const match = children.find((c) => c.fields["User ID"] === sel.childUserId)
+          if (match) chosen = match
+        }
+      }
       return {
-        recordId: byParentEmail.id,
-        name: byParentEmail.fields.Name ?? "",
-        email: byParentEmail.fields.Email ?? "",
-        phone: byParentEmail.fields.Phone ?? "",
-        goals: byParentEmail.fields.Goals ?? "",
-        creditsRemaining: byParentEmail.fields["Credits Remaining"] ?? 0,
-        parentEmail: byParentEmail.fields["Parent Email"] ?? user.email,
-        effectiveUserId: byParentEmail.fields["User ID"] ?? "",
+        recordId: chosen.id,
+        name: chosen.fields.Name ?? "",
+        email: chosen.fields.Email ?? "",
+        phone: chosen.fields.Phone ?? "",
+        goals: chosen.fields.Goals ?? "",
+        creditsRemaining: chosen.fields["Credits Remaining"] ?? 0,
+        parentEmail: chosen.fields["Parent Email"] ?? user.email,
+        effectiveUserId: chosen.fields["User ID"] ?? "",
         isParentView: true,
         isNewProfile: false,
       }

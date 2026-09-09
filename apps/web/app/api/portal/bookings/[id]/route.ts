@@ -79,9 +79,12 @@ export async function PATCH(
       })
       const client = clientRecords[0]
       if (client) {
+        const SESSION_CREDIT_COST: Record<string, number> = { "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5 }
+        const sessionType = booking.fields["Session Type"] ?? "private-60"
+        const creditRefund = SESSION_CREDIT_COST[sessionType] ?? 1
         const current = client.fields["Credits Remaining"] ?? 0
         await appBase.update<ClientFields>(TABLES.clients, client.id, {
-          "Credits Remaining": current + 1,
+          "Credits Remaining": Math.round((current + creditRefund) * 100) / 100,
         })
       }
       revalidateTag(`member-${dancerUserId}`, "max")
@@ -119,8 +122,13 @@ export async function PATCH(
       })
       const client = clientRecords[0]
       if (client) {
+        const SESSION_CREDIT_COST: Record<string, number> = { "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5 }
+        const sessionType = booking.fields["Session Type"] ?? "private-60"
+        const creditRefund = SESSION_CREDIT_COST[sessionType] ?? 1
         const current = client.fields["Credits Remaining"] ?? 0
-        await appBase.update<ClientFields>(TABLES.clients, client.id, { "Credits Remaining": current + 1 })
+        await appBase.update<ClientFields>(TABLES.clients, client.id, {
+          "Credits Remaining": Math.round((current + creditRefund) * 100) / 100,
+        })
       }
     }
 

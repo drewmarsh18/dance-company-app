@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { getPrepMasterByEmail, isAirtableConfigured } from "@/lib/airtable"
 import { getSessionUserWithRole } from "@/lib/roles"
-import { getAvailabilityForEmail } from "@/app/actions/availability"
+import { getMyAvailability } from "@/app/actions/availability"
 import { getPastClients } from "@/app/actions/portal-booking"
 import { PortalBookForm } from "@/components/portal-book-form"
 import { AirtableSetupNotice } from "@/components/airtable-setup-notice"
@@ -24,7 +24,7 @@ export default async function PortalBookPage() {
 
   const [clients, availability] = await Promise.all([
     getPastClients(),
-    getAvailabilityForEmail(prepMaster.email),
+    getMyAvailability(),
   ])
 
   return (

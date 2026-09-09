@@ -16,7 +16,7 @@ import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingConfirmationEmail, prepMasterBookingRequestEmail } from "@/lib/email"
 import { sendSms } from "@/lib/sms"
-import { fmtDate, fmtTime } from "@/lib/utils"
+import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -26,14 +26,25 @@ import type { SessionType } from "@/lib/session-types"
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
 const CONFIRM_SECRET = process.env.BOOKING_CONFIRM_SECRET ?? "cdp-confirm-secret"
 
-async function findClientRecord(userId: string) {
+async function findClientRecord(userId: string, parentEmail?: string | null) {
   const safeId = userId.replace(/'/g, "\\'")
   const records = await appBase.list<ClientFields>(TABLES.clients, {
     filterByFormula: `{User ID} = '${safeId}'`,
     maxRecords: 1,
     revalidate: 0,
   })
-  return records[0] ?? null
+  if (records[0]) return records[0]
+  // Parent view: look up child record by parent email
+  if (parentEmail) {
+    const safe = parentEmail.trim().toLowerCase().replace(/'/g, "\\'")
+    const byParent = await appBase.list<ClientFields>(TABLES.clients, {
+      filterByFormula: `LOWER({Parent Email}) = '${safe}'`,
+      maxRecords: 1,
+      revalidate: 0,
+    })
+    if (byParent[0]) return byParent[0]
+  }
+  return null
 }
 
 export async function POST(req: Request) {
@@ -61,15 +72,19 @@ export async function POST(req: Request) {
     "private-60": 1,
     "private-45": 0.75,
     "private-30": 0.5,
+    "private-90": 1.5,
   }
   const creditCost = CREDIT_COST[sessionType ?? "pack-hour"] ?? 1
 
   // Credit gate
-  const client = await findClientRecord(user.id)
+  const client = await findClientRecord(user.id, user.email)
   const credits = client?.fields["Credits Remaining"] ?? 0
   if (!client || credits < creditCost) {
     return NextResponse.json({ ok: false, error: "NO_CREDITS" })
   }
+  // For parent-view bookings, use the child's stored user ID and email
+  const effectiveUserId = client.fields["User ID"] || user.id
+  const effectiveEmail = client.fields.Email || user.email
 
   // Validate slot is within availability
   const prepMaster = await getPrepMaster(prepMasterId)
@@ -90,8 +105,8 @@ export async function POST(req: Request) {
 
   // Create booking
   const record = await appBase.create<BookingFields>(TABLES.bookings, {
-    "User ID": user.id,
-    "Client Email": user.email,
+    "User ID": effectiveUserId,
+    "Client Email": effectiveEmail,
     "Prep Master Name": prepMasterName,
     Date: date,
     Time: time,
@@ -111,12 +126,12 @@ export async function POST(req: Request) {
   if (planId && planSessions === 1) {
     await setPlanStatus(planId, "Used")
   } else if (newCredits <= 0) {
-    const planToMark = planId ? { id: planId } : await getActivePlanForUser(user.id)
+    const planToMark = planId ? { id: planId } : await getActivePlanForUser(effectiveUserId)
     if (planToMark) await setPlanStatus(planToMark.id, "Used")
   }
 
   // Add to member's Google Calendar (fire and forget)
-  createCalendarEvent(user.id, {
+  createCalendarEvent(effectiveUserId, {
     dancerName: client.fields.Name ?? user.name ?? "Member",
     prepMasterName,
     date,
@@ -125,12 +140,18 @@ export async function POST(req: Request) {
     sessionType: sessionType ?? "pack-hour",
   }).catch(() => {})
 
+  // Look up member timezone for notification body
+  const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, effectiveUserId)).limit(1)
+  const memberTz = memberRow?.timezone ?? null
+  const utcForNotif = etToUtcIso(date, time, COMPANY_TZ)
+  const memberTimeLabel = utcForNotif ? fmtTimeForNotif(utcForNotif, COMPANY_TZ, memberTz) : `${fmtTime(time)} ET`
+
   // In-app notification
   createNotification({
-    userId: user.id,
+    userId: effectiveUserId,
     type: "booking_pending",
     title: "Booking requested",
-    body: `Your session with ${prepMasterName} on ${fmtDate(date)} at ${fmtTime(time)} ET is pending confirmation.`,
+    body: `Your session with ${prepMasterName} on ${fmtDate(date)} at ${memberTimeLabel} is pending confirmation.`,
     bookingId: record.id,
     pushData: { route: "/member/bookings" },
   }).catch(() => {})
@@ -138,14 +159,14 @@ export async function POST(req: Request) {
   const dancerDisplayName = client.fields.Name ?? user.name ?? "Dancer"
 
   // Emails — fire and forget
-  if (user.email) {
+  if (effectiveEmail) {
     const { subject, html } = bookingConfirmationEmail({
       dancerName: dancerDisplayName,
       prepMasterName,
       date,
       time,
     })
-    sendEmail({ to: user.email, subject, html }).catch(() => {})
+    sendEmail({ to: effectiveEmail, subject, html }).catch(() => {})
   }
 
   getPrepMaster(prepMasterId).then(async (pm) => {
@@ -155,7 +176,7 @@ export async function POST(req: Request) {
     const { subject, html } = prepMasterBookingRequestEmail({
       prepMasterName: pm.name,
       dancerName: dancerDisplayName,
-      dancerEmail: user.email ?? "",
+      dancerEmail: effectiveEmail ?? "",
       date,
       time,
       notes: notes || undefined,
@@ -164,14 +185,14 @@ export async function POST(req: Request) {
     })
     sendEmail({ to: pm.email, subject, html }).catch(() => {})
 
-    const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
+    const [pmUser] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pm.email))
     if (pmUser) {
       // Push with approve/deny actions
       createNotification({
         userId: pmUser.id,
         type: "booking_request",
         title: "New session request",
-        body: `${dancerDisplayName} wants to book ${date} at ${time}.`,
+        body: `${dancerDisplayName} wants to book ${fmtDate(date)} at ${utcForNotif ? fmtTimeForNotif(utcForNotif, COMPANY_TZ, pmUser?.timezone ?? null) : fmtTime(time)}.`,
         bookingId: record.id,
         pushCategory: "BOOKING_REQUEST",
         pushData: { bookingId: record.id, approveUrl, denyUrl },

@@ -52,7 +52,7 @@ export async function getMyAvailability(): Promise<DayAvailability[]> {
           email,
           dayOfWeek: i,
           enabled: true,
-          startTime: "06:00",
+          startTime: "07:00",
           endTime: "23:00",
         }).onConflictDoNothing(),
       ),
@@ -61,7 +61,7 @@ export async function getMyAvailability(): Promise<DayAvailability[]> {
       Array.from({ length: 7 }, (_, i) => ({
         dayOfWeek: i,
         enabled: true,
-        startTime: "06:00",
+        startTime: "07:00",
         endTime: "23:00",
       })),
     )

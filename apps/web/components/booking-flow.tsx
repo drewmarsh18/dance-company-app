@@ -65,12 +65,13 @@ export function BookingFlow({
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [notes, setNotes] = useState("")
   const [selectedOption, setSelectedOption] = useState<CreditOption | null>(null)
-  const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60" | null>(null)
+  const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60" | "private-90" | null>(null)
 
-  const DURATIONS: { value: "private-30" | "private-45" | "private-60"; label: string; sub: string }[] = [
+  const DURATIONS: { value: "private-30" | "private-45" | "private-60" | "private-90"; label: string; sub: string }[] = [
     { value: "private-30", label: "30 min", sub: "Quick focus session" },
     { value: "private-45", label: "45 min", sub: "Standard session" },
     { value: "private-60", label: "60 min", sub: "Full session" },
+    { value: "private-90", label: "90 min", sub: "Extended session · 1.5 credits" },
   ]
 
   // Build credit options — every active plan is a selectable option

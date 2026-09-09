@@ -14,7 +14,7 @@ import {
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
-import { fmtDate, fmtTime } from "@/lib/utils"
+import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -86,7 +86,7 @@ export async function createBookingAsPrepMaster(input: {
 
     // Look up the dancer's userId for the notification
     const dancerRows = await db
-      .select({ id: userTable.id, name: userTable.name })
+      .select({ id: userTable.id, name: userTable.name, timezone: userTable.timezone })
       .from(userTable)
       .where(eq(userTable.email, input.dancerEmail.toLowerCase()))
       .limit(1)
@@ -103,11 +103,13 @@ export async function createBookingAsPrepMaster(input: {
     })
 
     if (dancer?.id) {
+      const utcPortalBook = etToUtcIso(input.date, input.time, COMPANY_TZ)
+      const portalBookLabel = utcPortalBook ? fmtTimeForNotif(utcPortalBook, COMPANY_TZ, dancer.timezone ?? null) : `${fmtTime(input.time)} ET`
       createNotification({
         userId: dancer.id,
         type: "booking_confirmed",
         title: "Session booked",
-        body: `${prepMaster.name} has booked a session with you on ${fmtDate(input.date)} at ${fmtTime(input.time)} ET.`,
+        body: `${prepMaster.name} has booked a session with you on ${fmtDate(input.date)} at ${portalBookLabel}.`,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }

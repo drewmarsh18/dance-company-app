@@ -24,7 +24,7 @@ import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
-import { isWithin24Hours, fmtDate, fmtTime } from "@/lib/utils"
+import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
 import { sendEmail, bookingConfirmationEmail, bookingCancelledEmail, prepMasterBookingRequestEmail, bookingUpdatedEmail } from "@/lib/email"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
@@ -107,9 +107,12 @@ export async function cancelBooking(
     if (!within24) {
       const client = await findClientRecord(user.id)
       if (client) {
+        const SESSION_CREDIT_COST: Record<string, number> = { "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5 }
+        const sessionType = booking.fields["Session Type"] ?? "private-60"
+        const creditRefund = SESSION_CREDIT_COST[sessionType] ?? 1
         const current = client.fields["Credits Remaining"] ?? 0
         await appBase.update<ClientFields>(TABLES.clients, client.id, {
-          "Credits Remaining": current + 1,
+          "Credits Remaining": Math.round((current + creditRefund) * 100) / 100,
         })
 
         // If credits were at 0, reactivate the most recently expired plan
@@ -211,11 +214,15 @@ export async function rescheduleBooking(
     })
 
     // Tell the member their request is pending — not confirmed yet
+    const utcForReschedule = etToUtcIso(newDate, newTime, COMPANY_TZ)
+    const [memberReschRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+    const memberReschTz = memberReschRow?.timezone ?? null
+    const memberReschLabel = utcForReschedule ? fmtTimeForNotif(utcForReschedule, COMPANY_TZ, memberReschTz) : `${fmtTime(newTime)} ET`
     createNotification({
       userId: user.id,
       type: "booking_updated",
       title: "Reschedule requested",
-      body: `Your reschedule request for ${fmtDate(newDate)} at ${fmtTime(newTime)} ET is awaiting approval from ${prepMasterName}.`,
+      body: `Your reschedule request for ${fmtDate(newDate)} at ${memberReschLabel} is awaiting approval from ${prepMasterName}.`,
       bookingId,
       pushData: { route: "/member/bookings" },
     }).catch(() => {})
@@ -241,13 +248,14 @@ export async function rescheduleBooking(
       if (!pm?.email) return
 
       // In-app notification → PrepMaster (needs their approval)
-      const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
+      const [pmUser] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pm.email))
       if (pmUser) {
+        const pmReschLabel = utcForReschedule ? fmtTimeForNotif(utcForReschedule, COMPANY_TZ, pmUser.timezone ?? null) : `${fmtTime(newTime)} ET`
         createNotification({
           userId: pmUser.id,
           type: "booking_updated",
           title: "Reschedule request",
-          body: `${memberName} wants to reschedule to ${fmtDate(newDate)} at ${fmtTime(newTime)} ET. Please approve or decline.`,
+          body: `${memberName} wants to reschedule to ${fmtDate(newDate)} at ${pmReschLabel}. Please approve or decline.`,
           bookingId,
           pushData: { route: "/portal" },
         }).catch(() => {})
@@ -346,11 +354,14 @@ export async function createBooking(input: {
     }
 
     // In-app notification for the dancer
+    const utcForCreate = etToUtcIso(input.date, input.time, COMPANY_TZ)
+    const [memberCreateRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+    const memberCreateLabel = utcForCreate ? fmtTimeForNotif(utcForCreate, COMPANY_TZ, memberCreateRow?.timezone ?? null) : `${fmtTime(input.time)} ET`
     createNotification({
       userId: user.id,
       type: "booking_confirmed",
       title: "Booking confirmed",
-      body: `Your session with ${input.prepMasterName} on ${fmtDate(input.date)} at ${fmtTime(input.time)} ET is confirmed.`,
+      body: `Your session with ${input.prepMasterName} on ${fmtDate(input.date)} at ${memberCreateLabel} is confirmed.`,
       bookingId: record.id,
       pushData: { route: "/member/bookings" },
     }).catch(() => {})
@@ -386,13 +397,14 @@ export async function createBooking(input: {
       sendEmail({ to: pm.email, subject, html }).catch((e) => console.error("PM request email failed:", e))
 
       // Push notification with approve/deny actions
-      const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
+      const [pmUser] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pm.email))
       if (pmUser) {
+        const pmCreateLabel = utcForCreate ? fmtTimeForNotif(utcForCreate, COMPANY_TZ, pmUser.timezone ?? null) : `${fmtTime(input.time)} ET`
         createNotification({
           userId: pmUser.id,
           type: "booking_request",
           title: "New session request",
-          body: `${dancerDisplayName} wants to book ${fmtDate(input.date)} at ${fmtTime(input.time)} ET.`,
+          body: `${dancerDisplayName} wants to book ${fmtDate(input.date)} at ${pmCreateLabel}.`,
           bookingId: record.id,
           pushCategory: "BOOKING_REQUEST",
           pushData: {

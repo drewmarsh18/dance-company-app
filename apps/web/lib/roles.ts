@@ -6,7 +6,7 @@ import { and, eq } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { prepMasterInvite } from "@/lib/db/schema"
-import { getPrepMasterByEmail, isAirtableConfigured } from "@/lib/airtable"
+import { getPrepMasterByEmail, adminUpdateWorker, isAirtableConfigured } from "@/lib/airtable"
 
 export type Role = "admin" | "prep_master" | "dancer"
 
@@ -101,7 +101,7 @@ export const getSessionUserWithRole = cache(async (): Promise<SessionUserWithRol
  */
 export async function markInviteAccepted(email: string): Promise<void> {
   const normalized = email.trim().toLowerCase()
-  await db
+  const result = await db
     .update(prepMasterInvite)
     .set({ status: "accepted", acceptedAt: new Date() })
     .where(
@@ -110,6 +110,17 @@ export async function markInviteAccepted(email: string): Promise<void> {
         eq(prepMasterInvite.status, "pending"),
       ),
     )
+    .returning({ id: prepMasterInvite.id })
+
+  // If a row was actually updated (first login), flip Active = true in Airtable
+  if (result.length > 0 && isAirtableConfigured()) {
+    try {
+      const worker = await getPrepMasterByEmail(normalized)
+      if (worker) await adminUpdateWorker(worker.id, { active: true })
+    } catch {
+      // Non-fatal — DB invite is already marked accepted
+    }
+  }
 }
 
 /** The landing route for each role after sign-in. */

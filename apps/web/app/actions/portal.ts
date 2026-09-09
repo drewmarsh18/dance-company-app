@@ -2,13 +2,15 @@
 
 import { revalidatePath } from "next/cache"
 import { getSessionUserWithRole } from "@/lib/roles"
-import { TABLES, appBase, getPrepMasterByEmail, type BookingFields, type ClientFields } from "@/lib/airtable"
-import { sendEmail, bookingUpdatedEmail } from "@/lib/email"
+import { TABLES, appBase, getPrepMasterByEmail, getBookedSlots, type BookingFields, type ClientFields } from "@/lib/airtable"
+import { sendEmail, bookingUpdatedEmail, bookingCancelledEmail } from "@/lib/email"
 import { createNotification } from "@/app/actions/notifications"
-import { fmtDate, fmtTime } from "@/lib/utils"
+import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
+import { getAvailabilityForEmail } from "@/app/actions/availability"
+import { slotsForDate } from "@/lib/availability"
 
 async function assertPrepMaster() {
   const user = await getSessionUserWithRole()
@@ -19,6 +21,42 @@ async function assertPrepMaster() {
 async function getUserIdByEmail(email: string): Promise<string | null> {
   const [row] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, email))
   return row?.id ?? null
+}
+
+/**
+ * Returns available (unbooked) time slots for the authenticated PM on a given date.
+ * Pass `excludeBookingId` to allow the current booking's slot to remain selectable.
+ */
+export async function getAvailableSlotsForDate(
+  date: string,
+  excludeBookingId?: string,
+): Promise<string[]> {
+  try {
+    const user = await assertPrepMaster()
+    const pm = await getPrepMasterByEmail(user.email)
+    if (!pm) return []
+
+    const week = await getAvailabilityForEmail(pm.email)
+    const allSlots = slotsForDate(date, week)
+    if (allSlots.length === 0) return []
+
+    const bookedSlots = await getBookedSlots(pm.name, date)
+
+    // Exclude already-booked slots, but keep the current booking's slot available
+    let excludedTime: string | undefined
+    if (excludeBookingId) {
+      const safeId = excludeBookingId.replace(/'/g, "\\'")
+      const records = await appBase.list<BookingFields>(TABLES.bookings, {
+        filterByFormula: `RECORD_ID() = '${safeId}'`,
+        maxRecords: 1,
+      })
+      excludedTime = records[0]?.fields.Time ?? undefined
+    }
+
+    return allSlots.filter((slot) => !bookedSlots.includes(slot) || slot === excludedTime)
+  } catch {
+    return []
+  }
 }
 
 export async function confirmBooking(
@@ -39,12 +77,17 @@ export async function confirmBooking(
 
     // Notify member in-app
     const dancerUserId = records[0].fields["User ID"]
+    const confirmDate = records[0].fields.Date ?? ""
+    const confirmTime = records[0].fields.Time ?? ""
     if (dancerUserId) {
+      const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
+      const utcConfirm = etToUtcIso(confirmDate, confirmTime, COMPANY_TZ)
+      const confirmLabel = utcConfirm ? fmtTimeForNotif(utcConfirm, COMPANY_TZ, memberRow?.timezone ?? null) : `${fmtTime(confirmTime)} ET`
       createNotification({
         userId: dancerUserId,
         type: "booking_confirmed",
         title: "Booking confirmed",
-        body: `${pm.name} has confirmed your session on ${records[0].fields.Date ?? ""} at ${records[0].fields.Time ?? ""}.`,
+        body: `${pm.name} has confirmed your session on ${fmtDate(confirmDate)} at ${confirmLabel}.`,
         bookingId,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
@@ -97,23 +140,28 @@ export async function adjustBooking(
     }
 
     // In-app notification → member
+    const utcAdjust = etToUtcIso(newDate, newTime, COMPANY_TZ)
     if (dancerUserId) {
+      const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
+      const memberAdjustLabel = utcAdjust ? fmtTimeForNotif(utcAdjust, COMPANY_TZ, memberRow?.timezone ?? null) : `${fmtTime(newTime)} ET`
       createNotification({
         userId: dancerUserId,
         type: "booking_updated",
         title: "Session rescheduled",
-        body: `${pm.name} has rescheduled your session to ${newDate} at ${newTime}.`,
+        body: `${pm.name} has rescheduled your session to ${fmtDate(newDate)} at ${memberAdjustLabel}.`,
         bookingId,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }
 
     // In-app notification → PrepMaster (themselves, as a confirmation)
+    const [pmRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+    const pmAdjustLabel = utcAdjust ? fmtTimeForNotif(utcAdjust, COMPANY_TZ, pmRow?.timezone ?? null) : `${fmtTime(newTime)} ET`
     createNotification({
       userId: user.id,
       type: "booking_updated",
       title: "Session updated",
-      body: `You rescheduled the session on ${newDate} at ${newTime}.`,
+      body: `You rescheduled the session to ${fmtDate(newDate)} at ${pmAdjustLabel}.`,
       bookingId,
       pushData: { route: "/portal" },
     }).catch(() => {})
@@ -171,9 +219,13 @@ export async function declineBooking(
 
     // Notify member in-app
     const dancerUserId = records[0].fields["User ID"]
-    const dateLabel = fmtDate(records[0].fields.Date ?? "")
-    const timeLabel = fmtTime(records[0].fields.Time ?? "")
+    const declineDate = records[0].fields.Date ?? ""
+    const declineTime = records[0].fields.Time ?? ""
+    const dateLabel = fmtDate(declineDate)
     if (dancerUserId) {
+      const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
+      const utcDecline = etToUtcIso(declineDate, declineTime, COMPANY_TZ)
+      const timeLabel = utcDecline ? fmtTimeForNotif(utcDecline, COMPANY_TZ, memberRow?.timezone ?? null) : `${fmtTime(declineTime)} ET`
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
@@ -188,5 +240,101 @@ export async function declineBooking(
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to decline." }
+  }
+}
+
+export async function cancelBookingAsPrepMaster(
+  bookingId: string,
+  reason: string,
+): Promise<{ ok: true; creditRefunded: boolean } | { ok: false; error: string }> {
+  try {
+    const user = await assertPrepMaster()
+    const pm = await getPrepMasterByEmail(user.email)
+    if (!pm) return { ok: false, error: "Staff record not found." }
+
+    const records = await appBase.list<BookingFields>(TABLES.bookings, {
+      filterByFormula: `AND({Prep Master Name} = '${pm.name.replace(/'/g, "\\'")}', RECORD_ID() = '${bookingId}')`,
+      maxRecords: 1,
+    })
+    if (!records[0]) return { ok: false, error: "Booking not found." }
+
+    const booking = records[0].fields
+    const dateStr = booking.Date ?? ""
+    const timeStr = booking.Time ?? ""
+    const dancerUserId = booking["User ID"]
+    const dancerEmail = booking["Client Email"]
+
+    // Determine if within 24 hours of session start
+    let creditRefunded = false
+    if (dateStr) {
+      const sessionDate = new Date(`${dateStr}T${timeStr ? timeStr.replace(/(\d+):(\d+)\s*(AM|PM)/i, (_, h, m, p) => {
+        let hour = parseInt(h); if (p.toUpperCase() === "PM" && hour !== 12) hour += 12; if (p.toUpperCase() === "AM" && hour === 12) hour = 0
+        return `${String(hour).padStart(2, "0")}:${m}:00`
+      }) : "00:00:00"}`)
+      const hoursUntil = (sessionDate.getTime() - Date.now()) / (1000 * 60 * 60)
+      creditRefunded = hoursUntil <= 24
+    }
+
+    await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
+      Status: "Cancelled",
+      "Cancellation Reason": reason,
+    })
+
+    const dateLabel = fmtDate(dateStr)
+    const utcCancel = etToUtcIso(dateStr, timeStr, COMPANY_TZ)
+
+    // Notify member
+    if (dancerUserId) {
+      const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
+      const memberCancelLabel = utcCancel ? fmtTimeForNotif(utcCancel, COMPANY_TZ, memberRow?.timezone ?? null) : `${fmtTime(timeStr)} ET`
+      const body = creditRefunded
+        ? `${pm.name} cancelled your session on ${dateLabel} at ${memberCancelLabel}. Your credit has been refunded since the cancellation was within 24 hours.`
+        : `${pm.name} cancelled your session on ${dateLabel} at ${memberCancelLabel}.`
+      createNotification({
+        userId: dancerUserId,
+        type: "booking_cancelled",
+        title: "Session cancelled by PrepMaster",
+        body,
+        bookingId,
+        pushData: { route: "/member/bookings" },
+      }).catch(() => {})
+    }
+
+    // Notify PM (confirmation)
+    const [pmRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+    const pmCancelLabel = utcCancel ? fmtTimeForNotif(utcCancel, COMPANY_TZ, pmRow?.timezone ?? null) : `${fmtTime(timeStr)} ET`
+    createNotification({
+      userId: user.id,
+      type: "booking_cancelled",
+      title: "Session cancelled",
+      body: `You cancelled the session on ${dateLabel} at ${pmCancelLabel}.${creditRefunded ? " The member's credit was refunded." : ""}`,
+      bookingId,
+      pushData: { route: "/portal" },
+    }).catch(() => {})
+
+    // Email member
+    if (dancerEmail) {
+      let dancerName = dancerEmail
+      if (dancerUserId) {
+        const memberRecords = await appBase.list<ClientFields>(TABLES.clients, {
+          filterByFormula: `{User ID} = '${dancerUserId.replace(/'/g, "\\'")}'`,
+          maxRecords: 1,
+        })
+        if (memberRecords[0]?.fields.Name) dancerName = memberRecords[0].fields.Name
+      }
+      const { subject, html } = bookingCancelledEmail({
+        dancerName,
+        prepMasterName: pm.name,
+        date: dateStr,
+        time: timeStr,
+        creditRefunded,
+      })
+      sendEmail({ to: dancerEmail, subject, html }).catch(() => {})
+    }
+
+    revalidatePath("/portal")
+    return { ok: true, creditRefunded }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to cancel." }
   }
 }
