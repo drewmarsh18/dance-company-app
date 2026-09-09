@@ -1,0 +1,8 @@
+node_modules
+**/node_modules
+apps/mobile
+.git
+**/.cache
+**/dist
+**/.next
+**/build
