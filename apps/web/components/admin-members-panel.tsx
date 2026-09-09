@@ -379,7 +379,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                 <div className="flex flex-col gap-2">
                   <p className="text-sm font-medium">Add single session</p>
                   <div className="flex flex-wrap gap-2">
-                    {(["60 min", "45 min", "30 min"] as const).map((label) => (
+                    {(["90 min", "60 min", "45 min", "30 min"] as const).map((label) => (
                       <Button
                         key={label}
                         size="sm"

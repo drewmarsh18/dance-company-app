@@ -31,6 +31,7 @@ import {
 } from "@/lib/airtable"
 
 const SINGLE_SESSION_PLANS: Record<string, { name: string; price: number; credits: number }> = {
+  "90 min": { name: "90-Min Single", price: 169, credits: 1.5 },
   "60 min": { name: "60-Min Single", price: 119, credits: 1 },
   "45 min": { name: "45-Min Single", price: 89, credits: 0.75 },
   "30 min": { name: "30-Min Single", price: 65, credits: 0.5 },
