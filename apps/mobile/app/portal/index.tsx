@@ -487,7 +487,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
   const [declineReason, setDeclineReason] = useState("")
   const [cancelReason, setCancelReason] = useState("")
   const [saving, setSaving] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(booking.status.toLowerCase() === "pending")
   const [availableSlots, setAvailableSlots] = useState<string[]>(TIME_SLOTS)
   const [slotsLoading, setSlotsLoading] = useState(false)
 
@@ -572,6 +572,9 @@ function BookingCard({ booking, dimmed, onUpdate }: {
             <Text style={styles.cardDancer}>{booking.dancerName || "Dancer"}</Text>
             {booking.sessionType ? <View style={[styles.badge, { backgroundColor: COLORS.grayLight }]}><Text style={[styles.badgeText, { color: COLORS.textMuted }]}>{booking.sessionType}</Text></View> : null}
           </View>
+          {isPending && (
+            <Text style={{ fontSize: 11, color: COLORS.amber, fontWeight: "600", marginTop: 1 }}>Reschedule requested · awaiting approval</Text>
+          )}
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING.sm }}>
           <View style={[styles.badge, { backgroundColor: sc.bg }]}><Text style={[styles.badgeText, { color: sc.text }]}>{displayStatus}</Text></View>
