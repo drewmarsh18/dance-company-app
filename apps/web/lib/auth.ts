@@ -181,8 +181,8 @@ export const auth = betterAuth({
           // parents are auto-approved, no admin review needed.
           let isParent = false
           try {
-            if (isAirtableConfigured()) {
-              const { appBase, TABLES } = await import("@/lib/airtable")
+            const { isAirtableConfigured: isATConfigured, appBase, TABLES } = await import("@/lib/airtable")
+            if (isATConfigured()) {
               const safe = email.replace(/'/g, "\\'")
               const children = await appBase.list(TABLES.clients, {
                 filterByFormula: `LOWER({Parent Email}) = '${safe}'`,
