@@ -22,16 +22,29 @@ export async function DELETE(req: Request) {
 
   // Delete from Airtable (find by email, then destroy)
   let airtableDeleted = 0
+  let parentEmail: string | null = null
   try {
     const records = await appBase.list<ClientFields>(TABLES.clients, {
       filterByFormula: `LOWER({Email}) = '${normalizedEmail.replace(/'/g, "\\'")}'`,
       maxRecords: 10,
     })
+    parentEmail = records[0]?.fields?.["Parent Email"] ?? null
     await Promise.all(records.map((r) => appBase.destroy(TABLES.clients, r.id)))
     airtableDeleted = records.length
   } catch {
     // Non-fatal: log but don't fail if Airtable delete errors
   }
 
-  return NextResponse.json({ deleted: deleted.length, airtableDeleted })
+  // Also delete the linked parent account from Postgres if one exists
+  let parentDeleted = 0
+  if (parentEmail) {
+    const normalizedParent = parentEmail.trim().toLowerCase()
+    const result = await db
+      .delete(userTable)
+      .where(eq(userTable.email, normalizedParent))
+      .returning({ id: userTable.id })
+    parentDeleted = result.length
+  }
+
+  return NextResponse.json({ deleted: deleted.length, airtableDeleted, parentDeleted })
 }
