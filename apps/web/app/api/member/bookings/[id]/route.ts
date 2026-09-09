@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { headers } from "next/headers"
+import { revalidateTag } from "next/cache"
 import { auth } from "@/lib/auth"
 import { TABLES, appBase, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
@@ -120,6 +121,7 @@ export async function DELETE(
     sendEmail({ to: pm.email, subject, html }).catch(() => {})
   }).catch(() => {})
 
+  revalidateTag(`member-${user.id}`)
   return NextResponse.json({ ok: true, creditRefunded: !within24 })
 }
 
@@ -225,5 +227,6 @@ export async function PATCH(
     sendEmail({ to: pm.email, subject, html }).catch(() => {})
   }).catch(() => {})
 
+  revalidateTag(`member-${user.id}`)
   return NextResponse.json({ ok: true })
 }
