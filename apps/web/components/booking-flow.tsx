@@ -69,11 +69,11 @@ export function BookingFlow({
   const [selectedOption, setSelectedOption] = useState<CreditOption | null>(null)
   const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60" | "private-90" | null>(null)
 
-  const DURATIONS: { value: "private-30" | "private-45" | "private-60" | "private-90"; label: string; sub: string }[] = [
-    { value: "private-30", label: "30 min", sub: "Quick focus session" },
-    { value: "private-45", label: "45 min", sub: "Standard session" },
-    { value: "private-60", label: "60 min", sub: "Full session" },
-    { value: "private-90", label: "90 min", sub: "Extended session · 1.5 credits" },
+  const DURATIONS: { value: "private-30" | "private-45" | "private-60" | "private-90"; label: string }[] = [
+    { value: "private-30", label: "30 min" },
+    { value: "private-45", label: "45 min" },
+    { value: "private-60", label: "60 min" },
+    { value: "private-90", label: "90 min" },
   ]
 
   // Build credit options — every active plan is a selectable option
@@ -245,7 +245,7 @@ export function BookingFlow({
         </div>
       )}
 
-      {/* Week calendar */}
+      {/* Week calendar — full-bleed on mobile to match app layout */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <StepBadge n={1 + stepOffset} done={!!(selectedDate && selectedTime)} />
@@ -277,63 +277,95 @@ export function BookingFlow({
           </button>
         </div>
 
-        {/* 7-column week grid */}
-        <div className="grid grid-cols-7 gap-1.5">
-          {weekSlots.map(({ date, iso, slots, taken, isPast }) => {
-            const isSelected = selectedDate === iso
-            const hasSlots = slots.length > 0
-            return (
-              <div
-                key={iso}
-                className={cn(
-                  "flex flex-col gap-1 rounded-lg border p-1.5",
-                  isPast || !hasSlots ? "opacity-40" : "",
-                  isSelected ? "border-primary bg-primary/5" : "bg-card",
-                )}
-              >
-                {/* Day header */}
-                <div className="flex flex-col items-center py-1">
-                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {/* Calendar grid — negative margin so it goes full-bleed on mobile */}
+        <div className="-mx-5 sm:mx-0 overflow-hidden rounded-none sm:rounded-xl border-y sm:border bg-card">
+          {/* Sticky day headers */}
+          <div className="grid grid-cols-7 border-b bg-card/95 backdrop-blur-sm">
+            {weekSlots.map(({ date, iso, isPast, slots }) => {
+              const isSelected = selectedDate === iso
+              const hasSlots = slots.length > 0
+              const isToday = toIso(date) === toIso(today)
+              return (
+                <div
+                  key={iso}
+                  className={cn(
+                    "flex flex-col items-center py-2.5 border-r last:border-r-0 select-none",
+                    isPast || !hasSlots ? "opacity-35" : "",
+                    isSelected ? "bg-primary/10" : "",
+                  )}
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {date.toLocaleDateString("en-US", { weekday: "short" })}
                   </span>
-                  <span className={cn("font-heading text-base font-bold leading-tight", isSelected ? "text-primary" : "")}>
+                  <span
+                    className={cn(
+                      "mt-0.5 flex size-7 items-center justify-center rounded-full font-heading text-sm font-bold leading-none",
+                      isToday && !isSelected ? "ring-1 ring-primary text-primary" : "",
+                      isSelected ? "bg-primary text-primary-foreground" : "text-foreground",
+                    )}
+                  >
                     {date.getDate()}
                   </span>
                 </div>
+              )
+            })}
+          </div>
 
-                {/* Time slots */}
-                <div className="flex flex-col gap-1">
-                  {slots.length === 0 ? (
-                    <div className="py-2 text-center text-[10px] text-muted-foreground">—</div>
-                  ) : (
-                    slots.map((slot) => {
-                      const isTaken = taken.has(slot)
-                      const isSlotSelected = isSelected && selectedTime === slot
-                      const displaySlot = slotToLocalTime(slot, iso, prepMasterTimezone)
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          disabled={isTaken || isPast}
-                          onClick={() => selectSlot(iso, slot)}
-                          className={cn(
-                            "w-full rounded px-1 py-1.5 text-center text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                            isSlotSelected
-                              ? "bg-primary text-primary-foreground"
-                              : isTaken
-                              ? "bg-secondary text-muted-foreground"
-                              : "bg-secondary hover:bg-primary/10",
-                          )}
-                        >
-                          {displaySlot}
-                        </button>
-                      )
-                    })
-                  )}
-                </div>
-              </div>
-            )
-          })}
+          {/* Scrollable slot rows */}
+          <div className="h-[52vh] overflow-y-auto overscroll-contain">
+            <div className="grid grid-cols-7">
+              {weekSlots.map(({ date, iso, slots, taken, isPast }) => {
+                const isColSelected = selectedDate === iso
+                const hasSlots = slots.length > 0
+                return (
+                  <div
+                    key={iso}
+                    className={cn(
+                      "flex flex-col border-r last:border-r-0",
+                      isPast || !hasSlots ? "opacity-35 pointer-events-none" : "",
+                      isColSelected ? "bg-primary/5" : "",
+                    )}
+                  >
+                    {slots.length === 0 ? (
+                      <div className="flex flex-1 items-start justify-center pt-6 text-[11px] text-muted-foreground">—</div>
+                    ) : (
+                      slots.map((slot) => {
+                        const isTaken = taken.has(slot)
+                        const isSlotSelected = isColSelected && selectedTime === slot
+                        const displaySlot = slotToLocalTime(slot, iso, prepMasterTimezone)
+                        // Split "7:00 AM" → ["7:00", "AM"]
+                        const [timePart, ampm] = displaySlot.split(" ")
+                        return (
+                          <button
+                            key={slot}
+                            type="button"
+                            disabled={isTaken || isPast}
+                            onClick={() => selectSlot(iso, slot)}
+                            className={cn(
+                              "flex flex-col items-center justify-center py-2.5 text-center transition-colors border-b last:border-b-0 touch-manipulation",
+                              "disabled:cursor-not-allowed",
+                              isSlotSelected
+                                ? "bg-primary text-primary-foreground"
+                                : isTaken
+                                ? "opacity-30 cursor-not-allowed"
+                                : "hover:bg-primary/10 active:bg-primary/20",
+                            )}
+                          >
+                            <span className={cn("text-[11px] font-semibold leading-none", isSlotSelected ? "text-primary-foreground" : "text-foreground")}>
+                              {timePart}
+                            </span>
+                            <span className={cn("text-[10px] leading-none mt-0.5", isSlotSelected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                              {ampm}
+                            </span>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -361,7 +393,6 @@ export function BookingFlow({
                 )}
               >
                 <span className={cn("font-bold text-base", isSelected ? "text-primary" : isDisabled ? "line-through text-muted-foreground" : "text-foreground")}>{d.label}</span>
-                <span className="text-xs text-muted-foreground">{d.sub}</span>
               </button>
             )
           })}
