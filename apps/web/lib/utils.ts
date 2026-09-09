@@ -37,8 +37,8 @@ export function etToUtcIso(date: string, timeStr: string, tz = COMPANY_TZ): stri
  * Returns true if the session (stored in company timezone) is within 24 hours of now.
  * Uses etToUtcIso so DST and the server's own timezone never affect the result.
  */
-export function isWithin24Hours(date: string, time: string): boolean {
-  const utcIso = etToUtcIso(date, time)
+export function isWithin24Hours(date: string, time: string, tz = COMPANY_TZ): boolean {
+  const utcIso = etToUtcIso(date, time, tz)
   if (!utcIso) return false
   return new Date(utcIso).getTime() - Date.now() < 24 * 60 * 60 * 1000
 }

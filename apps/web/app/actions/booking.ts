@@ -105,7 +105,13 @@ export async function cancelBooking(
     if (!records[0]) return { ok: false, error: "Booking not found." }
 
     const booking = records[0]
-    const within24 = isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "")
+    const pmNameForTz = booking.fields["Prep Master Name"] ?? ""
+    const pmForCancel = (await getPrepMasters()).find((p) => p.name === pmNameForTz)
+    const pmCancelTz = pmForCancel?.email
+      ? await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pmForCancel.email)).limit(1)
+          .then((rows) => rows[0]?.timezone ?? COMPANY_TZ)
+      : COMPANY_TZ
+    const within24 = isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "", pmCancelTz)
 
     await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
       Status: within24 ? "Cancelled (Late)" : "Cancelled",

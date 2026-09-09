@@ -117,7 +117,9 @@ export async function PATCH(
     const dancerEmail = booking.fields["Client Email"]
 
     // Credit refunded if PM cancels within 24h of session
-    const within24 = isWithin24Hours(dateStr, timeStr)
+    const [pmCancelTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
+    const pmCancelTz = pmCancelTzRow?.timezone ?? COMPANY_TZ
+    const within24 = isWithin24Hours(dateStr, timeStr, pmCancelTz)
 
     await appBase.update<BookingFields>(TABLES.bookings, id, {
       Status: "Cancelled",

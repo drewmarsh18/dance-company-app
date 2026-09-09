@@ -56,7 +56,13 @@ export async function DELETE(
   const booking = records[0]
   if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." })
 
-  const within24 = isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "")
+  const pmNameDel = booking.fields["Prep Master Name"] ?? ""
+  const pmForDel = (await getPrepMasters()).find((p) => p.name === pmNameDel)
+  const pmDelTz = pmForDel?.email
+    ? await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pmForDel.email)).limit(1)
+        .then((rows) => rows[0]?.timezone ?? COMPANY_TZ)
+    : COMPANY_TZ
+  const within24 = isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "", pmDelTz)
   const sessionType = booking.fields["Session Type"] as string | undefined
   const creditCost = SESSION_CREDIT_COST[sessionType ?? "pack-hour"] ?? 1
 
