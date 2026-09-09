@@ -236,6 +236,7 @@ export async function rescheduleBooking(
       Date: newDate,
       Time: newTime,
       Status: "Pending",
+      "Is Reschedule": true,
       // Keep UTC Datetime in sync — mobile app uses this field for display
       ...(utcForReschedule ? { "UTC Datetime": utcForReschedule } : {}),
     })

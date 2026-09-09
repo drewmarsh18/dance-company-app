@@ -27,7 +27,7 @@ const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"]
 
 type PrepMasterBooking = {
   id: string; date: string; time: string; utcDatetime: string | null; status: string; notes: string; prepMasterNotes: string; declineReason: string; cancellationReason: string
-  dancerName: string; dancerEmail: string; dancerPhone: string; userId: string; sessionType?: string
+  dancerName: string; dancerEmail: string; dancerPhone: string; userId: string; sessionType?: string; isReschedulePending?: boolean
 }
 
 type DashData = {
@@ -572,7 +572,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
             <Text style={styles.cardDancer}>{booking.dancerName || "Dancer"}</Text>
             {booking.sessionType ? <View style={[styles.badge, { backgroundColor: COLORS.grayLight }]}><Text style={[styles.badgeText, { color: COLORS.textMuted }]}>{booking.sessionType}</Text></View> : null}
           </View>
-          {isPending && (
+          {isPending && booking.isReschedulePending && (
             <Text style={{ fontSize: 11, color: COLORS.amber, fontWeight: "600", marginTop: 1 }}>Reschedule requested · awaiting approval</Text>
           )}
         </View>
@@ -810,9 +810,9 @@ export default function PortalDashboard() {
   const { openBookingId } = useLocalSearchParams<{ openBookingId?: string }>()
   const { data: session } = useSession()
   const COLORS = useColors()
-  const firstName = session?.user?.name?.split(" ")[0] ?? "there"
   const [tab, setTab] = useState<"list" | "calendar">("list")
   const [data, setData] = useState<DashData | null>(null)
+  const firstName = data?.prepMaster?.name?.split(" ")[0] ?? session?.user?.name?.split(" ")[0] ?? "there"
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)

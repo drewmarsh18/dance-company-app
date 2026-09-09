@@ -36,7 +36,7 @@ export async function PATCH(
   const body = await req.json() as { date?: string; time?: string; prepMasterNotes?: string; action?: "confirm" | "decline" | "cancel"; declineReason?: string; cancellationReason?: string }
 
   if (body.action === "confirm") {
-    await appBase.update<BookingFields>(TABLES.bookings, id, { Status: "Confirmed" })
+    await appBase.update<BookingFields>(TABLES.bookings, id, { Status: "Confirmed", "Is Reschedule": false })
     revalidateTag(`portal-${session.user.email}`, "max")
     const dancerUserId = booking.fields["User ID"]
     if (dancerUserId) {
@@ -64,6 +64,7 @@ export async function PATCH(
   if (body.action === "decline") {
     await appBase.update<BookingFields>(TABLES.bookings, id, {
       Status: "Declined",
+      "Is Reschedule": false,
       ...(body.declineReason ? { "Decline Reason": body.declineReason } : {}),
     })
     revalidateTag(`portal-${session.user.email}`, "max")

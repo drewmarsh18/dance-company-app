@@ -73,6 +73,7 @@ export type BookingFields = {
   "Decline Reason"?: string
   "Session Type"?: string
   "UTC Datetime"?: string
+  "Is Reschedule"?: boolean
 }
 
 export type PlanFields = {
@@ -279,6 +280,7 @@ export type PrepMasterBooking = {
   dancerPhone: string
   userId: string
   sessionType: string | null
+  isReschedulePending: boolean
 }
 
 export async function getBookingsForPrepMaster(
@@ -313,6 +315,7 @@ export async function getBookingsForPrepMaster(
       dancerPhone: client?.phone ?? "",
       userId: uid,
       sessionType: (r.fields["Session Type"] as string) ?? null,
+      isReschedulePending: !!(r.fields["Is Reschedule"] && (r.fields.Status ?? "").toLowerCase() === "pending"),
     }
   })
 }
