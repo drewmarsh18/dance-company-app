@@ -105,6 +105,7 @@ export const PER_PRIVATE: PerPrivate[] = [
   { id: "private-30", name: "30 Minute", minutes: 30, price: 65 },
   { id: "private-45", name: "45 Minute", minutes: 45, price: 89 },
   { id: "private-60", name: "Hour", minutes: 60, price: 119 },
+  { id: "private-90", name: "90 Minute", minutes: 90, price: 169 },
 ]
 
 export function formatPrice(amount: number) {
