@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { revalidateTag } from "next/cache"
 import { stripe } from "@/lib/stripe"
 import {
   TABLES,
@@ -77,6 +78,9 @@ export async function POST(req: NextRequest) {
       "Price Paid": pricePaid,
       Source: "stripe",
     })
+
+    // Bust the member's cached dashboard/profile data so the new credits show immediately
+    revalidateTag(`member-${userId}`)
 
     // In-app notification
     const newBalance = Math.round(((client?.fields["Credits Remaining"] ?? 0) + creditAmount) * 100) / 100

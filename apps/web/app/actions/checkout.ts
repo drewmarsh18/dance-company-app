@@ -45,7 +45,7 @@ export async function createCheckoutSession(itemId: string) {
       sessionType: pkg ? "pack-hour" : perPrivate!.id,
     },
     customer_email: session.user.email,
-    success_url: `${APP_URL}/dashboard/packages/success?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${APP_URL}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${APP_URL}/dashboard/packages`,
   })
 
