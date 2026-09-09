@@ -149,13 +149,16 @@ export async function PATCH(
 
     if (dancerEmail) {
       let dancerName = dancerEmail
+      let parentCC: string | null = null
       if (dancerUserId) {
         const safeId = dancerUserId.replace(/'/g, "\\'")
         const memberRecords = await appBase.list<ClientFields>(TABLES.clients, {
           filterByFormula: `{User ID} = '${safeId}'`,
           maxRecords: 1,
         })
-        if (memberRecords[0]?.fields.Name) dancerName = memberRecords[0].fields.Name
+        const memberRecord = memberRecords[0]
+        if (memberRecord?.fields.Name) dancerName = memberRecord.fields.Name
+        parentCC = memberRecord?.fields?.["Parent Email"] ?? null
       }
       const { subject, html } = bookingCancelledEmail({
         dancerName,
@@ -164,7 +167,7 @@ export async function PATCH(
         time: timeStr,
         creditRefunded: within24,
       })
-      sendEmail({ to: dancerEmail, subject, html }).catch(() => {})
+      sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject, html }).catch(() => {})
     }
 
     revalidateTag(`portal-${session.user.email}`, "max")
@@ -198,6 +201,7 @@ export async function PATCH(
 
   let dancerName = dancerEmail ?? "Your member"
   let dancerTz: string | null = null
+  let rescheduleParentCC: string | null = null
   if (dancerUserId) {
     const safeId = dancerUserId.replace(/'/g, "\\'")
     const [memberRecord, dbRow] = await Promise.all([
@@ -205,6 +209,7 @@ export async function PATCH(
       db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1),
     ])
     if (memberRecord[0]?.fields.Name) dancerName = memberRecord[0].fields.Name
+    rescheduleParentCC = memberRecord[0]?.fields?.["Parent Email"] ?? null
     dancerTz = dbRow[0]?.timezone ?? null
   }
   const [pmDbRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
@@ -234,7 +239,7 @@ export async function PATCH(
       time: newTime,
       notes: newNotes,
     })
-    sendEmail({ to: dancerEmail, subject, html }).catch(() => {})
+    sendEmail({ to: dancerEmail, cc: rescheduleParentCC ?? undefined, subject, html }).catch(() => {})
   }
 
   return NextResponse.json({ ok: true })

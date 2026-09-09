@@ -84,6 +84,7 @@ export async function DELETE(
   }).catch(() => {})
 
   if (user.email) {
+    const parentCC = client?.fields?.["Parent Email"] ?? null
     const { subject, html } = bookingCancelledEmail({
       dancerName: user.name ?? "Dancer",
       prepMasterName: pmName,
@@ -91,7 +92,7 @@ export async function DELETE(
       time: cancelledTime,
       creditRefunded: !within24,
     })
-    sendEmail({ to: user.email, subject, html }).catch(() => {})
+    sendEmail({ to: user.email, cc: parentCC ?? undefined, subject, html }).catch(() => {})
   }
 
   // Notify the PrepMaster
@@ -182,6 +183,7 @@ export async function PATCH(
   }).catch(() => {})
 
   if (user.email) {
+    const parentCC = client?.fields?.["Parent Email"] ?? null
     const { subject, html } = bookingUpdatedEmail({
       recipientName: memberName,
       updatedByName: memberName,
@@ -190,7 +192,7 @@ export async function PATCH(
       time: newTime,
       notes: body.notes,
     })
-    sendEmail({ to: user.email, subject, html }).catch(() => {})
+    sendEmail({ to: user.email, cc: parentCC ?? undefined, subject, html }).catch(() => {})
   }
 
   // Notify PrepMaster — show member's time and PrepMaster's time

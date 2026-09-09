@@ -557,6 +557,19 @@ export async function adminUpdateMemberParentEmail(recordId: string, parentEmail
   await update<ClientFields>(TABLES.clients, recordId, { "Parent Email": parentEmail || undefined })
 }
 
+export async function getParentEmailForMember(userId: string): Promise<string | null> {
+  try {
+    const safe = userId.replace(/'/g, "\\'")
+    const records = await list<ClientFields>(TABLES.clients, {
+      filterByFormula: `{User ID} = '${safe}'`,
+      maxRecords: 1,
+    })
+    return records[0]?.fields?.["Parent Email"] ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function adminGetAllBookings(): Promise<AdminBooking[]> {
   const records = await list<BookingFields>(TABLES.bookings, {
     sort: [{ field: "Date", direction: "desc" }],

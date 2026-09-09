@@ -159,6 +159,7 @@ export async function POST(req: Request) {
   const dancerDisplayName = client.fields.Name ?? user.name ?? "Dancer"
 
   // Emails — fire and forget
+  const parentEmailCC = client.fields["Parent Email"] || null
   if (effectiveEmail) {
     const { subject, html } = bookingConfirmationEmail({
       dancerName: dancerDisplayName,
@@ -166,7 +167,7 @@ export async function POST(req: Request) {
       date,
       time,
     })
-    sendEmail({ to: effectiveEmail, subject, html }).catch(() => {})
+    sendEmail({ to: effectiveEmail, subject, html, ...(parentEmailCC ? { cc: parentEmailCC } : {}) }).catch(() => {})
   }
 
   getPrepMaster(prepMasterId).then(async (pm) => {

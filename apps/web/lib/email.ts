@@ -20,10 +20,12 @@ export async function sendEmail({
   to,
   subject,
   html,
+  cc,
 }: {
   to: string | string[]
   subject: string
   html: string
+  cc?: string | string[]
 }) {
   if (!process.env.GMAIL_APP_PASSWORD) return
   const transporter = getTransporter()
@@ -31,6 +33,7 @@ export async function sendEmail({
     from: `"College Dance Prep" <${process.env.GMAIL_FROM}>`,
     replyTo: REPLY_TO,
     to: Array.isArray(to) ? to.join(", ") : to,
+    ...(cc ? { cc: Array.isArray(cc) ? cc.join(", ") : cc } : {}),
     subject,
     html,
   })

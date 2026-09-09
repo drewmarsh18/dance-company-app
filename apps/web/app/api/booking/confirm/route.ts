@@ -46,9 +46,11 @@ export async function GET(req: NextRequest) {
       const time = booking.fields.Time ?? ""
       if (dancerEmail) {
         const { sendEmail: _send, bookingConfirmationEmail } = await import("@/lib/email")
+        const { getParentEmailForMember } = await import("@/lib/airtable")
         const { subject, html } = bookingConfirmationEmail({ dancerName, prepMasterName: pmName, date, time })
+        const parentCC = booking.fields["User ID"] ? await getParentEmailForMember(booking.fields["User ID"]).catch(() => null) : null
         // Override subject/body to say "confirmed"
-        await sendEmail({ to: dancerEmail, subject: `Booking confirmed — ${date} at ${time}`, html: html.replace("Booking request received", "Booking confirmed").replace("Your booking request has been submitted!", "Great news — your session has been confirmed!").replace("Your booking is pending confirmation from your PrepMaster. You will receive an email notification once they have confirmed your booking request.", "See you there! Need to cancel? Please do so at least 24 hours in advance to get your credit back.") })
+        await sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject: `Booking confirmed — ${date} at ${time}`, html: html.replace("Booking request received", "Booking confirmed").replace("Your booking request has been submitted!", "Great news — your session has been confirmed!").replace("Your booking is pending confirmation from your PrepMaster. You will receive an email notification once they have confirmed your booking request.", "See you there! Need to cancel? Please do so at least 24 hours in advance to get your credit back.") })
       }
 
       return new NextResponse(
@@ -87,6 +89,7 @@ export async function GET(req: NextRequest) {
         const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
         const date = booking.fields.Date ?? ""
         const time = booking.fields.Time ?? ""
+        const parentCC = clients[0]?.fields?.["Parent Email"] ?? null
         const { subject, html } = bookingCancelledEmail({
           dancerName: dancerEmail,
           prepMasterName: pmName,
@@ -94,7 +97,7 @@ export async function GET(req: NextRequest) {
           time,
           creditRefunded: true,
         })
-        await sendEmail({ to: dancerEmail, subject, html })
+        await sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject, html })
       }
 
       return new NextResponse(
