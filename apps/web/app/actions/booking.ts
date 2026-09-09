@@ -51,7 +51,8 @@ export type Booking = {
 
 export async function getMyBookings(): Promise<Booking[]> {
   const user = await getSessionUser()
-  return getBookingsForUserId(user.id)
+  const profile = await resolveClientProfile({ id: user.id, email: user.email, name: user.name ?? "" }, true)
+  return getBookingsForUserId(profile.effectiveUserId || user.id)
 }
 
 export async function getBookingsForUserId(userId: string): Promise<Booking[]> {
@@ -90,7 +91,11 @@ export async function cancelBooking(
 ): Promise<{ ok: true; creditRefunded: boolean } | { ok: false; error: string }> {
   try {
     const user = await getSessionUser()
-    const safeId = user.id.replace(/'/g, "\\'")
+    const profile = await resolveClientProfile({ id: user.id, email: user.email, name: user.name ?? "" }, true)
+    const effectiveUserId = profile.effectiveUserId || user.id
+    const effectiveEmail = profile.email || user.email
+
+    const safeId = effectiveUserId.replace(/'/g, "\\'")
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
       filterByFormula: `AND({User ID} = '${safeId}', RECORD_ID() = '${bookingId}')`,
       maxRecords: 1,
@@ -106,7 +111,7 @@ export async function cancelBooking(
 
     // Refund credit only when cancelled outside the 24-hour window
     if (!within24) {
-      const client = await findClientRecord(user.id)
+      const client = await findClientRecord(effectiveUserId)
       if (client) {
         const SESSION_CREDIT_COST: Record<string, number> = { "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5 }
         const sessionType = booking.fields["Session Type"] ?? "private-60"
@@ -118,7 +123,7 @@ export async function cancelBooking(
 
         // If credits were at 0, reactivate the most recently expired plan
         if (current === 0) {
-          const inactivePlan = await getMostRecentInactivePlanForUser(user.id)
+          const inactivePlan = await getMostRecentInactivePlanForUser(effectiveUserId)
           if (inactivePlan) await setPlanStatus(inactivePlan.id, "Active")
         }
       }
@@ -127,12 +132,12 @@ export async function cancelBooking(
     const dateLabel = fmtDate(booking.fields.Date ?? "") || "your session"
     const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
     const cancelledTime = booking.fields.Time ?? ""
-    const clientRecord = await findClientRecord(user.id)
+    const clientRecord = await findClientRecord(effectiveUserId)
     const memberName = clientRecord?.fields.Name ?? user.name ?? user.email ?? "A member"
 
-    // Notify the member
+    // Notify the member (child's account)
     createNotification({
-      userId: user.id,
+      userId: effectiveUserId,
       type: "booking_cancelled",
       title: "Booking cancelled",
       body: `Your session with ${pmName} on ${dateLabel} has been cancelled.${!within24 ? "" : " No credit was refunded (within 24 hours)."}`,
@@ -148,7 +153,8 @@ export async function cancelBooking(
         time: cancelledTime,
         creditRefunded: !within24,
       })
-      sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Cancel email failed:", e))
+      const cancelRecipients = [effectiveEmail, ...(profile.isParentView && user.email !== effectiveEmail ? [user.email] : [])].filter(Boolean)
+      sendEmail({ to: cancelRecipients, subject, html }).catch((e) => console.error("Cancel email failed:", e))
     }
 
     // Notify the PrepMaster
@@ -190,7 +196,10 @@ export async function rescheduleBooking(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const user = await getSessionUser()
-    const safeId = user.id.replace(/'/g, "\\'")
+    const profile = await resolveClientProfile({ id: user.id, email: user.email, name: user.name ?? "" }, true)
+    const effectiveUserId = profile.effectiveUserId || user.id
+
+    const safeId = effectiveUserId.replace(/'/g, "\\'")
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
       filterByFormula: `AND({User ID} = '${safeId}', RECORD_ID() = '${bookingId}')`,
       maxRecords: 1,
@@ -223,11 +232,11 @@ export async function rescheduleBooking(
 
     // Tell the member their request is pending — not confirmed yet
     const utcForReschedule = etToUtcIso(newDate, newTime, pmReschTz)
-    const [memberReschRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+    const [memberReschRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, effectiveUserId)).limit(1)
     const memberReschTz = memberReschRow?.timezone ?? null
     const memberReschLabel = utcForReschedule ? fmtTimeForNotif(utcForReschedule, pmReschTz, memberReschTz) : fmtTime(newTime)
     createNotification({
-      userId: user.id,
+      userId: effectiveUserId,
       type: "booking_updated",
       title: "Reschedule requested",
       body: `Your reschedule request for ${fmtDate(newDate)} at ${memberReschLabel} is awaiting approval from ${prepMasterName}.`,
