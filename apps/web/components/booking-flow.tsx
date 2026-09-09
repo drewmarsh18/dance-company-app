@@ -119,15 +119,6 @@ export function BookingFlow({
   }, [weekDays, week, bookedSlots, today])
 
   const canGoBack = weekOffset > 0
-  // Auto-select locked duration when it becomes known
-  const activeDuration = lockedDuration ?? selectedDuration
-
-  const canSubmit = selectedDate && selectedTime && activeDuration && (effectiveOption || noStructuredCredits) && !isPending
-
-  function selectSlot(iso: string, slot: string) {
-    setSelectedDate(iso)
-    setSelectedTime(slot)
-  }
 
   function planSessionType(planName: string): import("@/lib/session-types").SessionType {
     if (planName.includes("30")) return "private-30"
@@ -145,6 +136,15 @@ export function BookingFlow({
     if (st === "pack-hour") return null
     return st as "private-30" | "private-45" | "private-60" | "private-90"
   }, [effectiveOption])
+
+  const activeDuration = lockedDuration ?? selectedDuration
+
+  const canSubmit = selectedDate && selectedTime && activeDuration && (effectiveOption || noStructuredCredits) && !isPending
+
+  function selectSlot(iso: string, slot: string) {
+    setSelectedDate(iso)
+    setSelectedTime(slot)
+  }
 
   function handleConfirm() {
     if (!selectedDate || !selectedTime) return
