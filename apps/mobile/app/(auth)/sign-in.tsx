@@ -2,7 +2,6 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
 } from "react-native"
-import Svg, { Path } from "react-native-svg"
 import { useState, useEffect } from "react"
 import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
@@ -203,10 +202,7 @@ export default function SignInScreen() {
             <View style={styles.passwordWrap}>
               <TextInput style={styles.passwordInput} placeholder="••••••••" placeholderTextColor={COLORS.textMuted} secureTextEntry={!showPassword} value={password} onChangeText={setPassword} editable={!loading} onSubmitEditing={handleSignIn} returnKeyType="go" />
               <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.eyeBtn} activeOpacity={0.7}>
-                {showPassword
-                  ? <Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" stroke={COLORS.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/><Path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" stroke={COLORS.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/><Path d="M1 1l22 22" stroke={COLORS.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></Svg>
-                  : <Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke={COLORS.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/><Path d="M12 9a3 3 0 100 6 3 3 0 000-6z" stroke={COLORS.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></Svg>
-                }
+                <Text style={styles.showHideText}>{showPassword ? "Hide" : "Show"}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -248,7 +244,8 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     input: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, fontSize: 15, color: COLORS.text },
     passwordWrap: { flexDirection: "row", alignItems: "center", backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm },
     passwordInput: { flex: 1, padding: SPACING.md, fontSize: 15, color: COLORS.text },
-    eyeBtn: { padding: SPACING.md },
+    eyeBtn: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.md },
+    showHideText: { fontSize: 13, fontWeight: "600", color: COLORS.primary },
     btn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center", marginTop: SPACING.sm },
     btnDisabled: { opacity: 0.6 },
     btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
