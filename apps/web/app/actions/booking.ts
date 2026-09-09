@@ -229,14 +229,16 @@ export async function rescheduleBooking(
       : [undefined]
     const pmReschTz = pmReschTzRow?.timezone ?? COMPANY_TZ
 
+    // Compute UTC now so we can store it and use it for notifications
+    const utcForReschedule = etToUtcIso(newDate, newTime, pmReschTz)
+
     await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
       Date: newDate,
       Time: newTime,
       Status: "Pending",
+      // Keep UTC Datetime in sync — mobile app uses this field for display
+      ...(utcForReschedule ? { "UTC Datetime": utcForReschedule } : {}),
     })
-
-    // Tell the member their request is pending — not confirmed yet
-    const utcForReschedule = etToUtcIso(newDate, newTime, pmReschTz)
     const [memberReschRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, effectiveUserId)).limit(1)
     const memberReschTz = memberReschRow?.timezone ?? null
     const memberReschLabel = utcForReschedule ? fmtTimeForNotif(utcForReschedule, pmReschTz, memberReschTz) : fmtTime(newTime)
