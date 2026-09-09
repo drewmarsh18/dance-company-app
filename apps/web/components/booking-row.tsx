@@ -59,7 +59,7 @@ export function BookingRow({ booking, availability, prepMasterTimezone }: Props)
   const [localDate, setLocalDate] = useState(booking.date)
   const [localTime, setLocalTime] = useState(booking.time)
   const [localUtc, setLocalUtc] = useState(booking.utcDatetime ?? null)
-  const [isPending, startTransition] = useTransition()
+  const [isSaving, startTransition] = useTransition()
 
   const availableDays = buildAvailableDays(availability)
   const timeSlots = selectedDate ? slotsForDate(selectedDate, availability) : []
@@ -192,8 +192,8 @@ export function BookingRow({ booking, availability, prepMasterTimezone }: Props)
               </select>
             </div>
             <div className="flex gap-2">
-              <Button size="sm" disabled={isPending || !selectedDate || !selectedTime} onClick={handleReschedule}>
-                {isPending ? "Saving…" : "Confirm reschedule"}
+              <Button size="sm" disabled={isSaving || !selectedDate || !selectedTime} onClick={handleReschedule}>
+                {isSaving ? "Saving…" : "Confirm reschedule"}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => { setMode("idle"); setSelectedDate(""); setSelectedTime("") }}>
                 Cancel
@@ -234,8 +234,8 @@ export function BookingRow({ booking, availability, prepMasterTimezone }: Props)
               onChange={(e) => setCancelReason(e.target.value)}
             />
             <div className="flex gap-2">
-              <Button size="sm" variant="destructive" disabled={isPending || !cancelReason.trim()} onClick={handleCancel}>
-                {isPending ? "Cancelling…" : "Confirm cancellation"}
+              <Button size="sm" variant="destructive" disabled={isSaving || !cancelReason.trim()} onClick={handleCancel}>
+                {isSaving ? "Cancelling…" : "Confirm cancellation"}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setMode("idle")}>
                 Keep booking
