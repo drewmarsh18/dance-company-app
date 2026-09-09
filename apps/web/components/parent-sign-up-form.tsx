@@ -31,7 +31,7 @@ export function ParentSignUpForm({ email }: { email: string }) {
         name: name.trim() || email.split("@")[0],
       })
       if (error) throw new Error(error.message ?? "Could not create account")
-      window.location.href = "/"
+      window.location.href = "/welcome"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
       setLoading(false)
