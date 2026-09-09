@@ -7,10 +7,9 @@ import {
 } from "@/lib/airtable"
 import { resolveClientProfile, getPlansForUser } from "@/lib/profile-core"
 
-// 30-second TTL for all Airtable reads.
-// Short enough that booking status changes show up quickly;
-// long enough to absorb burst traffic from many users opening the app together.
-const TTL = 30
+// 5-second TTL — short enough that credit/booking changes are visible
+// almost immediately; revalidateTag calls on every mutation clear it instantly.
+const TTL = 5
 
 type ResolvedUser = { id: string; email: string; name: string }
 
