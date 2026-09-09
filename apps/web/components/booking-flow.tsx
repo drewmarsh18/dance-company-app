@@ -357,10 +357,10 @@ export function BookingFlow({
                 className={cn(
                   "flex flex-1 flex-col items-center rounded-lg border px-3 py-3 text-sm transition-colors",
                   isSelected ? "border-primary bg-primary/5" : "bg-card hover:border-primary/50",
-                  isDisabled && "opacity-30 cursor-not-allowed hover:border-border",
+                  isDisabled && "opacity-25 cursor-not-allowed pointer-events-none hover:border-border",
                 )}
               >
-                <span className={cn("font-bold text-base", isSelected ? "text-primary" : "text-foreground")}>{d.label}</span>
+                <span className={cn("font-bold text-base", isSelected ? "text-primary" : isDisabled ? "line-through text-muted-foreground" : "text-foreground")}>{d.label}</span>
                 <span className="text-xs text-muted-foreground">{d.sub}</span>
               </button>
             )

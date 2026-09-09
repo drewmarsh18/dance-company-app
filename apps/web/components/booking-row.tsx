@@ -36,7 +36,7 @@ function buildAvailableDays(week: DayAvailability[]) {
 }
 
 export function BookingRow({ booking, availability }: Props) {
-  const date = new Date(booking.date)
+  const date = new Date(booking.date + "T00:00:00")
   const formatted = Number.isNaN(date.getTime())
     ? booking.date
     : date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
@@ -100,7 +100,7 @@ export function BookingRow({ booking, availability }: Props) {
     })
   }
 
-  const displayDate = new Date(localDate)
+  const displayDate = new Date(localDate + "T00:00:00")
   const displayFormatted = Number.isNaN(displayDate.getTime())
     ? localDate
     : displayDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
