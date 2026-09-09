@@ -143,7 +143,7 @@ export default function MemberHomeScreen() {
   const [error, setError] = useState<string | null>(null)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [cancelledExpanded, setCancelledExpanded] = useState(false)
-  const firstName = session?.user?.name?.split(" ")[0] ?? "Dancer"
+  const firstName = (data?.profile.name ?? session?.user?.name)?.split(" ")[0] ?? "Dancer"
 
   const load = useCallback(async () => {
     try {
