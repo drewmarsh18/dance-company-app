@@ -166,7 +166,14 @@ export default async function DashboardPage() {
       </div>
 
       <section className="flex flex-col gap-4">
-        <h2 className="font-heading text-xl font-bold tracking-tight">Upcoming sessions</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="font-heading text-xl font-bold tracking-tight">Upcoming sessions</h2>
+          {upcoming.filter((b) => b.status.toLowerCase() === "pending").length > 0 && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              {upcoming.filter((b) => b.status.toLowerCase() === "pending").length} pending
+            </span>
+          )}
+        </div>
         {upcoming.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-3 py-12 text-center">

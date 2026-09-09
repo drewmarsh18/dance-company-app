@@ -48,12 +48,7 @@ export function BookingRow({ booking, availability, prepMasterTimezone }: Props)
   const canAdjust = !isCancelled && !within24
   const canCancel = !isCancelled
 
-  const statusVariant =
-    booking.status.toLowerCase() === "confirmed"
-      ? "default"
-      : isCancelled
-        ? "destructive"
-        : "secondary"
+  const isPending = booking.status.toLowerCase() === "pending"
 
   const router = useRouter()
   const [mode, setMode] = useState<"idle" | "adjust" | "confirm-cancel" | "cancel-reason">("idle")
@@ -117,7 +112,7 @@ export function BookingRow({ booking, availability, prepMasterTimezone }: Props)
     : displayDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
 
   return (
-    <Card>
+    <Card className={isPending ? "border-amber-400/60 bg-amber-500/5" : ""}>
       <CardContent className="flex flex-col gap-3 py-4">
         {/* Main row */}
         <div className="flex items-center justify-between gap-4">
@@ -135,13 +130,19 @@ export function BookingRow({ booking, availability, prepMasterTimezone }: Props)
               <p className="text-sm text-muted-foreground">
                 {displayFormatted}{localTime ? <> · <LocalTime slot={localTime} dateIso={localDate} utcDatetime={localUtc} /></> : ""}
               </p>
-              {within24 && !isCancelled && (
+              {isPending && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Awaiting PrepMaster approval</p>
+              )}
+              {within24 && !isCancelled && !isPending && (
                 <p className="text-xs text-amber-500 mt-0.5">Within 24 hours — cancel only</p>
               )}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={localStatus.toLowerCase() === "confirmed" ? "default" : localStatus.toLowerCase().startsWith("cancelled") ? "destructive" : "secondary"} className="capitalize">
+            <Badge
+              variant={localStatus.toLowerCase() === "confirmed" ? "default" : localStatus.toLowerCase().startsWith("cancelled") ? "destructive" : "outline"}
+              className={localStatus.toLowerCase() === "pending" ? "border-amber-400 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 capitalize" : "capitalize"}
+            >
               {localStatus}
             </Badge>
             {canAdjust && mode === "idle" && (
