@@ -16,6 +16,7 @@ import { LocalTime } from "@/components/local-time"
 type Props = {
   booking: Booking
   availability: DayAvailability[]
+  prepMasterTimezone?: string | null
 }
 
 // Builds the next 60 days that fall on an enabled availability weekday
@@ -36,7 +37,7 @@ function buildAvailableDays(week: DayAvailability[]) {
   return days
 }
 
-export function BookingRow({ booking, availability }: Props) {
+export function BookingRow({ booking, availability, prepMasterTimezone }: Props) {
   const date = new Date(booking.date + "T00:00:00")
   const formatted = Number.isNaN(date.getTime())
     ? booking.date
@@ -180,9 +181,13 @@ export function BookingRow({ booking, availability }: Props) {
                 disabled={!selectedDate}
               >
                 <option value="">Select time…</option>
-                {timeSlots.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+                {timeSlots.map((t) => {
+                  const tzAbbr = prepMasterTimezone
+                    ? new Intl.DateTimeFormat("en-US", { timeZone: prepMasterTimezone, timeZoneName: "short" })
+                        .formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value ?? ""
+                    : "ET"
+                  return <option key={t} value={t}>{t} {tzAbbr}</option>
+                })}
               </select>
             </div>
             <div className="flex gap-2">

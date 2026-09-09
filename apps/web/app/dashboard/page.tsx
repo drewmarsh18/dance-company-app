@@ -17,6 +17,9 @@ import { CreditsCard } from "@/components/credits-card"
 import { CollapsibleSection } from "@/components/collapsible-section"
 import { getSessionUserWithRole } from "@/lib/roles"
 import type { DayAvailability } from "@/lib/availability"
+import { db } from "@/lib/db"
+import { user as userTable } from "@/lib/db/schema"
+import { eq, inArray } from "drizzle-orm"
 
 export default async function DashboardPage() {
   const t0 = Date.now()
@@ -91,17 +94,26 @@ export default async function DashboardPage() {
     .filter((b) => isInactive(b.status))
     .sort((a, b) => bookingMs(b.date) - bookingMs(a.date))
 
-  // Fetch availability for each unique prep master so the reschedule picker has dates
+  // Fetch availability + timezone for each unique prep master so the reschedule picker works
   const availabilityMap: Record<string, DayAvailability[]> = {}
+  const timezoneMap: Record<string, string | null> = {}
   const uniquePrepMasterNames = [...new Set(upcoming.map((b) => b.prepMasterName).filter(Boolean))]
   if (uniquePrepMasterNames.length > 0) {
     try {
       const allPrepMasters = await getPrepMasters()
       const nameToEmail = Object.fromEntries(allPrepMasters.map((pm) => [pm.name, pm.email]))
+      const pmEmails = uniquePrepMasterNames.map((n) => nameToEmail[n]).filter(Boolean) as string[]
+      const [tzRows] = await Promise.all([
+        pmEmails.length > 0
+          ? db.select({ email: userTable.email, timezone: userTable.timezone }).from(userTable).where(inArray(userTable.email, pmEmails))
+          : Promise.resolve([]),
+      ])
+      const emailToTz = Object.fromEntries(tzRows.map((r) => [r.email, r.timezone]))
       await Promise.all(
         uniquePrepMasterNames.map(async (name) => {
           const email = nameToEmail[name]
           if (!email) return
+          timezoneMap[name] = emailToTz[email] ?? null
           try {
             availabilityMap[name] = await getAvailabilityForEmail(email)
           } catch {
@@ -172,7 +184,7 @@ export default async function DashboardPage() {
           <ul className="flex flex-col gap-3">
             {upcoming.map((b) => (
               <li key={b.id}>
-                <BookingRow booking={b} availability={availabilityMap[b.prepMasterName] ?? []} />
+                <BookingRow booking={b} availability={availabilityMap[b.prepMasterName] ?? []} prepMasterTimezone={timezoneMap[b.prepMasterName] ?? null} />
               </li>
             ))}
           </ul>

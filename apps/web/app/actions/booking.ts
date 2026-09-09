@@ -250,7 +250,8 @@ export async function rescheduleBooking(
     }).catch(() => {})
 
     // Email both parties about the reschedule — fire and forget
-    const clientRecord = await findClientRecord(user.id)
+    // Use effectiveUserId so parent bookings show the dancer's name, not the parent's
+    const clientRecord = await findClientRecord(effectiveUserId)
     const memberName = clientRecord?.fields.Name ?? user.name ?? user.email ?? "Your member"
     const existingNotes = existing.fields.Notes || undefined
     if (user.email) {
