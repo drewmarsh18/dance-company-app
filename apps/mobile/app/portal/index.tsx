@@ -692,7 +692,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
                     </TouchableOpacity>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.editLabel}>Time (ET)</Text>
+                    <Text style={styles.editLabel}>Time</Text>
                     <TouchableOpacity style={styles.editInput} onPress={() => { if (!slotsLoading) setShowTimePicker(true) }} activeOpacity={0.7}>
                       {slotsLoading
                         ? <ActivityIndicator size="small" color={COLORS.textMuted} />
@@ -721,7 +721,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
               />
               <PickerModal
                 visible={showTimePicker}
-                title="Select Time (ET)"
+                title="Select Time"
                 options={availableSlots.map((t) => ({ label: t, value: t }))}
                 selected={editTime}
                 onSelect={(t) => { setEditTime(t); setShowTimePicker(false) }}

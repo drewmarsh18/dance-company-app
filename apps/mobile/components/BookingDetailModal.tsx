@@ -60,8 +60,7 @@ export function formatTime(timeStr: string, utcDatetime?: string | null) {
     }
   }
   if (!timeStr) return ""
-  const clean = timeStr.replace(/\s+(EST|EDT|CST|CDT|MST|MDT|PST|PDT|[A-Z]{3,5})$/, "").trim()
-  return `${clean} ET`
+  return timeStr.replace(/\s+(EST|EDT|CST|CDT|MST|MDT|PST|PDT|ET|[A-Z]{3,5})$/, "").trim()
 }
 
 // --- Availability helpers (mirrors apps/web/lib/availability.ts) ---
