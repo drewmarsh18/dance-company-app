@@ -49,10 +49,11 @@ export default async function DashboardPage() {
   const noCreate = user?.role === "admin" || user?.role === "prep_master"
   try {
     console.log("[page] fetching profile/bookings/plans")
-    const [profile, myBookings, myPlans] = await Promise.all([
-      getOrCreateProfile({ noCreate, resolvedUser }),
-      getBookingsForUserId(user!.id),
-      getMyPlans(user!.id),
+    const profile = await getOrCreateProfile({ noCreate, resolvedUser })
+    const effectiveId = profile.effectiveUserId || user!.id
+    const [myBookings, myPlans] = await Promise.all([
+      getBookingsForUserId(effectiveId),
+      getMyPlans(effectiveId, profile.email || user!.email),
     ])
     credits = profile.creditsRemaining
     bookings = myBookings

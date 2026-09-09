@@ -26,9 +26,9 @@ export async function getOrCreateProfile({
   return resolveClientProfile(user, noCreate)
 }
 
-export async function getMyPlans(resolvedUserId?: string): Promise<MemberPlan[]> {
+export async function getMyPlans(resolvedUserId?: string, fallbackEmail?: string): Promise<MemberPlan[]> {
   const id = resolvedUserId ?? (await getSessionUser()).id
-  return getPlansForUser(id)
+  return getPlansForUser(id, fallbackEmail)
 }
 
 export async function updateProfile(input: {
