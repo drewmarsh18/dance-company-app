@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Users, DollarSign, Phone, Mail, Home, CalendarDays, ChevronDown, ChevronUp, PlusCircle, X, GraduationCap, Trash2 } from "lucide-react"
+import { ArrowLeft, Users, DollarSign, Phone, Mail, Home, CalendarDays, ChevronDown, ChevronUp, PlusCircle, X, GraduationCap, Trash2, Send } from "lucide-react"
 import { getUniversityColor } from "@/lib/university-colors"
 import { BookingFilterBar, applyFilters, type SortDir } from "@/components/booking-filter-bar"
 import { PER_PRIVATE, PACKAGES } from "@/lib/packages"
@@ -195,10 +195,33 @@ function PrepMasterProfile({
   const [active, setActive] = useState(worker.active)
   const [isPending, startTransition] = useTransition()
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isSendingInvite, setIsSendingInvite] = useState(false)
   const [infoOpen, setInfoOpen] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(true)
 
   const completedBookings = bookings.filter((b) => b.status.toLowerCase() !== "cancelled")
+
+  async function handleSendInvite() {
+    const targetEmail = email.trim()
+    const targetName = name.trim()
+    if (!targetEmail) { toast.error("This PrepMaster has no email address."); return }
+    setIsSendingInvite(true)
+    try {
+      const res = await fetch("/api/admin/prep-masters/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: targetEmail, name: targetName }),
+      })
+      const data = await res.json()
+      if (!res.ok) toast.error(data.error ?? "Failed to send invite.")
+      else if (data.emailError) toast.error(`Invite created but email failed: ${data.emailError}`)
+      else toast.success(`Invite sent to ${targetEmail}`)
+    } catch {
+      toast.error("Failed to send invite.")
+    } finally {
+      setIsSendingInvite(false)
+    }
+  }
 
   function handleDelete() {
     if (!window.confirm(`Permanently delete ${worker.name}? This removes them from Airtable and their login account. This cannot be undone.`)) return
@@ -334,6 +357,10 @@ function PrepMasterProfile({
                   {isPending ? "Saving…" : "Save changes"}
                 </Button>
                 <Button variant="ghost" onClick={onBack} disabled={isPending || isDeleting}>Cancel</Button>
+                <Button variant="outline" size="sm" onClick={handleSendInvite} disabled={isSendingInvite || isPending || isDeleting}>
+                  <Send className="mr-1.5 size-3.5" />
+                  {isSendingInvite ? "Sending…" : worker.inviteStatus === "accepted" ? "Resend invite" : "Send invite"}
+                </Button>
               </div>
               <Button variant="destructive" size="sm" onClick={handleDelete} disabled={isPending || isDeleting}>
                 <Trash2 className="mr-1.5 size-3.5" />

@@ -163,6 +163,14 @@ export const auth = betterAuth({
             const invite = inviteCheck.status === "fulfilled" ? inviteCheck.value[0] : null
             const worker = workerCheck.status === "fulfilled" ? workerCheck.value : null
             isPrepMaster = Boolean(invite) || Boolean(worker)
+            // Mark invite accepted now that they've signed up
+            if (invite && invite.status === "pending") {
+              await db
+                .update(prepMasterInvite)
+                .set({ status: "accepted", acceptedAt: new Date() })
+                .where(eqOp(prepMasterInvite.email, email))
+                .catch(() => {})
+            }
             // Auto-create the invite record so future lookups don't need Airtable
             if (!invite && worker) {
               const { randomUUID } = await import("crypto")

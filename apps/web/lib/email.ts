@@ -302,3 +302,25 @@ export function parentInviteEmail({ childName, parentEmail }: { childName: strin
     html: emailBase("Parent access", body),
   }
 }
+
+export function prepMasterInviteEmail({ name, email }: { name: string; email: string }) {
+  const joinUrl = `${APP_URL}/prep?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${name},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">
+      You've been invited to join College Dance Prep as a PrepMaster.
+      Click the button below to create your account — your email and name are already pre-filled.
+    </p>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${joinUrl}" style="display:inline-block;background:#e91e8c;color:#ffffff;text-decoration:none;padding:13px 32px;border-radius:6px;font-weight:600;font-size:15px">
+        Set up your account
+      </a>
+    </div>
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0">
+      Just set a password and you&apos;re in. Reply to this email if you have any questions.
+    </p>`
+  return {
+    subject: `You're invited to join College Dance Prep as a PrepMaster`,
+    html: emailBase("PrepMaster invite", body),
+  }
+}
