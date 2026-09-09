@@ -56,6 +56,7 @@ export default function AdminMembersScreen() {
   const styles = makeStyles(COLORS)
   const [query, setQuery] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ Lead: true, Inactive: true })
   const [refreshing, setRefreshing] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [localMembers, setLocalMembers] = useState<AdminMember[] | null>(null)
@@ -156,7 +157,7 @@ export default function AdminMembersScreen() {
   const byLastName = (a: AdminMember, b: AdminMember) => lastNameKey(a.name || a.email).localeCompare(lastNameKey(b.name || b.email))
   const sortedPending = [...filteredPending].sort((a, b) => lastNameKey(a.name || a.email).localeCompare(lastNameKey(b.name || b.email)))
 
-  const sections: { title: string; icon: "pending" | "active" | "inactive" | "lead"; data: SectionItem[] }[] = []
+  const sections: { title: string; icon: "pending" | "active" | "inactive" | "lead"; collapsed?: boolean; onToggle?: () => void; data: SectionItem[] }[] = []
 
   if (sortedPending.length > 0) {
     sections.push({
@@ -165,13 +166,16 @@ export default function AdminMembersScreen() {
       data: sortedPending.map((u) => ({ kind: "pending" as const, user: u })),
     })
   }
-  for (const label of ["Active", "Inactive", "Lead"] as const) {
+  for (const label of ["Active", "Lead", "Inactive"] as const) {
     const sorted = [...grouped[label]].sort(byLastName)
     if (sorted.length > 0) {
+      const collapsed = !!collapsedSections[label]
       sections.push({
-        title: `${label} (${sorted.length})`,
+        title: `${label === "Lead" ? "Leads" : label} (${sorted.length})`,
         icon: label.toLowerCase() as "active" | "inactive" | "lead",
-        data: sorted.map((m) => ({ kind: "member" as const, member: m })),
+        collapsed,
+        onToggle: () => setCollapsedSections((prev) => ({ ...prev, [label]: !prev[label] })),
+        data: collapsed ? [] : sorted.map((m) => ({ kind: "member" as const, member: m })),
       })
     }
   }
@@ -201,7 +205,7 @@ export default function AdminMembersScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         stickySectionHeadersEnabled={false}
         renderSectionHeader={({ section }) => (
-          <SectionHeader title={section.title} icon={section.icon} COLORS={COLORS} styles={styles} />
+          <SectionHeader title={section.title} icon={section.icon} collapsed={section.collapsed} onToggle={section.onToggle} COLORS={COLORS} styles={styles} />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         SectionSeparatorComponent={() => <View style={{ height: SPACING.sm }} />}
@@ -247,8 +251,8 @@ export default function AdminMembersScreen() {
   )
 }
 
-function SectionHeader({ title, icon, COLORS, styles }: {
-  title: string; icon: string
+function SectionHeader({ title, icon, collapsed, onToggle, COLORS, styles }: {
+  title: string; icon: string; collapsed?: boolean; onToggle?: () => void
   COLORS: ReturnType<typeof useColors>; styles: ReturnType<typeof makeStyles>
 }) {
   const iconEl = icon === "pending"
@@ -259,12 +263,18 @@ function SectionHeader({ title, icon, COLORS, styles }: {
     ? <UserX size={14} color="#1d4ed8" />
     : <UserX size={14} color={COLORS.textMuted} />
 
-  return (
+  const inner = (
     <View style={styles.sectionHeaderRow}>
       {iconEl}
-      <Text style={styles.sectionHeaderText}>{title}</Text>
+      <Text style={[styles.sectionHeaderText, { flex: 1 }]}>{title}</Text>
+      {onToggle && (collapsed ? <ChevronDown size={14} color={COLORS.textMuted} /> : <ChevronUp size={14} color={COLORS.textMuted} />)}
     </View>
   )
+
+  if (onToggle) {
+    return <TouchableOpacity onPress={onToggle} activeOpacity={0.7}>{inner}</TouchableOpacity>
+  }
+  return inner
 }
 
 function PendingCard({ user, acting, onApprove, onDeny, onDelete }: {
@@ -400,7 +410,7 @@ function MemberCard({ member: m, credits, plans, bookings, packages, statusInfo,
           <View style={styles.divider} />
           {(m.phone || m.goals) ? (
             <View style={styles.section}>
-              {m.phone ? <InfoRow label="Phone" value={m.phone} /> : null}
+              {m.phone ? <InfoRow label="Phone" value={formatPhone(m.phone)} /> : null}
               {m.goals ? <InfoRow label="Goals" value={m.goals} /> : null}
             </View>
           ) : null}
@@ -418,37 +428,12 @@ function MemberCard({ member: m, credits, plans, bookings, packages, statusInfo,
             <Text style={styles.hint}>Assigning a plan adds its sessions as credits to the member's account.</Text>
           </View>
           {plans.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Plan history ({plans.length})</Text>
-              {plans.map((plan) => {
-                const s = planDisplayStatus(plan)
-                const purchaseDate = plan.purchasedAt ? new Date(plan.purchasedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null
-                const expiryDate = plan.expiresAt ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null
-                const planStatusBg = s === "Active" ? COLORS.greenLight : s === "Used" ? COLORS.amberLight : COLORS.grayLight
-                const planStatusFg = s === "Active" ? COLORS.green : s === "Used" ? COLORS.amber : COLORS.textMuted
-                return (
-                  <View key={plan.id} style={styles.planItem}>
-                    <View style={styles.planRow}>
-                      <Package size={12} color={COLORS.primary} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.planName}>{plan.planName}</Text>
-                        <Text style={styles.planMeta}>{plan.sessions} {plan.sessions === 1 ? "credit" : "credits"} · ${plan.pricePaid}{purchaseDate ? ` · ${purchaseDate}` : ""}</Text>
-                        {expiryDate ? <Text style={styles.planMeta}>Expires {expiryDate}</Text> : null}
-                      </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <View style={[styles.badge, { backgroundColor: planStatusBg }]}><Text style={[styles.badgeText, { color: planStatusFg }]}>{s}</Text></View>
-                        {s !== "Used" && <TouchableOpacity onPress={() => removePlan(plan)} disabled={saving} hitSlop={8}><Trash2 size={14} color={COLORS.textMuted} /></TouchableOpacity>}
-                      </View>
-                    </View>
-                  </View>
-                )
-              })}
-            </View>
+            <GroupedPlanHistory plans={plans} credits={credits} saving={saving} onRemove={removePlan} COLORS={COLORS} styles={styles} />
           )}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Add single session</Text>
             <View style={styles.btnRow}>
-              {(["60 min", "45 min", "30 min"] as const).map((label) => (
+              {(["90 min", "60 min", "45 min", "30 min"] as const).map((label) => (
                 <TouchableOpacity key={label} style={styles.btnOutline} onPress={() => addSingleSession(label)} disabled={saving} activeOpacity={0.7}>
                   <Plus size={12} color={COLORS.primary} />
                   <Text style={styles.btnOutlineText}>{label}</Text>
@@ -506,6 +491,73 @@ function MemberCard({ member: m, credits, plans, bookings, packages, statusInfo,
       </Modal>
     </View>
   )
+}
+
+const PLAN_STATUS_ORDER = ["Active", "Expired", "Used"] as const
+
+function GroupedPlanHistory({ plans, credits, saving, onRemove, COLORS, styles }: {
+  plans: MemberPlan[]; credits: number; saving: boolean
+  onRemove: (plan: MemberPlan) => void
+  COLORS: ReturnType<typeof useColors>; styles: ReturnType<typeof makeStyles>
+}) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ Used: true })
+  const activeSingleCount = plans.filter((p) => planDisplayStatus(p) === "Active" && p.sessions === 1).length
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Plan history ({plans.length})</Text>
+      {PLAN_STATUS_ORDER.map((group) => {
+        const groupPlans = plans.filter((p) => planDisplayStatus(p) === group)
+        if (groupPlans.length === 0) return null
+        const isCollapsed = collapsed[group] ?? false
+        return (
+          <View key={group}>
+            <TouchableOpacity
+              style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 4 }}
+              onPress={() => setCollapsed((prev) => ({ ...prev, [group]: !prev[group] }))}
+              activeOpacity={0.7}
+            >
+              {isCollapsed ? <ChevronDown size={12} color={COLORS.textMuted} /> : <ChevronUp size={12} color={COLORS.textMuted} />}
+              <Text style={{ fontSize: 11, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {group} ({groupPlans.length})
+              </Text>
+            </TouchableOpacity>
+            {!isCollapsed && groupPlans.map((plan) => {
+              const s = planDisplayStatus(plan)
+              const purchaseDate = plan.purchasedAt ? new Date(plan.purchasedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null
+              const expiryDate = plan.expiresAt ? new Date(plan.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null
+              const planStatusBg = s === "Active" ? COLORS.greenLight : s === "Used" ? COLORS.amberLight : COLORS.grayLight
+              const planStatusFg = s === "Active" ? COLORS.green : s === "Used" ? COLORS.amber : COLORS.textMuted
+              const displayCount = s !== "Active" ? plan.sessions : plan.sessions === 1 ? 1 : Math.max(0, credits - activeSingleCount)
+              return (
+                <View key={plan.id} style={[styles.planItem, { marginBottom: 6 }]}>
+                  <View style={styles.planRow}>
+                    <Package size={12} color={COLORS.primary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.planName}>{plan.planName}</Text>
+                      <Text style={styles.planMeta}>{displayCount} {displayCount === 1 ? "credit" : "credits"} · ${plan.pricePaid}{purchaseDate ? ` · ${purchaseDate}` : ""}</Text>
+                      {expiryDate ? <Text style={styles.planMeta}>Expires {expiryDate}</Text> : null}
+                    </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <View style={[styles.badge, { backgroundColor: planStatusBg }]}><Text style={[styles.badgeText, { color: planStatusFg }]}>{s}</Text></View>
+                      {s !== "Used" && <TouchableOpacity onPress={() => onRemove(plan)} disabled={saving} hitSlop={8}><Trash2 size={14} color={COLORS.textMuted} /></TouchableOpacity>}
+                    </View>
+                  </View>
+                </View>
+              )
+            })}
+          </View>
+        )
+      })}
+    </View>
+  )
+}
+
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "")
+  const d = digits.startsWith("1") && digits.length === 11 ? digits.slice(1) : digits
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
+  return raw
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
