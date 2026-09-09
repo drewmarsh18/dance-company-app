@@ -550,8 +550,9 @@ function BookingCard({ booking, dimmed, onUpdate }: {
         Alert.alert("Session cancelled", res.creditRefunded ? "The member's credit has been refunded." : "The session has been cancelled.")
       }
       if (action === "edit") {
-        setLocalDate(editDate); setLocalTime(editTime); setLocalUtcDatetime(null); setLocalPrepMasterNotes(editPrepMasterNotes)
-        onUpdate(booking.id, { date: editDate, time: editTime, prepMasterNotes: editPrepMasterNotes })
+        const newUtc = (res as any).utcDatetime ?? null
+        setLocalDate(editDate); setLocalTime(editTime); setLocalUtcDatetime(newUtc); setLocalPrepMasterNotes(editPrepMasterNotes)
+        onUpdate(booking.id, { date: editDate, time: editTime, utcDatetime: newUtc ?? undefined, prepMasterNotes: editPrepMasterNotes })
         setMode("idle")
       }
     } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Something went wrong.") }

@@ -10,6 +10,7 @@ import { getPrepMasters } from "@/lib/airtable"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
+import { resolveClientProfile } from "@/lib/profile-core"
 
 async function getSessionUser() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -27,6 +28,10 @@ async function findClientRecord(userId: string) {
   return records[0] ?? null
 }
 
+const SESSION_CREDIT_COST: Record<string, number> = {
+  "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5,
+}
+
 // DELETE — cancel booking
 export async function DELETE(
   req: Request,
@@ -35,23 +40,25 @@ export async function DELETE(
   const user = await getSessionUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  // Resolve parent → child so parent cancels show on the dancer's record
+  const profile = await resolveClientProfile({ id: user.id, email: user.email, name: user.name ?? "" }, true)
+  const effectiveUserId = profile.effectiveUserId || user.id
+
   const { id } = await params
   const body = await req.json().catch(() => ({})) as { reason?: string }
 
-  const safeUserId = user.id.replace(/'/g, "\\'")
+  const safeEffectiveId = effectiveUserId.replace(/'/g, "\\'")
   const records = await appBase.list<BookingFields>(TABLES.bookings, {
-    filterByFormula: `AND({User ID} = '${safeUserId}', RECORD_ID() = '${id}')`,
+    filterByFormula: `AND({User ID} = '${safeEffectiveId}', RECORD_ID() = '${id}')`,
     maxRecords: 1,
+    revalidate: 0,
   })
   const booking = records[0]
   if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." })
 
   const within24 = isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "")
-  const CREDIT_COST: Record<string, number> = {
-    "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5,
-  }
   const sessionType = booking.fields["Session Type"] as string | undefined
-  const creditCost = CREDIT_COST[sessionType ?? "pack-hour"] ?? 1
+  const creditCost = SESSION_CREDIT_COST[sessionType ?? "pack-hour"] ?? 1
 
   await appBase.update<BookingFields>(TABLES.bookings, id, {
     Status: within24 ? "Cancelled (Late)" : "Cancelled",
@@ -60,7 +67,7 @@ export async function DELETE(
   })
 
   if (!within24) {
-    const client = await findClientRecord(user.id)
+    const client = await findClientRecord(effectiveUserId)
     if (client) {
       const current = client.fields["Credits Remaining"] ?? 0
       await appBase.update<ClientFields>(TABLES.clients, client.id, {
@@ -72,12 +79,12 @@ export async function DELETE(
   const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
   const dateLabel = booking.fields.Date ?? "your session"
   const cancelledTime = booking.fields.Time ?? ""
-  const client = await findClientRecord(user.id)
+  const client = await findClientRecord(effectiveUserId)
   const memberName = client?.fields.Name ?? user.name ?? user.email ?? "A member"
 
-  // Notify the member
+  // Notify the dancer (not the parent)
   createNotification({
-    userId: user.id,
+    userId: effectiveUserId,
     type: "booking_cancelled",
     title: "Booking cancelled",
     body: `Your session with ${pmName} on ${dateLabel} has been cancelled.${within24 ? " No credit refunded (within 24 hours)." : ""}`,
@@ -87,7 +94,7 @@ export async function DELETE(
   if (user.email) {
     const parentCC = client?.fields?.["Parent Email"] ?? null
     const { subject, html } = bookingCancelledEmail({
-      dancerName: user.name ?? "Dancer",
+      dancerName: memberName,
       prepMasterName: pmName,
       date: booking.fields.Date ?? dateLabel,
       time: cancelledTime,
@@ -121,7 +128,7 @@ export async function DELETE(
     sendEmail({ to: pm.email, subject, html }).catch(() => {})
   }).catch(() => {})
 
-  revalidateTag(`member-${user.id}`)
+  revalidateTag(`member-${effectiveUserId}`)
   return NextResponse.json({ ok: true, creditRefunded: !within24 })
 }
 
@@ -133,11 +140,16 @@ export async function PATCH(
   const user = await getSessionUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  // Resolve parent → child
+  const profile = await resolveClientProfile({ id: user.id, email: user.email, name: user.name ?? "" }, true)
+  const effectiveUserId = profile.effectiveUserId || user.id
+
   const { id } = await params
-  const safeUserId = user.id.replace(/'/g, "\\'")
+  const safeEffectiveId = effectiveUserId.replace(/'/g, "\\'")
   const records = await appBase.list<BookingFields>(TABLES.bookings, {
-    filterByFormula: `AND({User ID} = '${safeUserId}', RECORD_ID() = '${id}')`,
+    filterByFormula: `AND({User ID} = '${safeEffectiveId}', RECORD_ID() = '${id}')`,
     maxRecords: 1,
+    revalidate: 0,
   })
   const booking = records[0]
   if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." })
@@ -151,10 +163,20 @@ export async function PATCH(
   if (body.date) update.Date = body.date
   if (body.time) update.Time = body.time
   if (body.notes !== undefined) update.Notes = body.notes
+
+  // Look up PrepMaster timezone so UTC Datetime is accurate for any PM timezone
+  const pmName = booking.fields["Prep Master Name"] ?? ""
+  const [pmEntry] = await getPrepMasters().then((all) => all.filter((p) => p.name === pmName))
+  const pmTz = pmEntry?.email
+    ? await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pmEntry.email)).limit(1)
+        .then((rows) => rows[0]?.timezone ?? COMPANY_TZ)
+    : COMPANY_TZ
+
   if (body.date || body.time) {
     const utc = etToUtcIso(
       body.date ?? booking.fields.Date ?? "",
       body.time ?? booking.fields.Time ?? "",
+      pmTz,
     )
     if (utc) update["UTC Datetime"] = utc
   }
@@ -162,22 +184,20 @@ export async function PATCH(
 
   const newDate = body.date ?? booking.fields.Date ?? ""
   const newTime = body.time ?? booking.fields.Time ?? ""
-  const pmName = booking.fields["Prep Master Name"] ?? ""
   const [client, memberDbRow] = await Promise.all([
-    findClientRecord(user.id),
-    db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1),
+    findClientRecord(effectiveUserId),
+    db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, effectiveUserId)).limit(1),
   ])
   const memberName = client?.fields.Name ?? user.name ?? user.email ?? "Your member"
   const memberTz = memberDbRow[0]?.timezone ?? null
   const utcForNotif = update["UTC Datetime"] ?? null
 
-  // Tell the member their request is pending — not confirmed yet
-  // Member sees their own time; no second timezone needed for this one
-  const memberTimeLabel = utcForNotif && memberTz
-    ? fmtTimeForNotif(utcForNotif, memberTz)
+  // Member notification — show time in their own timezone
+  const memberTimeLabel = utcForNotif
+    ? fmtTimeForNotif(utcForNotif, pmTz, memberTz)
     : `${fmtTime(newTime)} ET`
   createNotification({
-    userId: user.id,
+    userId: effectiveUserId,
     type: "booking_updated",
     title: "Reschedule requested",
     body: `Your reschedule request for ${fmtDate(newDate)} at ${memberTimeLabel} is awaiting approval from ${pmName}.`,
@@ -197,15 +217,14 @@ export async function PATCH(
     sendEmail({ to: user.email, cc: parentCC ?? undefined, subject, html }).catch(() => {})
   }
 
-  // Notify PrepMaster — show member's time and PrepMaster's time
+  // Notify PrepMaster
   getPrepMasters().then(async (all) => {
     const pm = all.find((p) => p.name === pmName)
     if (!pm?.email) return
     const [pmUser] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pm.email))
     if (pmUser) {
-      const pmTz = pmUser.timezone ?? COMPANY_TZ
       const pmTimeLabel = utcForNotif
-        ? fmtTimeForNotif(utcForNotif, memberTz ?? COMPANY_TZ, pmTz)
+        ? fmtTimeForNotif(utcForNotif, pmTz, pmUser.timezone ?? null)
         : `${fmtTime(newTime)} ET`
       createNotification({
         userId: pmUser.id,
@@ -227,6 +246,6 @@ export async function PATCH(
     sendEmail({ to: pm.email, subject, html }).catch(() => {})
   }).catch(() => {})
 
-  revalidateTag(`member-${user.id}`)
+  revalidateTag(`member-${effectiveUserId}`)
   return NextResponse.json({ ok: true })
 }

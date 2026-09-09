@@ -324,10 +324,14 @@ export async function createBooking(input: {
     const effectiveUserId = profile.effectiveUserId || user.id
     const effectiveEmail = profile.email || user.email
 
-    // 1) Credit gate — a booking costs 1 credit. Block when the dancer has none.
+    // 1) Credit gate — block when the dancer doesn't have enough credits for this session type.
     const client = await findClientRecord(effectiveUserId)
     const credits = client?.fields["Credits Remaining"] ?? 0
-    if (!client || credits < 1) {
+    const BOOKING_CREDIT_COST: Record<string, number> = {
+      "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5,
+    }
+    const creditCost = BOOKING_CREDIT_COST[input.sessionType ?? "pack-hour"] ?? 1
+    if (!client || credits < creditCost) {
       return {
         ok: false,
         error: "NO_CREDITS",
@@ -374,7 +378,7 @@ export async function createBooking(input: {
       ...(utcForCreate ? { "UTC Datetime": utcForCreate } : {}),
     })
 
-    const newCredits = credits - 1
+    const newCredits = Math.round((credits - creditCost) * 100) / 100
     await appBase.update<ClientFields>(TABLES.clients, client.id, {
       "Credits Remaining": newCredits,
     })

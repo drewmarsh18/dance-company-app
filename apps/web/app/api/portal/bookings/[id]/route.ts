@@ -88,11 +88,19 @@ export async function PATCH(
         })
       }
       revalidateTag(`member-${dancerUserId}`, "max")
+      const [pmDRow, dTzRow] = await Promise.all([
+        db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1),
+        db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1),
+      ])
+      const pmTzDecline = pmDRow[0]?.timezone ?? COMPANY_TZ
+      const dTzDecline = dTzRow[0]?.timezone ?? null
+      const utcDecline = booking.fields["UTC Datetime"] ?? etToUtcIso(booking.fields.Date ?? "", booking.fields.Time ?? "", pmTzDecline)
+      const timeLabelDecline = utcDecline ? fmtTimeForNotif(utcDecline, pmTzDecline, dTzDecline) : `${fmtTime(booking.fields.Time ?? "")} ET`
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
         title: "Booking declined",
-        body: `${pm.name} has declined your session on ${fmtDate(booking.fields.Date ?? "")} at ${fmtTime(booking.fields.Time ?? "")} ET. Your credit has been refunded.`,
+        body: `${pm.name} has declined your session on ${fmtDate(booking.fields.Date ?? "")} at ${timeLabelDecline}. Your credit has been refunded.`,
         bookingId: id,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
@@ -242,5 +250,6 @@ export async function PATCH(
     sendEmail({ to: dancerEmail, cc: rescheduleParentCC ?? undefined, subject, html }).catch(() => {})
   }
 
-  return NextResponse.json({ ok: true })
+  // Return the computed UTC so the mobile app can update localUtcDatetime immediately
+  return NextResponse.json({ ok: true, utcDatetime: update["UTC Datetime"] ?? null })
 }
