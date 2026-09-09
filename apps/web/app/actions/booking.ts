@@ -23,6 +23,7 @@ import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
+import { resolveClientProfile } from "@/lib/profile-core"
 import { slotsForDate } from "@/lib/availability"
 import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
 import { sendEmail, bookingConfirmationEmail, bookingCancelledEmail, prepMasterBookingRequestEmail, bookingUpdatedEmail } from "@/lib/email"
@@ -300,8 +301,13 @@ export async function createBooking(input: {
   try {
     const user = await getSessionUser()
 
+    // Resolve effective profile — parent accounts proxy to the child's record
+    const profile = await resolveClientProfile({ id: user.id, email: user.email, name: user.name ?? "" }, true)
+    const effectiveUserId = profile.effectiveUserId || user.id
+    const effectiveEmail = profile.email || user.email
+
     // 1) Credit gate — a booking costs 1 credit. Block when the dancer has none.
-    const client = await findClientRecord(user.id)
+    const client = await findClientRecord(effectiveUserId)
     const credits = client?.fields["Credits Remaining"] ?? 0
     if (!client || credits < 1) {
       return {
@@ -337,8 +343,8 @@ export async function createBooking(input: {
 
     // 4) Create the booking, then deduct one credit.
     const record = await appBase.create<BookingFields>(TABLES.bookings, {
-      "User ID": user.id,
-      "Client Email": user.email,
+      "User ID": effectiveUserId,
+      "Client Email": effectiveEmail,
       "Prep Master Name": input.prepMasterName,
       Date: input.date,
       Time: input.time,
@@ -362,12 +368,12 @@ export async function createBooking(input: {
       if (planToMark) await setPlanStatus(planToMark.id, "Used")
     }
 
-    // In-app notification for the dancer
+    // In-app notification for the dancer (use effectiveUserId so it goes to the child, not the parent)
     const utcForCreate = etToUtcIso(input.date, input.time, pmTz)
-    const [memberCreateRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+    const [memberCreateRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, effectiveUserId)).limit(1)
     const memberCreateLabel = utcForCreate ? fmtTimeForNotif(utcForCreate, pmTz, memberCreateRow?.timezone ?? null) : fmtTime(input.time)
     createNotification({
-      userId: user.id,
+      userId: effectiveUserId,
       type: "booking_confirmed",
       title: "Booking confirmed",
       body: `Your session with ${input.prepMasterName} on ${fmtDate(input.date)} at ${memberCreateLabel} is confirmed.`,
@@ -377,15 +383,18 @@ export async function createBooking(input: {
 
     const dancerDisplayName = client.fields.Name ?? user.name ?? "Dancer"
 
-    // Send booking confirmation email — fire and forget
-    if (user.email) {
+    // Send booking confirmation email to the child's email (and cc parent if booking on their behalf)
+    const confirmationRecipients: string[] = []
+    if (effectiveEmail) confirmationRecipients.push(effectiveEmail)
+    if (profile.isParentView && user.email && user.email !== effectiveEmail) confirmationRecipients.push(user.email)
+    if (confirmationRecipients.length > 0) {
       const { subject, html } = bookingConfirmationEmail({
         dancerName: dancerDisplayName,
         prepMasterName: input.prepMasterName,
         date: input.date,
         time: input.time,
       })
-      sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Confirmation email failed:", e))
+      sendEmail({ to: confirmationRecipients, subject, html }).catch((e) => console.error("Confirmation email failed:", e))
     }
 
     // Email + push notification to PrepMaster with approve/deny — fire and forget
@@ -396,7 +405,7 @@ export async function createBooking(input: {
       const { subject, html } = prepMasterBookingRequestEmail({
         prepMasterName: pm.name,
         dancerName: dancerDisplayName,
-        dancerEmail: user.email ?? "",
+        dancerEmail: effectiveEmail ?? "",
         date: input.date,
         time: input.time,
         notes: input.notes || undefined,
