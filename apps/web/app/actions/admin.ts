@@ -30,10 +30,10 @@ import {
   type MemberPlan,
 } from "@/lib/airtable"
 
-const SINGLE_SESSION_PLANS: Record<string, { name: string; price: number }> = {
-  "60 min": { name: "60-Min Single", price: 119 },
-  "45 min": { name: "45-Min Single", price: 89 },
-  "30 min": { name: "30-Min Single", price: 65 },
+const SINGLE_SESSION_PLANS: Record<string, { name: string; price: number; credits: number }> = {
+  "60 min": { name: "60-Min Single", price: 119, credits: 1 },
+  "45 min": { name: "45-Min Single", price: 89, credits: 0.75 },
+  "30 min": { name: "30-Min Single", price: 65, credits: 0.5 },
 }
 import { PACKAGES, type DancePackage } from "@/lib/packages"
 
@@ -121,10 +121,10 @@ export async function addComplimentaryCredits(
       userId: member.userId,
       memberEmail: member.email,
       planName: sessionPlan.name,
-      sessions: 1,
+      sessions: sessionPlan.credits,
       pricePaid: sessionPlan.price,
     })
-    await adminAddCredits(member.id, member.creditsRemaining, 1)
+    await adminAddCredits(member.id, member.creditsRemaining, sessionPlan.credits)
     revalidatePath("/admin")
     revalidatePath("/dashboard")
     revalidateTag(`member-${member.userId}`, "max")
