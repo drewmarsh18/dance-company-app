@@ -89,6 +89,9 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
   }
 
   function handleAddCredits(member: AdminMember, label: string) {
+    const creditMap: Record<string, number> = { "90 min": 1.5, "60 min": 1, "45 min": 0.75, "30 min": 0.5 }
+    const creditsToAdd = creditMap[label] ?? 1
+    if (!confirm(`Add a ${label} session (${creditsToAdd} credit${creditsToAdd !== 1 ? "s" : ""}) to ${member.name || member.email}?`)) return
     startTransition(async () => {
       const result = await addComplimentaryCredits(
         { id: member.id, userId: member.userId, email: member.email, creditsRemaining: creditsFor(member) },
@@ -96,7 +99,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
       )
       if (result.ok) {
         setLocalPlans((prev) => [result.plan, ...prev])
-        setLocalCredits((prev) => ({ ...prev, [member.id]: creditsFor(member) + 1 }))
+        setLocalCredits((prev) => ({ ...prev, [member.id]: creditsFor(member) + creditsToAdd }))
         toast.success(`Added ${label} single session to ${member.name || member.email}.`)
       } else {
         toast.error(result.error)

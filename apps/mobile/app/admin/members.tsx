@@ -340,14 +340,28 @@ function MemberCard({ member: m, credits, plans, bookings, packages, statusInfo,
   const [saving, setSaving] = useState(false)
   const [bookingsExpanded, setBookingsExpanded] = useState(false)
 
-  async function addSingleSession(label: string) {
-    setSaving(true)
-    const { data, error } = await authClient.$fetch(`${API}/api/admin/members/plans`, {
-      method: "POST", body: JSON.stringify({ memberId: m.id, userId: m.userId, email: m.email, currentCredits: credits, label }), headers: { "Content-Type": "application/json" },
-    })
-    setSaving(false)
-    if (error || !data) { Alert.alert("Error", "Failed to add session."); return }
-    onPlanAdded((data as any).plan, 1)
+  function addSingleSession(label: string) {
+    const creditMap: Record<string, number> = { "90 min": 1.5, "60 min": 1, "45 min": 0.75, "30 min": 0.5 }
+    const credits_to_add = creditMap[label] ?? 1
+    Alert.alert(
+      "Add single session",
+      `Add a ${label} session (${credits_to_add} credit${credits_to_add !== 1 ? "s" : ""}) to ${m.name || m.email}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Add session",
+          onPress: async () => {
+            setSaving(true)
+            const { data, error } = await authClient.$fetch(`${API}/api/admin/members/plans`, {
+              method: "POST", body: JSON.stringify({ memberId: m.id, userId: m.userId, email: m.email, currentCredits: credits, label }), headers: { "Content-Type": "application/json" },
+            })
+            setSaving(false)
+            if (error || !data) { Alert.alert("Error", "Failed to add session."); return }
+            onPlanAdded((data as any).plan, credits_to_add)
+          },
+        },
+      ],
+    )
   }
 
   async function assignPackage() {
