@@ -99,6 +99,7 @@ export async function cancelBooking(
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
       filterByFormula: `AND({User ID} = '${safeId}', RECORD_ID() = '${bookingId}')`,
       maxRecords: 1,
+      revalidate: 0,
     })
     if (!records[0]) return { ok: false, error: "Booking not found." }
 
@@ -203,6 +204,7 @@ export async function rescheduleBooking(
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
       filterByFormula: `AND({User ID} = '${safeId}', RECORD_ID() = '${bookingId}')`,
       maxRecords: 1,
+      revalidate: 0,
     })
     const existing = records[0]
     if (!existing) return { ok: false, error: "Booking not found." }

@@ -14,6 +14,7 @@ import { CalendarPlus, Ticket, CalendarClock, AlertTriangle } from "lucide-react
 import { AirtableSetupNotice } from "@/components/airtable-setup-notice"
 import { BookingRow } from "@/components/booking-row"
 import { CreditsCard } from "@/components/credits-card"
+import { CollapsibleSection } from "@/components/collapsible-section"
 import { getSessionUserWithRole } from "@/lib/roles"
 import type { DayAvailability } from "@/lib/availability"
 
@@ -70,20 +71,24 @@ export default async function DashboardPage() {
   function bookingMs(date: string) {
     return new Date(`${date}T00:00:00`).getTime()
   }
+  function isInactive(status: string) {
+    const s = status.toLowerCase()
+    return s.startsWith("cancelled") || s === "declined"
+  }
   const upcoming = bookings.filter((b) => {
-    if (b.status.toLowerCase().startsWith("cancelled")) return false
+    if (isInactive(b.status)) return false
     const ms = bookingMs(b.date)
     return !Number.isNaN(ms) && ms >= todayMs
   })
   const past = bookings
     .filter((b) => {
-      if (b.status.toLowerCase().startsWith("cancelled")) return false
+      if (isInactive(b.status)) return false
       const ms = bookingMs(b.date)
       return !Number.isNaN(ms) && ms < todayMs
     })
     .sort((a, b) => bookingMs(b.date) - bookingMs(a.date))
   const cancelled = bookings
-    .filter((b) => b.status.toLowerCase().startsWith("cancelled"))
+    .filter((b) => isInactive(b.status))
     .sort((a, b) => bookingMs(b.date) - bookingMs(a.date))
 
   // Fetch availability for each unique prep master so the reschedule picker has dates
@@ -188,8 +193,7 @@ export default async function DashboardPage() {
       )}
 
       {cancelled.length > 0 && (
-        <section className="flex flex-col gap-4">
-          <h2 className="font-heading text-xl font-bold tracking-tight text-muted-foreground">Cancelled sessions</h2>
+        <CollapsibleSection title="Cancelled & declined" count={cancelled.length}>
           <ul className="flex flex-col gap-3 opacity-60">
             {cancelled.map((b) => (
               <li key={b.id}>
@@ -197,7 +201,7 @@ export default async function DashboardPage() {
               </li>
             ))}
           </ul>
-        </section>
+        </CollapsibleSection>
       )}
     </div>
   )
