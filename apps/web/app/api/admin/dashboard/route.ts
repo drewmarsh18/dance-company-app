@@ -22,7 +22,7 @@ const getCachedAdminDashboard = unstable_cache(
     return { members, bookings, workers, plans }
   },
   ["admin-dashboard"],
-  { revalidate: 30, tags: ["admin"] },
+  { revalidate: 0, tags: ["admin"] },
 )
 
 export async function GET() {
