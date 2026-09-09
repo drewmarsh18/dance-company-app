@@ -177,7 +177,23 @@ export const auth = betterAuth({
             }
           } catch { /* non-fatal */ }
 
-          if (isAdmin || isPrepMaster) {
+          // Check if this email is a parent/guardian for an existing member —
+          // parents are auto-approved, no admin review needed.
+          let isParent = false
+          try {
+            if (isAirtableConfigured()) {
+              const { appBase, TABLES } = await import("@/lib/airtable")
+              const safe = email.replace(/'/g, "\\'")
+              const children = await appBase.list(TABLES.clients, {
+                filterByFormula: `LOWER({Parent Email}) = '${safe}'`,
+                maxRecords: 1,
+                revalidate: 0,
+              })
+              isParent = children.length > 0
+            }
+          } catch { /* non-fatal */ }
+
+          if (isAdmin || isPrepMaster || isParent) {
             await db.update(userTable).set({ status: "active" }).where(eq(userTable.id, newUser.id))
             return
           }
