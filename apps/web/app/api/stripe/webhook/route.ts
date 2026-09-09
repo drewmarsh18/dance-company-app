@@ -54,7 +54,17 @@ export async function POST(req: NextRequest) {
       filterByFormula: `{User ID} = '${safeId}'`,
       maxRecords: 1,
     })
-    const client = clients[0]
+    let client = clients[0]
+
+    // New members may not have an Airtable record yet — create one so credits land
+    if (!client && userEmail) {
+      client = await appBase.create<ClientFields>(TABLES.clients, {
+        Name: userEmail.split("@")[0],
+        Email: userEmail,
+        "User ID": userId,
+        "Credits Remaining": 0,
+      })
+    }
 
     if (client) {
       const current = client.fields["Credits Remaining"] ?? 0
