@@ -77,6 +77,7 @@ export async function PATCH(
       const clientRecords = await appBase.list<ClientFields>(TABLES.clients, {
         filterByFormula: `{User ID} = '${safeId}'`,
         maxRecords: 1,
+        revalidate: 0,
       })
       const client = clientRecords[0]
       if (client) {
@@ -128,6 +129,7 @@ export async function PATCH(
       const clientRecords = await appBase.list<ClientFields>(TABLES.clients, {
         filterByFormula: `{User ID} = '${safeId}'`,
         maxRecords: 1,
+        revalidate: 0,
       })
       const client = clientRecords[0]
       if (client) {
