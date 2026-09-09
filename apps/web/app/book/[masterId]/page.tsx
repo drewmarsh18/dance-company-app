@@ -35,13 +35,14 @@ export default async function BookPage({
   const coach = await getPrepMaster(masterId)
   if (!coach) notFound()
 
-  const [savedAvailability, bookedSlots, profile, plans, pmUserRow] = await Promise.all([
+  const [savedAvailability, bookedSlots, profile, pmUserRow] = await Promise.all([
     getAvailabilityForEmail(coach.email),
     getUpcomingBookedSlots(coach.name),
     getOrCreateProfile(),
-    getMyPlans(),
     db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, coach.email)).limit(1),
   ])
+  const effectiveId = profile.effectiveUserId || session.user.id
+  const plans = await getMyPlans(effectiveId, profile.email || session.user.email)
   const week = buildWeekTemplate(savedAvailability)
   const prepMasterTimezone = pmUserRow[0]?.timezone ?? "America/New_York"
   const credits = profile.creditsRemaining
