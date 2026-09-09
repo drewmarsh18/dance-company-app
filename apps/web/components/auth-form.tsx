@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2 } from "lucide-react"
+import { Loader2, Eye, EyeOff } from "lucide-react"
 import { GoogleSignInButton } from "@/components/google-sign-in-button"
 
 export function AuthForm() {
@@ -16,6 +16,9 @@ export function AuthForm() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -24,6 +27,12 @@ export function AuthForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    if (isSignUp && password !== confirmPassword) {
+      setError("Passwords do not match.")
+      return
+    }
+
     setLoading(true)
     try {
       if (isSignUp) {
@@ -85,17 +94,57 @@ export function AuthForm() {
               </Link>
             )}
           </div>
-          <Input
-            id="password"
-            type="password"
-            required
-            minLength={8}
-            autoComplete={isSignUp ? "new-password" : "current-password"}
-            placeholder="At least 8 characters"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              required
+              minLength={8}
+              autoComplete={isSignUp ? "new-password" : "current-password"}
+              placeholder="At least 8 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              tabIndex={-1}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
         </div>
+
+        {isSignUp && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="confirmPassword">Confirm password</Label>
+            <div className="relative">
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                placeholder="Re-enter your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+          </div>
+        )}
 
         {error && (
           <p className="text-sm text-destructive" role="alert">
@@ -129,6 +178,9 @@ export function AuthForm() {
           onClick={() => {
             setMode(isSignUp ? "sign-in" : "sign-up")
             setError(null)
+            setConfirmPassword("")
+            setShowPassword(false)
+            setShowConfirmPassword(false)
           }}
           className="font-medium text-primary underline-offset-4 hover:underline"
         >

@@ -2,6 +2,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
 } from "react-native"
+import { Ionicons } from "@expo/vector-icons"
 import { useState, useEffect } from "react"
 import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
@@ -27,6 +28,9 @@ export default function SignUpScreen() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [goals, setGoals] = useState("")
   const [parentEmail, setParentEmail] = useState("")
   const [loading, setLoading] = useState(false)
@@ -144,6 +148,7 @@ export default function SignUpScreen() {
   async function handleSignUp() {
     if (!name || !email || !password) { setError("Please fill in all required fields."); return }
     if (password.length < 8) { setError("Password must be at least 8 characters."); return }
+    if (password !== confirmPassword) { setError("Passwords do not match."); return }
     setError(null); setLoading(true)
     try {
       const result = await signUp.email({ name: name.trim(), email: email.trim(), password })
@@ -217,7 +222,21 @@ export default function SignUpScreen() {
           </View>
           <View style={styles.field}>
             <Text style={styles.label}>Password</Text>
-            <TextInput style={styles.input} placeholder="Min. 8 characters" placeholderTextColor={COLORS.textMuted} secureTextEntry value={password} onChangeText={setPassword} editable={!loading} returnKeyType="next" />
+            <View style={styles.passwordWrap}>
+              <TextInput style={styles.passwordInput} placeholder="Min. 8 characters" placeholderTextColor={COLORS.textMuted} secureTextEntry={!showPassword} value={password} onChangeText={setPassword} editable={!loading} returnKeyType="next" />
+              <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.eyeBtn} activeOpacity={0.7}>
+                <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Confirm password</Text>
+            <View style={styles.passwordWrap}>
+              <TextInput style={styles.passwordInput} placeholder="Re-enter your password" placeholderTextColor={COLORS.textMuted} secureTextEntry={!showConfirmPassword} value={confirmPassword} onChangeText={setConfirmPassword} editable={!loading} returnKeyType="next" />
+              <TouchableOpacity onPress={() => setShowConfirmPassword(v => !v)} style={styles.eyeBtn} activeOpacity={0.7}>
+                <Ionicons name={showConfirmPassword ? "eye-off" : "eye"} size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.dividerRow}>
@@ -278,6 +297,9 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     label: { fontSize: 13, fontWeight: "600", color: COLORS.textSecondary, marginBottom: 6 },
     labelOptional: { fontSize: 13, fontWeight: "400", color: COLORS.textMuted },
     input: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, fontSize: 15, color: COLORS.text },
+    passwordWrap: { flexDirection: "row", alignItems: "center", backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm },
+    passwordInput: { flex: 1, padding: SPACING.md, fontSize: 15, color: COLORS.text },
+    eyeBtn: { padding: SPACING.md },
     inputMulti: { minHeight: 72, textAlignVertical: "top" },
     hint: { fontSize: 12, color: COLORS.textMuted, marginTop: 5, lineHeight: 17 },
     googleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, marginBottom: SPACING.sm },

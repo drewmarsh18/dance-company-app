@@ -2,6 +2,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
 } from "react-native"
+import { Ionicons } from "@expo/vector-icons"
 import { useState, useEffect } from "react"
 import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
@@ -25,6 +26,7 @@ export default function SignInScreen() {
   const COLORS = useColors()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [appleLoading, setAppleLoading] = useState(false)
@@ -198,7 +200,12 @@ export default function SignInScreen() {
                 </TouchableOpacity>
               </Link>
             </View>
-            <TextInput style={styles.input} placeholder="••••••••" placeholderTextColor={COLORS.textMuted} secureTextEntry value={password} onChangeText={setPassword} editable={!loading} onSubmitEditing={handleSignIn} returnKeyType="go" />
+            <View style={styles.passwordWrap}>
+              <TextInput style={styles.passwordInput} placeholder="••••••••" placeholderTextColor={COLORS.textMuted} secureTextEntry={!showPassword} value={password} onChangeText={setPassword} editable={!loading} onSubmitEditing={handleSignIn} returnKeyType="go" />
+              <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.eyeBtn} activeOpacity={0.7}>
+                <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
           <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleSignIn} disabled={loading} activeOpacity={0.8}>
             {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.btnText}>Sign in</Text>}
@@ -236,6 +243,9 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     field: { marginBottom: SPACING.md },
     label: { fontSize: 13, fontWeight: "600", color: COLORS.textSecondary, marginBottom: 6 },
     input: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.md, fontSize: 15, color: COLORS.text },
+    passwordWrap: { flexDirection: "row", alignItems: "center", backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm },
+    passwordInput: { flex: 1, padding: SPACING.md, fontSize: 15, color: COLORS.text },
+    eyeBtn: { padding: SPACING.md },
     btn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, padding: SPACING.md, alignItems: "center", marginTop: SPACING.sm },
     btnDisabled: { opacity: 0.6 },
     btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
