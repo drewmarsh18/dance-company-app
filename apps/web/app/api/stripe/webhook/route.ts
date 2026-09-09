@@ -32,7 +32,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing metadata" }, { status: 400 })
     }
 
-    const sessionCount = parseInt(sessions, 10)
+    // For packs, metadata `sessions` is the credit count directly.
+    // For single sessions, duration determines fractional credits (30min=0.5, 45min=0.75, 60min=1).
+    const SINGLE_SESSION_CREDITS: Record<string, number> = {
+      "private-30": 0.5,
+      "private-45": 0.75,
+      "private-60": 1,
+      "private-90": 1.5,
+    }
+    const rawCount = parseInt(sessions, 10)
+    const creditAmount =
+      itemType === "pack"
+        ? rawCount
+        : (sessionType ? (SINGLE_SESSION_CREDITS[sessionType] ?? rawCount) : rawCount)
     const pricePaid = (session.amount_total ?? 0) / 100
 
     // Find the member's Airtable record by User ID
@@ -44,35 +56,35 @@ export async function POST(req: NextRequest) {
     const client = clients[0]
 
     if (client) {
-      // Add credits to the member
       const current = client.fields["Credits Remaining"] ?? 0
       await appBase.update<ClientFields>(TABLES.clients, client.id, {
-        "Credits Remaining": current + sessionCount,
+        "Credits Remaining": Math.round((current + creditAmount) * 100) / 100,
       })
     }
 
     // Create a Plan record in Airtable
     const planName =
       itemType === "pack"
-        ? `${sessionCount}-Pack`
+        ? `${rawCount}-Pack`
         : `Single ${sessionType?.replace("private-", "")}min`
 
     await appBase.create<PlanFields>(TABLES.plans, {
       "User ID": userId,
       "Member Email": userEmail ?? "",
       "Plan Name": planName,
-      Sessions: sessionCount,
+      Sessions: creditAmount,
       Status: "Active",
       "Price Paid": pricePaid,
       Source: "stripe",
     })
 
     // In-app notification
+    const newBalance = Math.round(((client?.fields["Credits Remaining"] ?? 0) + creditAmount) * 100) / 100
     createNotification({
       userId,
       type: "booking_confirmed",
       title: "Purchase complete!",
-      body: `Your ${planName} is ready. You have ${(client?.fields["Credits Remaining"] ?? 0) + sessionCount} credit${sessionCount !== 1 ? "s" : ""} available.`,
+      body: `Your ${planName} is ready. You have ${newBalance} credit${newBalance !== 1 ? "s" : ""} available.`,
     }).catch(() => {})
   }
 
