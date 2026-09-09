@@ -123,6 +123,7 @@ export async function addComplimentaryCredits(
       planName: sessionPlan.name,
       sessions: sessionPlan.credits,
       pricePaid: sessionPlan.price,
+      source: "admin",
     })
     await adminAddCredits(member.id, member.creditsRemaining, sessionPlan.credits)
     revalidatePath("/admin")
@@ -154,6 +155,7 @@ export async function adminAssignPlan(
       sessions: pkg.sessions,
       pricePaid: pkg.price,
       expiryDays: pkg.expiryDays,
+      source: "admin",
     })
 
     // Add the package's sessions as credits on the member record

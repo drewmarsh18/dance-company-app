@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       Sessions: sessionCount,
       Status: "Active",
       "Price Paid": pricePaid,
+      Source: "stripe",
     })
 
     // In-app notification

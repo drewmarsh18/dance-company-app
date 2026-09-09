@@ -84,6 +84,7 @@ export type PlanFields = {
   "Purchased At"?: string
   "Expires At"?: string
   Status?: string
+  Source?: string
 }
 
 export type MemberPlan = {
@@ -95,6 +96,7 @@ export type MemberPlan = {
   purchasedAt: string
   expiresAt: string
   status: string
+  source?: "stripe" | "admin"
 }
 
 
@@ -409,6 +411,7 @@ export async function getPlansForUser(userId: string): Promise<MemberPlan[]> {
     purchasedAt: r.fields["Purchased At"] ?? "",
     expiresAt: r.fields["Expires At"] ?? "",
     status: r.fields.Status ?? "Active",
+    source: (r.fields.Source as "stripe" | "admin" | undefined) ?? undefined,
   }))
 }
 
@@ -426,6 +429,7 @@ export async function adminGetAllPlans(): Promise<MemberPlan[]> {
     purchasedAt: r.fields["Purchased At"] ?? "",
     expiresAt: r.fields["Expires At"] ?? "",
     status: r.fields.Status ?? "Active",
+    source: (r.fields.Source as "stripe" | "admin" | undefined) ?? undefined,
   }))
 }
 
@@ -462,6 +466,7 @@ export async function createMemberPlan(fields: {
   sessions: number
   pricePaid: number
   expiryDays?: number
+  source?: "stripe" | "admin"
 }): Promise<MemberPlan> {
   const purchasedAt = new Date()
   const expiresAt = fields.expiryDays != null ? new Date(purchasedAt) : null
@@ -477,6 +482,7 @@ export async function createMemberPlan(fields: {
     "Purchased At": purchasedAt.toISOString(),
     ...(expiresAt ? { "Expires At": expiresAt.toISOString() } : {}),
     Status: "Active",
+    ...(fields.source ? { Source: fields.source } : {}),
   })
   return {
     id: record.id,
@@ -487,6 +493,7 @@ export async function createMemberPlan(fields: {
     purchasedAt: record.fields["Purchased At"] ?? "",
     expiresAt: record.fields["Expires At"] ?? "",
     status: record.fields.Status ?? "Active",
+    source: (record.fields.Source as "stripe" | "admin" | undefined) ?? undefined,
   }
 }
 

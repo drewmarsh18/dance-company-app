@@ -37,15 +37,26 @@ export async function PATCH(
     isPrepMaster = Boolean(invite)
   } catch { /* non-fatal */ }
 
-  // When approving a member (not a PrepMaster), ensure an Airtable client record exists
+  // When approving a member (not a PrepMaster), ensure an Airtable client record exists.
+  // Skip if this email is already a Parent Email on someone else's record — they're a parent
+  // account and should see their child's profile, not get their own member record.
   if (status === "active" && !isPrepMaster) {
     try {
-      const existing = await appBase.list<ClientFields>(TABLES.clients, {
-        filterByFormula: `{User ID} = '${id.replace(/'/g, "\\'")}'`,
-        maxRecords: 1,
-        revalidate: 0,
-      })
-      if (existing.length === 0) {
+      const safeEmail = target.email.toLowerCase().replace(/'/g, "\\'")
+      const [existing, asParent] = await Promise.all([
+        appBase.list<ClientFields>(TABLES.clients, {
+          filterByFormula: `{User ID} = '${id.replace(/'/g, "\\'")}'`,
+          maxRecords: 1,
+          revalidate: 0,
+        }),
+        appBase.list<ClientFields>(TABLES.clients, {
+          filterByFormula: `LOWER({Parent Email}) = '${safeEmail}'`,
+          maxRecords: 1,
+          revalidate: 0,
+        }),
+      ])
+      const isParent = asParent.length > 0
+      if (existing.length === 0 && !isParent) {
         await appBase.create<ClientFields>(TABLES.clients, {
           Name: target.name,
           Email: target.email,

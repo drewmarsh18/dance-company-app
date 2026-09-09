@@ -588,6 +588,16 @@ function PlanHistory({ plans, credits, isPending, onRemove }: {
                           </span>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
+                          {plan.source === "stripe" && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 leading-none">
+                              Stripe
+                            </span>
+                          )}
+                          {plan.source === "admin" && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 leading-none">
+                              Admin
+                            </span>
+                          )}
                           {planStatus !== "Used" && (
                             <button
                               disabled={isPending}
