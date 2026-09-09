@@ -21,7 +21,7 @@ export const getCachedMemberDashboard = (user: ResolvedUser) =>
       const memberId = profile.effectiveUserId || user.id
       const [bookings, plans] = await Promise.all([
         getBookingsForUserId(memberId),
-        getPlansForUser(memberId),
+        getPlansForUser(memberId, profile.email || user.email),
       ])
       return { profile, bookings, plans }
     },

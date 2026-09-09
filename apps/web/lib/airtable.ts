@@ -395,13 +395,32 @@ export async function getUpcomingBookedSlots(
 
 // --- Member plans ------------------------------------------------------------
 
-export async function getPlansForUser(userId: string): Promise<MemberPlan[]> {
+export async function getPlansForUser(userId: string, fallbackEmail?: string): Promise<MemberPlan[]> {
   const safeId = userId.replace(/'/g, "\\'")
-  const records = await list<PlanFields>(TABLES.plans, {
+  let records = await list<PlanFields>(TABLES.plans, {
     filterByFormula: `{User ID} = '${safeId}'`,
     sort: [{ field: "Purchased At", direction: "desc" }],
     revalidate: 0,
   })
+
+  // If no plans found by userId, try by email (handles userId mismatch from re-registration)
+  if (records.length === 0 && fallbackEmail) {
+    const safeEmail = fallbackEmail.trim().toLowerCase().replace(/'/g, "\\'")
+    records = await list<PlanFields>(TABLES.plans, {
+      filterByFormula: `LOWER({Member Email}) = '${safeEmail}'`,
+      sort: [{ field: "Purchased At", direction: "desc" }],
+      revalidate: 0,
+    })
+    // Patch the userId on any found records so future lookups work
+    if (records.length > 0) {
+      await Promise.all(
+        records
+          .filter((r) => r.fields["User ID"] !== userId)
+          .map((r) => update<PlanFields>(TABLES.plans, r.id, { "User ID": userId }))
+      )
+    }
+  }
+
   return records.map((r) => ({
     id: r.id,
     userId: r.fields["User ID"] ?? "",
