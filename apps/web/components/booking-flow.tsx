@@ -43,6 +43,7 @@ function buildWeekDays(sunday: Date) {
 export function BookingFlow({
   prepMasterId,
   prepMasterName,
+  prepMasterTimezone,
   week,
   bookedSlots,
   credits,
@@ -50,6 +51,7 @@ export function BookingFlow({
 }: {
   prepMasterId: string
   prepMasterName: string
+  prepMasterTimezone: string
   week: DayAvailability[]
   bookedSlots: Record<string, string[]>
   credits: number
@@ -59,7 +61,7 @@ export function BookingFlow({
   const [isPending, startTransition] = useTransition()
 
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
-  const tzAbbr = typeof window !== "undefined" && userIsInDifferentTimezone() ? localTimezoneAbbr() : ""
+  const tzAbbr = typeof window !== "undefined" && userIsInDifferentTimezone(prepMasterTimezone) ? localTimezoneAbbr() : ""
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
@@ -294,7 +296,7 @@ export function BookingFlow({
                     slots.map((slot) => {
                       const isTaken = taken.has(slot)
                       const isSlotSelected = isSelected && selectedTime === slot
-                      const displaySlot = slotToLocalTime(slot, iso, COMPANY_TIMEZONE)
+                      const displaySlot = slotToLocalTime(slot, iso, prepMasterTimezone)
                       return (
                         <button
                           key={slot}

@@ -17,6 +17,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowLeft, CalendarX, Ticket } from "lucide-react"
+import { db } from "@/lib/db"
+import { user as userTable } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 
 export default async function BookPage({
   params,
@@ -32,13 +35,15 @@ export default async function BookPage({
   const coach = await getPrepMaster(masterId)
   if (!coach) notFound()
 
-  const [savedAvailability, bookedSlots, profile, plans] = await Promise.all([
+  const [savedAvailability, bookedSlots, profile, plans, pmUserRow] = await Promise.all([
     getAvailabilityForEmail(coach.email),
     getUpcomingBookedSlots(coach.name),
     getOrCreateProfile(),
     getMyPlans(),
+    db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, coach.email)).limit(1),
   ])
   const week = buildWeekTemplate(savedAvailability)
+  const prepMasterTimezone = pmUserRow[0]?.timezone ?? "America/New_York"
   const credits = profile.creditsRemaining
 
   const initials = coach.name
@@ -90,6 +95,7 @@ export default async function BookPage({
           <BookingFlow
             prepMasterId={coach.id}
             prepMasterName={coach.name}
+            prepMasterTimezone={prepMasterTimezone}
             week={week}
             bookedSlots={bookedSlots}
             credits={credits}

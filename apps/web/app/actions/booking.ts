@@ -207,6 +207,13 @@ export async function rescheduleBooking(
       return { ok: false, error: "That time slot is already taken." }
     }
 
+    // Look up the PrepMaster's timezone for correct UTC conversion
+    const pmReschByName = (await getPrepMasters()).find((p) => p.name === prepMasterName)
+    const [pmReschTzRow] = pmReschByName?.email
+      ? await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pmReschByName.email)).limit(1)
+      : [undefined]
+    const pmReschTz = pmReschTzRow?.timezone ?? COMPANY_TZ
+
     await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
       Date: newDate,
       Time: newTime,
@@ -214,10 +221,10 @@ export async function rescheduleBooking(
     })
 
     // Tell the member their request is pending — not confirmed yet
-    const utcForReschedule = etToUtcIso(newDate, newTime, COMPANY_TZ)
+    const utcForReschedule = etToUtcIso(newDate, newTime, pmReschTz)
     const [memberReschRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
     const memberReschTz = memberReschRow?.timezone ?? null
-    const memberReschLabel = utcForReschedule ? fmtTimeForNotif(utcForReschedule, COMPANY_TZ, memberReschTz) : `${fmtTime(newTime)} ET`
+    const memberReschLabel = utcForReschedule ? fmtTimeForNotif(utcForReschedule, pmReschTz, memberReschTz) : fmtTime(newTime)
     createNotification({
       userId: user.id,
       type: "booking_updated",
@@ -250,7 +257,7 @@ export async function rescheduleBooking(
       // In-app notification → PrepMaster (needs their approval)
       const [pmUser] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pm.email))
       if (pmUser) {
-        const pmReschLabel = utcForReschedule ? fmtTimeForNotif(utcForReschedule, COMPANY_TZ, pmUser.timezone ?? null) : `${fmtTime(newTime)} ET`
+        const pmReschLabel = utcForReschedule ? fmtTimeForNotif(utcForReschedule, pmReschTz, pmUser.timezone ?? null) : fmtTime(newTime)
         createNotification({
           userId: pmUser.id,
           type: "booking_updated",
@@ -308,6 +315,8 @@ export async function createBooking(input: {
     if (!prepMaster) {
       return { ok: false, error: "This PrepMaster is no longer available." }
     }
+    const [pmTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, prepMaster.email)).limit(1)
+    const pmTz = pmTzRow?.timezone ?? COMPANY_TZ
     const week = await getAvailabilityForEmail(prepMaster.email)
     const openSlots = slotsForDate(input.date, week)
     if (!openSlots.includes(input.time)) {
@@ -354,9 +363,9 @@ export async function createBooking(input: {
     }
 
     // In-app notification for the dancer
-    const utcForCreate = etToUtcIso(input.date, input.time, COMPANY_TZ)
+    const utcForCreate = etToUtcIso(input.date, input.time, pmTz)
     const [memberCreateRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
-    const memberCreateLabel = utcForCreate ? fmtTimeForNotif(utcForCreate, COMPANY_TZ, memberCreateRow?.timezone ?? null) : `${fmtTime(input.time)} ET`
+    const memberCreateLabel = utcForCreate ? fmtTimeForNotif(utcForCreate, pmTz, memberCreateRow?.timezone ?? null) : fmtTime(input.time)
     createNotification({
       userId: user.id,
       type: "booking_confirmed",
@@ -399,7 +408,7 @@ export async function createBooking(input: {
       // Push notification with approve/deny actions
       const [pmUser] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pm.email))
       if (pmUser) {
-        const pmCreateLabel = utcForCreate ? fmtTimeForNotif(utcForCreate, COMPANY_TZ, pmUser.timezone ?? null) : `${fmtTime(input.time)} ET`
+        const pmCreateLabel = utcForCreate ? fmtTimeForNotif(utcForCreate, pmTz, pmUser.timezone ?? null) : fmtTime(input.time)
         createNotification({
           userId: pmUser.id,
           type: "booking_request",
