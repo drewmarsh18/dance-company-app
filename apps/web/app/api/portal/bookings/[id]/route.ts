@@ -159,17 +159,13 @@ export async function PATCH(
     const dancerUserId = booking.fields["User ID"]
     const dancerEmail = booking.fields["Client Email"]
 
-    // Credit refunded if PM cancels within 24h of session
-    const [pmCancelTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
-    const pmCancelTz = pmCancelTzRow?.timezone ?? COMPANY_TZ
-    const within24 = isWithin24Hours(dateStr, timeStr, pmCancelTz)
-
     await appBase.update<BookingFields>(TABLES.bookings, id, {
       Status: "Cancelled",
       ...(body.cancellationReason ? { "Cancellation Reason": body.cancellationReason } : {}),
     })
 
-    if (dancerUserId && within24) {
+    // PM cancellation always refunds the member's credit
+    if (dancerUserId) {
       const safeId = dancerUserId.replace(/'/g, "\\'")
       const clientRecords = await appBase.list<ClientFields>(TABLES.clients, {
         filterByFormula: `{User ID} = '${safeId}'`,
@@ -190,14 +186,11 @@ export async function PATCH(
 
     if (dancerUserId) {
       revalidateTag(`member-${dancerUserId}`, "max")
-      const notifBody = within24
-        ? `${pm.name} cancelled your session on ${fmtDate(dateStr)} at ${fmtTime(timeStr)}. Your credit has been refunded.`
-        : `${pm.name} cancelled your session on ${fmtDate(dateStr)} at ${fmtTime(timeStr)} ET.`
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
         title: "Session cancelled by PrepMaster",
-        body: notifBody,
+        body: `${pm.name} cancelled your session on ${fmtDate(dateStr)} at ${fmtTime(timeStr)}. Your credit has been refunded.`,
         bookingId: id,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
@@ -221,13 +214,13 @@ export async function PATCH(
         prepMasterName: pm.name,
         date: dateStr,
         time: timeStr,
-        creditRefunded: within24,
+        creditRefunded: true,
       })
       sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject, html }).catch(() => {})
     }
 
     revalidateTag(`portal-${session.user.email}`, "max")
-    return NextResponse.json({ ok: true, creditRefunded: within24 })
+    return NextResponse.json({ ok: true, creditRefunded: true })
   }
 
   // Edit date/time/PrepMaster notes
