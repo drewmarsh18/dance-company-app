@@ -8,6 +8,8 @@ import { db } from "@/lib/db"
 import { account } from "@/lib/db/schema"
 import { and, eq } from "drizzle-orm"
 
+export const dynamic = "force-dynamic"
+
 export default async function PortalProfilePage() {
   const user = await getSessionUserWithRole()
   if (!user) return null
