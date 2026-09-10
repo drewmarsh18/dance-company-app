@@ -112,23 +112,24 @@ type ListOptions = {
   maxRecords?: number
   sort?: { field: string; direction?: "asc" | "desc" }[]
   revalidate?: number
+  tags?: string[]
 }
 
 async function airtableFetch(
   path: string,
-  init?: RequestInit & { revalidate?: number },
+  init?: RequestInit & { revalidate?: number; tags?: string[] },
 ) {
   if (!BASE_ID || !API_KEY) {
     throw new Error(
       "Airtable is not configured. Set AIRTABLE_API_KEY and AIRTABLE_BASE_ID.",
     )
   }
-  const { revalidate, ...rest } = init ?? {}
+  const { revalidate, tags, ...rest } = init ?? {} as RequestInit & { revalidate?: number; tags?: string[] }
   const cacheOpt =
     revalidate === 0
       ? { cache: "no-store" as const }
-      : revalidate !== undefined
-        ? { next: { revalidate } }
+      : revalidate !== undefined || tags?.length
+        ? { next: { ...(revalidate !== undefined ? { revalidate } : {}), ...(tags?.length ? { tags } : {}) } }
         : {}
   const doFetch = () =>
     fetch(`${AIRTABLE_API_URL}/${BASE_ID}/${path}`, {
@@ -168,7 +169,7 @@ async function list<T>(table: string, options: ListOptions = {}): Promise<Airtab
   const query = params.toString()
   const data = await airtableFetch(
     `${encodeURIComponent(table)}${query ? `?${query}` : ""}`,
-    { method: "GET", revalidate: options.revalidate ?? 15 },
+    { method: "GET", revalidate: options.revalidate ?? 15, ...(options.tags ? { tags: options.tags } : {}) },
   )
   return data.records ?? []
 }
@@ -263,6 +264,7 @@ export async function getPrepMasterByEmail(email: string): Promise<PrepMaster | 
   const records = await list<WorkerFields>(TABLES.workers, {
     filterByFormula: `LOWER({Email}) = '${safe}'`,
     maxRecords: 1,
+    tags: [`portal-${email}`],
   })
   return records[0] ? toPrepMaster(records[0]) : null
 }
