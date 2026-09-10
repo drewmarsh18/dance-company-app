@@ -923,7 +923,7 @@ export default function PortalDashboard() {
 
   // Poll every 30 seconds so new reschedule requests appear without a manual reload
   useEffect(() => {
-    const interval = setInterval(load, 30_000)
+    const interval = setInterval(load, 10_000)
     return () => clearInterval(interval)
   }, [load])
 
