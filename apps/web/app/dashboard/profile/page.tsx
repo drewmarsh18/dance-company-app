@@ -7,6 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { AlertTriangle } from "lucide-react"
 import { getSessionUserWithRole } from "@/lib/roles"
 import { isCalendarConnected } from "@/lib/google-calendar"
+import { db } from "@/lib/db"
+import { account } from "@/lib/db/schema"
+import { eq, and } from "drizzle-orm"
 
 export default async function ProfilePage() {
   const user = await getSessionUserWithRole()
@@ -23,14 +26,19 @@ export default async function ProfilePage() {
   let profile: ClientProfile | null = null
   let error: string | null = null
   let calendarConnected = false
+  let isGoogleLinked = false
 
   try {
-    const [p, cal] = await Promise.all([
+    const [p, cal, googleAccounts] = await Promise.all([
       getOrCreateProfile(),
       user ? isCalendarConnected(user.id) : Promise.resolve(false),
+      user
+        ? db.select({ id: account.id }).from(account).where(and(eq(account.userId, user.id), eq(account.providerId, "google"))).limit(1)
+        : Promise.resolve([]),
     ])
     profile = p
     calendarConnected = cal
+    isGoogleLinked = googleAccounts.length > 0
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to load your profile."
   }
@@ -53,7 +61,7 @@ export default async function ProfilePage() {
               <CardTitle className="text-lg">Your details</CardTitle>
             </CardHeader>
             <CardContent>
-              <ProfileForm profile={profile} />
+              <ProfileForm profile={profile} isGoogleLinked={isGoogleLinked} />
             </CardContent>
           </Card>
 
