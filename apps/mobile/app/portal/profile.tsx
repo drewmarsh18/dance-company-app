@@ -120,11 +120,12 @@ export default function PortalProfileScreen() {
   async function saveField(fields: Record<string, string>) {
     setSaving(true)
     try {
-      await authClient.$fetch(`${API_BASE}/api/portal/profile`, {
+      const { error } = await authClient.$fetch(`${API_BASE}/api/portal/profile`, {
         method: "PATCH",
         body: JSON.stringify(fields),
         headers: { "Content-Type": "application/json" },
       })
+      if (error) throw new Error(String(error))
     } catch {
       Alert.alert("Error", "Could not save. Please try again.")
       throw new Error("save failed")
@@ -134,15 +135,19 @@ export default function PortalProfileScreen() {
   }
 
   async function handleSavePhone() {
-    await saveField({ phone }).catch(() => {})
-    setDirty(d => ({ ...d, phone: false }))
-    loadConnectedState()
+    try {
+      await saveField({ phone })
+      setDirty(d => ({ ...d, phone: false }))
+      loadConnectedState()
+    } catch {}
   }
 
   async function handleSaveAddress() {
-    await saveField({ address }).catch(() => {})
-    setDirty(d => ({ ...d, address: false }))
-    loadConnectedState()
+    try {
+      await saveField({ address })
+      setDirty(d => ({ ...d, address: false }))
+      loadConnectedState()
+    } catch {}
   }
 
   function handleSelectUniversity(v: string) {
