@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useRef, useEffect } from "react"
 import { toast } from "sonner"
 import { updatePrepMaster, addPrepMaster, deletePrepMaster } from "@/app/actions/admin"
 import type { AdminWorker, AdminBooking } from "@/lib/airtable"
@@ -142,6 +142,74 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
           </Card>
         )
       })}
+    </div>
+  )
+}
+
+function UniversityDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [])
+
+  const chipProps = value ? getUniversityColor(value) : null
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        {chipProps ? (
+          <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ backgroundColor: chipProps.bg, color: chipProps.text }}>
+            {value}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">— None —</span>
+        )}
+        <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-input bg-background p-2 shadow-md">
+          <button
+            type="button"
+            onClick={() => { onChange(""); setOpen(false) }}
+            className="mb-1.5 w-full rounded px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted"
+          >
+            — None —
+          </button>
+          <div className="flex flex-wrap gap-1.5">
+            {UNIVERSITIES.map((u) => {
+              const { bg, text } = getUniversityColor(u)
+              const isSelected = value === u
+              return (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => { onChange(u); setOpen(false) }}
+                  className="rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity"
+                  style={{
+                    backgroundColor: bg,
+                    color: text,
+                    opacity: isSelected ? 1 : 0.5,
+                    outline: isSelected ? `2px solid ${text}` : "none",
+                    outlineOffset: "1px",
+                  }}
+                >
+                  {u}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -301,26 +369,7 @@ function PrepMasterProfile({
                   <GraduationCap className="size-3.5" />
                   University
                 </label>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={university}
-                    onChange={(e) => setUniversity(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="">— None —</option>
-                    {UNIVERSITIES.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
-                  {university && (() => {
-                    const { bg, text } = getUniversityColor(university)
-                    return (
-                      <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap" style={{ backgroundColor: bg, color: text }}>
-                        {university}
-                      </span>
-                    )
-                  })()}
-                </div>
+                <UniversityDropdown value={university} onChange={setUniversity} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">

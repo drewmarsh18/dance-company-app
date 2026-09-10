@@ -31,7 +31,7 @@ export function PrepMasterSignUpForm({ email, name: initialName }: { email: stri
         name: name.trim() || email.split("@")[0],
       })
       if (error) throw new Error(error.message ?? "Could not create account")
-      window.location.href = "/portal"
+      window.location.href = "/welcome?role=prep"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
       setLoading(false)

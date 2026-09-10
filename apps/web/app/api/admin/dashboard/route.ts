@@ -10,6 +10,9 @@ import {
   isAirtableConfigured,
 } from "@/lib/airtable"
 import { PACKAGES } from "@/lib/packages"
+import { db } from "@/lib/db"
+import { prepMasterInvite } from "@/lib/db/schema"
+import { inArray } from "drizzle-orm"
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -21,12 +24,28 @@ export async function GET() {
   }
 
   try {
-    const members = await adminGetAllMembers()
-    const bookings = await adminGetAllBookings()
-    const workers = await adminGetAllWorkers()
-    const plans = await adminGetAllPlans()
+    const [members, bookings, workers, plans] = await Promise.all([
+      adminGetAllMembers(),
+      adminGetAllBookings(),
+      adminGetAllWorkers(),
+      adminGetAllPlans(),
+    ])
 
-    return NextResponse.json({ members, bookings, workers, plans, packages: PACKAGES })
+    // Join invite status from DB so the mobile app shows Joined/Pending/Revoked correctly
+    const emails = workers.map((w) => w.email.trim().toLowerCase()).filter(Boolean)
+    const invites = emails.length > 0
+      ? await db
+          .select({ email: prepMasterInvite.email, status: prepMasterInvite.status })
+          .from(prepMasterInvite)
+          .where(inArray(prepMasterInvite.email, emails))
+      : []
+    const inviteMap = Object.fromEntries(invites.map((i) => [i.email.toLowerCase(), i.status]))
+    const workersWithStatus = workers.map((w) => ({
+      ...w,
+      inviteStatus: (inviteMap[w.email.trim().toLowerCase()] ?? null) as "pending" | "accepted" | "revoked" | null,
+    }))
+
+    return NextResponse.json({ members, bookings, workers: workersWithStatus, plans, packages: PACKAGES })
   } catch (err) {
     console.error("[admin/dashboard] error:", err)
     return NextResponse.json(
