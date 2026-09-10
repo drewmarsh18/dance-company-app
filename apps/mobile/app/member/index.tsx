@@ -18,7 +18,7 @@ type MemberPlan = {
   pricePaid: number; purchasedAt: string; expiresAt: string; status: string
 }
 type DashboardData = {
-  profile: { name: string; creditsRemaining: number }
+  profile: { name: string; creditsRemaining: number; isParentView?: boolean }
   plans: MemberPlan[]; upcoming: Booking[]; past: Booking[]; cancelled: Booking[]
 }
 
@@ -144,6 +144,7 @@ export default function MemberHomeScreen() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [cancelledExpanded, setCancelledExpanded] = useState(false)
   const firstName = (data?.profile.name ?? session?.user?.name)?.split(" ")[0] ?? "Dancer"
+  const isParentView = data?.profile.isParentView ?? false
 
   const load = useCallback(async () => {
     try {
@@ -202,7 +203,7 @@ export default function MemberHomeScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}>
         <View style={styles.header}>
-          <Text style={styles.greeting}>Welcome, {firstName}!</Text>
+          <Text style={styles.greeting}>{isParentView ? `Welcome to ${firstName}'s account!` : `Welcome, ${firstName}!`}</Text>
           <Text style={styles.greetingSub}>Here's your training overview.</Text>
         </View>
         {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
