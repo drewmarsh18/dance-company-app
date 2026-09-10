@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from "react"
-import { Tabs, useFocusEffect } from "expo-router"
+import React, { useCallback, useEffect, useState } from "react"
+import { Tabs, useFocusEffect, usePathname } from "expo-router"
 import { Home, Clock, User, Inbox } from "lucide-react-native"
 import { View, Text, StyleSheet } from "react-native"
 import { useColors } from "@/lib/theme-context"
@@ -7,12 +7,12 @@ import { authClient } from "@/lib/auth-client"
 
 const API_BASE = "https://dance-company-app.vercel.app"
 
-function InboxIcon({ color, size, unread }: { color: string; size: number; unread: number }) {
+function InboxIcon({ color, size, unread, badgeColor }: { color: string; size: number; unread: number; badgeColor: string }) {
   return (
     <View>
       <Inbox color={color} size={size} />
       {unread > 0 && (
-        <View style={[styles.badge, { backgroundColor: color }]}>
+        <View style={[styles.badge, { backgroundColor: badgeColor }]}>
           <Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text>
         </View>
       )}
@@ -38,14 +38,15 @@ const styles = StyleSheet.create({
 export default function PortalLayout() {
   const COLORS = useColors()
   const [unread, setUnread] = useState(0)
+  const pathname = usePathname()
 
-  useFocusEffect(useCallback(() => {
+  useEffect(() => {
     authClient.$fetch(`${API_BASE}/api/notifications`).then(({ data }: any) => {
       if (data?.notifications) {
         setUnread(data.notifications.filter((n: any) => !n.read).length)
       }
     }).catch(() => {})
-  }, []))
+  }, [pathname])
 
   return (
     <Tabs
@@ -61,7 +62,7 @@ export default function PortalLayout() {
       <Tabs.Screen name="schedule" options={{ title: "Availability", tabBarIcon: ({ color, size }) => <Clock color={color} size={size} /> }} />
       <Tabs.Screen name="inbox" options={{
         title: "Inbox",
-        tabBarIcon: ({ color, size }) => <InboxIcon color={color} size={size} unread={unread} />,
+        tabBarIcon: ({ color, size }) => <InboxIcon color={color} size={size} unread={unread} badgeColor={COLORS.primary} />,
       }} />
       <Tabs.Screen name="profile" options={{ title: "Profile", tabBarIcon: ({ color, size }) => <User color={color} size={size} /> }} />
     </Tabs>

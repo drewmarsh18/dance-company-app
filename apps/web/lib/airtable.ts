@@ -74,6 +74,10 @@ export type BookingFields = {
   "Session Type"?: string
   "UTC Datetime"?: string
   "Is Reschedule"?: boolean
+  "Original Date"?: string
+  "Original Time"?: string
+  "Original UTC Datetime"?: string
+  "Payable to PrepMaster"?: boolean
 }
 
 export type PlanFields = {

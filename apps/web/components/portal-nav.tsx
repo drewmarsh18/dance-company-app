@@ -3,12 +3,14 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { CalendarDays, Clock, CalendarPlus } from "lucide-react"
+import { CalendarDays, Clock, CalendarPlus, Inbox, UserCircle } from "lucide-react"
 
 const LINKS = [
   { href: "/portal", label: "Schedule", icon: CalendarDays },
   { href: "/portal/book", label: "Book session", icon: CalendarPlus },
   { href: "/portal/availability", label: "Availability", icon: Clock },
+  { href: "/portal/inbox", label: "Inbox", icon: Inbox },
+  { href: "/portal/profile", label: "Profile", icon: UserCircle },
 ]
 
 export function PortalNav() {

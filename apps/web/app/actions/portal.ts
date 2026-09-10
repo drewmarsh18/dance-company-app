@@ -212,15 +212,73 @@ export async function declineBooking(
     })
     if (!records[0]) return { ok: false, error: "Booking not found." }
 
+    const booking = records[0]
+    const isReschedule = !!(booking.fields["Is Reschedule"])
+    const dancerUserId = booking.fields["User ID"]
+
+    if (isReschedule) {
+      // PM is denying a reschedule request — restore original date/time, keep booking active
+      const origDate = booking.fields["Original Date"] ?? booking.fields.Date ?? ""
+      const origTime = booking.fields["Original Time"] ?? booking.fields.Time ?? ""
+      const origUtc = booking.fields["Original UTC Datetime"] ?? booking.fields["UTC Datetime"] ?? ""
+      await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
+        Status: "Confirmed",
+        "Is Reschedule": false,
+        Date: origDate,
+        Time: origTime,
+        ...(origUtc ? { "UTC Datetime": origUtc } : {}),
+        "Original Date": "",
+        "Original Time": "",
+        "Original UTC Datetime": "",
+        "Decline Reason": reason,
+      })
+      if (dancerUserId) {
+        const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
+        const utcForNotif = origUtc || etToUtcIso(origDate, origTime, COMPANY_TZ)
+        const timeLabel = utcForNotif ? fmtTimeForNotif(utcForNotif, COMPANY_TZ, memberRow?.timezone ?? null) : `${fmtTime(origTime)} ET`
+        createNotification({
+          userId: dancerUserId,
+          type: "booking_updated",
+          title: "Reschedule request denied",
+          body: `${pm.name} couldn't accommodate the reschedule. Your session remains on ${fmtDate(origDate)} at ${timeLabel}.`,
+          bookingId,
+          pushData: { route: "/member/bookings" },
+        }).catch(() => {})
+      }
+      revalidatePath("/portal")
+      return { ok: true }
+    }
+
+    // Full booking decline (no prior reschedule) — refund credit
     await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
-      Status: "Cancelled",
+      Status: "Declined",
+      "Is Reschedule": false,
       "Decline Reason": reason,
     })
 
+    const SESSION_CREDIT_COST: Record<string, number> = { "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5 }
+    if (dancerUserId) {
+      const safeId = dancerUserId.replace(/'/g, "\\'")
+      const clientRecords = await appBase.list<ClientFields>(TABLES.clients, {
+        filterByFormula: `{User ID} = '${safeId}'`,
+        maxRecords: 1,
+        revalidate: 0,
+      })
+      const client = clientRecords[0]
+      if (client) {
+        const sessionType = booking.fields["Session Type"] ?? "private-60"
+        const creditRefund = SESSION_CREDIT_COST[sessionType] ?? 1
+        const current = client.fields["Credits Remaining"] ?? 0
+        await appBase.update<ClientFields>(TABLES.clients, client.id, {
+          "Credits Remaining": Math.round((current + creditRefund) * 100) / 100,
+        })
+      }
+      revalidatePath(`/dashboard`)
+    }
+
     // Notify member in-app
-    const dancerUserId = records[0].fields["User ID"]
-    const declineDate = records[0].fields.Date ?? ""
-    const declineTime = records[0].fields.Time ?? ""
+    const declineDate = booking.fields.Date ?? ""
+    const declineTime = booking.fields.Time ?? ""
     const dateLabel = fmtDate(declineDate)
     if (dancerUserId) {
       const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)

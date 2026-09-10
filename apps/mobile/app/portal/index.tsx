@@ -541,10 +541,20 @@ function BookingCard({ booking, dimmed, onUpdate }: {
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/portal/bookings/${booking.id}`,
         { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } })
       if (error) throw new Error((error as any)?.message ?? "Failed")
-      const res = data as { ok: boolean; error?: string; creditRefunded?: boolean }
+      const res = data as { ok: boolean; error?: string; creditRefunded?: boolean; rescheduleReverted?: boolean }
       if (!res.ok) throw new Error(res.error ?? "Failed")
       if (action === "confirm") { setStatus("Confirmed"); onUpdate(booking.id, { status: "Confirmed" }) }
-      if (action === "decline") { setStatus("Declined"); onUpdate(booking.id, { status: "Declined" }); setMode("idle") }
+      if (action === "decline") {
+        if (res.rescheduleReverted) {
+          // PM denied a reschedule request — booking reverts to original time, stays Confirmed
+          setStatus("Confirmed")
+          onUpdate(booking.id, { status: "Confirmed", isReschedulePending: false })
+          Alert.alert("Reschedule denied", "The reschedule request was denied. The session remains at its original time.")
+        } else {
+          setStatus("Declined"); onUpdate(booking.id, { status: "Declined" })
+        }
+        setMode("idle")
+      }
       if (action === "cancel") {
         setStatus("Cancelled"); onUpdate(booking.id, { status: "Cancelled" }); setMode("idle")
         Alert.alert("Session cancelled", res.creditRefunded ? "The member's credit has been refunded." : "The session has been cancelled.")

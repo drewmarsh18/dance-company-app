@@ -62,16 +62,53 @@ export async function PATCH(
   }
 
   if (body.action === "decline") {
+    const dancerUserId = booking.fields["User ID"]
+    const isReschedule = !!(booking.fields["Is Reschedule"])
+
+    if (isReschedule) {
+      // PM is denying a reschedule — restore original date/time, keep booking active (no credit refund)
+      const origDate = booking.fields["Original Date"] ?? booking.fields.Date ?? ""
+      const origTime = booking.fields["Original Time"] ?? booking.fields.Time ?? ""
+      const origUtc = booking.fields["Original UTC Datetime"] ?? booking.fields["UTC Datetime"] ?? ""
+      await appBase.update<BookingFields>(TABLES.bookings, id, {
+        Status: "Confirmed",
+        "Is Reschedule": false,
+        Date: origDate,
+        Time: origTime,
+        ...(origUtc ? { "UTC Datetime": origUtc } : {}),
+        "Original Date": "",
+        "Original Time": "",
+        "Original UTC Datetime": "",
+        ...(body.declineReason ? { "Decline Reason": body.declineReason } : {}),
+      })
+      revalidateTag(`portal-${session.user.email}`)
+      if (dancerUserId) {
+        revalidateTag(`member-${dancerUserId}`)
+        const [dTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
+        const [pmTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
+        const pmTz = pmTzRow[0]?.timezone ?? COMPANY_TZ
+        const utcForNotif = origUtc || etToUtcIso(origDate, origTime, pmTz)
+        const timeLabel = utcForNotif ? fmtTimeForNotif(utcForNotif, pmTz, dTzRow[0]?.timezone ?? null) : `${fmtTime(origTime)} ET`
+        createNotification({
+          userId: dancerUserId,
+          type: "booking_updated",
+          title: "Reschedule request denied",
+          body: `${pm.name} couldn't accommodate the reschedule. Your session remains on ${fmtDate(origDate)} at ${timeLabel}.`,
+          bookingId: id,
+          pushData: { route: "/member/bookings" },
+        }).catch(() => {})
+      }
+      return NextResponse.json({ ok: true, rescheduleReverted: true })
+    }
+
+    // Full booking decline (no prior reschedule) — refund credit
     await appBase.update<BookingFields>(TABLES.bookings, id, {
       Status: "Declined",
       "Is Reschedule": false,
       ...(body.declineReason ? { "Decline Reason": body.declineReason } : {}),
     })
-    revalidateTag(`portal-${session.user.email}`, "max")
+    revalidateTag(`portal-${session.user.email}`)
 
-    const dancerUserId = booking.fields["User ID"]
-
-    // Always refund credit when PrepMaster declines — member shouldn't be penalized
     if (dancerUserId) {
       const safeId = dancerUserId.replace(/'/g, "\\'")
       const clientRecords = await appBase.list<ClientFields>(TABLES.clients, {
@@ -89,7 +126,7 @@ export async function PATCH(
           "Credits Remaining": Math.round((current + creditRefund) * 100) / 100,
         })
       }
-      revalidateTag(`member-${dancerUserId}`, "max")
+      revalidateTag(`member-${dancerUserId}`)
       const [pmDRow, dTzRow] = await Promise.all([
         db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1),
         db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1),

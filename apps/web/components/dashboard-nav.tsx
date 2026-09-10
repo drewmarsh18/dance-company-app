@@ -7,12 +7,13 @@ import { authClient } from "@/lib/auth-client"
 import { BrandLogo } from "@/components/brand-logo"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { LogOut, User } from "lucide-react"
+import { LogOut, User, Inbox } from "lucide-react"
 
 const links = [
   { href: "/dashboard", label: "Home" },
   { href: "/dashboard/coaches", label: "PrepMasters" },
   { href: "/dashboard/packages", label: "Packages" },
+  { href: "/dashboard/inbox", label: "Inbox" },
 ]
 
 export function DashboardNav({

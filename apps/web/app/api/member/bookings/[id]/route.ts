@@ -165,7 +165,14 @@ export async function PATCH(
   }
 
   const body = await req.json() as { date?: string; time?: string; notes?: string }
-  const update: Partial<BookingFields> = { Status: "Pending" }
+  const update: Partial<BookingFields> = {
+    Status: "Pending",
+    "Is Reschedule": true,
+    // Preserve original so PM can restore it if they deny the reschedule
+    "Original Date": booking.fields.Date ?? "",
+    "Original Time": booking.fields.Time ?? "",
+    "Original UTC Datetime": booking.fields["UTC Datetime"] ?? "",
+  }
   if (body.date) update.Date = body.date
   if (body.time) update.Time = body.time
   if (body.notes !== undefined) update.Notes = body.notes

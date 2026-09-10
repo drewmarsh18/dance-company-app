@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useTransition } from "react"
+import { useState, useRef, useEffect, useTransition, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Bell, CalendarDays, CalendarX, CalendarClock, CheckCheck } from "lucide-react"
 import { getMyNotifications, markNotificationRead, markAllRead, type AppNotification } from "@/app/actions/notifications"
@@ -38,11 +38,26 @@ export function NotificationBell({ initialCount }: { initialCount: number }) {
     return () => document.removeEventListener("mousedown", handleClick)
   }, [])
 
+  // Re-sync when inbox marks things as read externally
+  useEffect(() => {
+    function handleExternalRead() {
+      startTransition(async () => {
+        const notifs = await getMyNotifications()
+        setNotifications(notifs)
+        setLoaded(true)
+        setUnread(notifs.filter((n) => !n.read).length)
+      })
+    }
+    window.addEventListener("notifications-updated", handleExternalRead)
+    return () => window.removeEventListener("notifications-updated", handleExternalRead)
+  }, [])
+
   function handleOpen() {
     if (!open && !loaded) {
       startTransition(async () => {
         const notifs = await getMyNotifications()
         setNotifications(notifs)
+        setUnread(notifs.filter((n) => !n.read).length)
         setLoaded(true)
       })
     }
