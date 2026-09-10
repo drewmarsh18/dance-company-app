@@ -36,6 +36,7 @@ export default function PortalProfileScreen() {
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
   const [googleLinking, setGoogleLinking] = useState(false)
   const [actualRole, setActualRole] = useState<string | null>(null)
+  const [workerRole, setWorkerRole] = useState("PrepMaster")
   const [phone, setPhone] = useState("")
   const [address, setAddress] = useState("")
   const [university, setUniversity] = useState("")
@@ -69,10 +70,11 @@ export default function PortalProfileScreen() {
     }).catch(() => {})
     authClient.$fetch(`${API_BASE}/api/portal/dashboard`).then(({ data }) => {
       const pm = (data as any)?.prepMaster
-      setPhone(pm?.phone ?? "")
+      setPhone(formatPhone(pm?.phone ?? ""))
       setAddress(pm?.address ?? "")
       setUniversity(pm?.university ?? "")
       setPendingUniversity(pm?.university ?? "")
+      setWorkerRole(pm?.workerRole ?? "PrepMaster")
       setDirty({ phone: false, address: false, university: false })
     }).catch(() => {})
   }, [])
@@ -131,6 +133,13 @@ export default function PortalProfileScreen() {
     } finally {
       setSaving(false)
     }
+  }
+
+  function formatPhone(raw: string): string {
+    const digits = raw.replace(/\D/g, "").slice(0, 10)
+    if (digits.length < 4) return digits
+    if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
   }
 
   async function handleSavePhone() {
@@ -224,7 +233,7 @@ export default function PortalProfileScreen() {
           <Text style={styles.avatarEmail}>{email}</Text>
           <View style={styles.roleBadge}>
             <ShieldCheck size={12} color={COLORS.primary} />
-            <Text style={styles.roleBadgeText}>PrepMaster</Text>
+            <Text style={styles.roleBadgeText}>{workerRole}</Text>
           </View>
         </View>
 
@@ -260,7 +269,7 @@ export default function PortalProfileScreen() {
             <TextInput
               style={styles.fieldInput}
               value={phone}
-              onChangeText={(v) => { setPhone(v); setDirty(d => ({ ...d, phone: true })) }}
+              onChangeText={(v) => { setPhone(formatPhone(v)); setDirty(d => ({ ...d, phone: true })) }}
               placeholder="Add phone number"
               placeholderTextColor={COLORS.textMuted}
               keyboardType="phone-pad"
