@@ -56,6 +56,11 @@ export async function DELETE(
   const booking = records[0]
   if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." })
 
+  const currentStatus = (booking.fields.Status ?? "").toLowerCase()
+  if (currentStatus.startsWith("cancelled") || currentStatus === "declined") {
+    return NextResponse.json({ ok: false, error: "This booking has already been cancelled." })
+  }
+
   const pmNameDel = booking.fields["Prep Master Name"] ?? ""
   const pmForDel = (await getPrepMasters()).find((p) => p.name === pmNameDel)
   const pmDelTz = pmForDel?.email
@@ -160,6 +165,11 @@ export async function PATCH(
   const booking = records[0]
   if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." })
 
+  const rescheduleStatus = (booking.fields.Status ?? "").toLowerCase()
+  if (rescheduleStatus.startsWith("cancelled") || rescheduleStatus === "declined") {
+    return NextResponse.json({ ok: false, error: "This booking cannot be rescheduled." })
+  }
+
   if (isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "")) {
     return NextResponse.json({ ok: false, error: "Bookings within 24 hours cannot be rescheduled." })
   }
@@ -257,6 +267,8 @@ export async function PATCH(
       notes: body.notes,
     })
     sendEmail({ to: pm.email, subject, html }).catch(() => {})
+    // Bust PM's portal cache so the reschedule card appears immediately
+    revalidateTag(`portal-${pm.email}`)
   }).catch(() => {})
 
   revalidateTag(`member-${effectiveUserId}`)

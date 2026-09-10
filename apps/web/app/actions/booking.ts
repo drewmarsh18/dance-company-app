@@ -105,6 +105,11 @@ export async function cancelBooking(
     if (!records[0]) return { ok: false, error: "Booking not found." }
 
     const booking = records[0]
+    const cancelStatus = (booking.fields.Status ?? "").toLowerCase()
+    if (cancelStatus.startsWith("cancelled") || cancelStatus === "declined") {
+      return { ok: false, error: "This booking has already been cancelled." }
+    }
+
     const pmNameForTz = booking.fields["Prep Master Name"] ?? ""
     const pmForCancel = (await getPrepMasters()).find((p) => p.name === pmNameForTz)
     const pmCancelTz = pmForCancel?.email
