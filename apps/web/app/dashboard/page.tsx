@@ -10,12 +10,13 @@ import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { getPrepMasters } from "@/lib/airtable"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CalendarPlus, Ticket, CalendarClock, AlertTriangle } from "lucide-react"
+import { CalendarPlus, CalendarClock, AlertTriangle } from "lucide-react"
 import { AirtableSetupNotice } from "@/components/airtable-setup-notice"
-import { BookingRow } from "@/components/booking-row"
 import { CreditsCard } from "@/components/credits-card"
-import { CollapsibleSection } from "@/components/collapsible-section"
+import { GoogleCalendarButton } from "@/components/google-calendar-button"
+import { MemberTabView } from "@/components/member-tab-view"
 import { getSessionUserWithRole } from "@/lib/roles"
+import { isCalendarConnected } from "@/lib/google-calendar"
 import type { DayAvailability } from "@/lib/availability"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
@@ -48,6 +49,7 @@ export default async function DashboardPage() {
   let error: string | null = null
   let isParent = false
   let displayName = user?.name?.split(" ")[0] ?? "Dancer"
+  let calendarConnected = false
 
   const resolvedUser = user ? { id: user.id, email: user.email, name: user.name ?? "" } : undefined
   const noCreate = user?.role === "admin" || user?.role === "prep_master"
@@ -55,13 +57,15 @@ export default async function DashboardPage() {
     console.log("[page] fetching profile/bookings/plans")
     const profile = await getOrCreateProfile({ noCreate, resolvedUser })
     const effectiveId = profile.effectiveUserId || user!.id
-    const [myBookings, myPlans] = await Promise.all([
+    const [myBookings, myPlans, calConn] = await Promise.all([
       getBookingsForUserId(effectiveId),
       getMyPlans(effectiveId, profile.email || user!.email),
+      user ? isCalendarConnected(user.id) : Promise.resolve(false),
     ])
     credits = profile.creditsRemaining
     bookings = myBookings
     plans = myPlans
+    calendarConnected = calConn
     isParent = profile.isParentView
     displayName = (profile.name ?? "").split(" ")[0] || displayName
     console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
@@ -128,7 +132,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <Greeting name={displayName} isParent={isParent} />
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <Greeting name={displayName} isParent={isParent} />
+        <GoogleCalendarButton connected={calendarConnected} />
+      </div>
 
       {error ? (
         <Card className="border-destructive/40">
@@ -165,63 +172,16 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <h2 className="font-heading text-xl font-bold tracking-tight">Upcoming sessions</h2>
-          {upcoming.filter((b) => b.status.toLowerCase() === "pending").length > 0 && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-              {upcoming.filter((b) => b.status.toLowerCase() === "pending").length} pending
-            </span>
-          )}
-        </div>
-        {upcoming.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-              <CalendarClock className="size-10 text-muted-foreground" />
-              <p className="font-medium">No upcoming sessions yet</p>
-              <p className="max-w-sm text-sm text-muted-foreground">
-                When you book a private session with a PrepMaster, it will appear here.
-              </p>
-              <Button asChild variant="outline">
-                <Link href="/dashboard/coaches">Find a PrepMaster</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {upcoming.map((b) => (
-              <li key={b.id}>
-                <BookingRow booking={b} availability={availabilityMap[b.prepMasterName] ?? []} prepMasterTimezone={timezoneMap[b.prepMasterName] ?? null} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {past.length > 0 && (
-        <section className="flex flex-col gap-4">
-          <h2 className="font-heading text-xl font-bold tracking-tight text-muted-foreground">Past sessions</h2>
-          <ul className="flex flex-col gap-3 opacity-75">
-            {past.map((b) => (
-              <li key={b.id}>
-                <BookingRow booking={b} availability={[]} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {cancelled.length > 0 && (
-        <CollapsibleSection title="Cancelled & declined" count={cancelled.length}>
-          <ul className="flex flex-col gap-3 opacity-60">
-            {cancelled.map((b) => (
-              <li key={b.id}>
-                <BookingRow booking={b} availability={[]} />
-              </li>
-            ))}
-          </ul>
-        </CollapsibleSection>
-      )}
+      <MemberTabView
+        upcoming={upcoming}
+        past={past}
+        cancelled={cancelled}
+        credits={credits}
+        plans={plans}
+        calendarConnected={calendarConnected}
+        availabilityMap={availabilityMap}
+        timezoneMap={timezoneMap}
+      />
     </div>
   )
 }

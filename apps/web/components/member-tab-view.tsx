@@ -1,18 +1,21 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
-import type { PrepMasterBooking } from "@/lib/airtable"
-import { AppointmentCard } from "@/components/appointment-card"
-import { PreviousSessionsPanel } from "@/components/previous-sessions-panel"
-import { Badge } from "@/components/ui/badge"
+import type { Booking } from "@/app/actions/booking"
+import type { DayAvailability } from "@/lib/availability"
+import type { MemberPlan } from "@/lib/airtable"
+import { BookingRow } from "@/components/booking-row"
+import { CreditsCard } from "@/components/credits-card"
+import { CollapsibleSection } from "@/components/collapsible-section"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { ChevronLeft, ChevronRight, CalendarDays, List } from "lucide-react"
+import { ChevronLeft, ChevronRight, CalendarDays, List, CalendarClock } from "lucide-react"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 type CalEvent = {
-  id: string; title: string; start: string | null; end: string | null
-  allDay: boolean; location: string | null
+  id: string; title: string; start: string | null; end: string | null; allDay: boolean
 }
 type ViewMode = "month" | "week" | "day"
 
@@ -71,7 +74,7 @@ function bookingStatusStyle(status: string) {
   return { border: "border-muted-foreground/40", bg: "bg-muted/30", text: "text-muted-foreground" }
 }
 
-function isActiveBooking(b: PrepMasterBooking) {
+function isActiveBooking(b: Booking) {
   const s = b.status.toLowerCase()
   return !s.startsWith("cancelled") && s !== "declined"
 }
@@ -81,8 +84,8 @@ function isActiveBooking(b: PrepMasterBooking) {
 function DayTimeline({
   dateIso, bookings, calEvents, todayIso, onBookingClick,
 }: {
-  dateIso: string; bookings: PrepMasterBooking[]; calEvents: CalEvent[]
-  todayIso: string; onBookingClick: (b: PrepMasterBooking) => void
+  dateIso: string; bookings: Booking[]; calEvents: CalEvent[]
+  todayIso: string; onBookingClick: (b: Booking) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const now = new Date()
@@ -97,14 +100,14 @@ function DayTimeline({
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
 
   const blocks = useMemo(() => {
-    type Block = { key: string; top: number; height: number; label: string; sub: string | null; isCDP: boolean; booking?: PrepMasterBooking; status?: string }
+    type Block = { key: string; top: number; height: number; label: string; sub: string | null; isCDP: boolean; booking?: Booking; status?: string }
     const res: Block[] = []
     for (const b of bookings) {
       if (b.date !== dateIso || !isActiveBooking(b)) continue
       const hm = parseBookingHM(b.time)
       if (!hm) continue
       const top = (hm.hour - START_HOUR + hm.minute / 60) * HOUR_HEIGHT
-      res.push({ key: `b-${b.id}`, top, height: HOUR_HEIGHT, label: b.dancerName || "Member", sub: b.time, isCDP: true, booking: b, status: b.status })
+      res.push({ key: `b-${b.id}`, top, height: HOUR_HEIGHT, label: b.prepMasterName || "Session", sub: b.time, isCDP: true, booking: b, status: b.status })
     }
     for (const e of calEvents) {
       if (!e.start || e.allDay) continue
@@ -147,8 +150,7 @@ function DayTimeline({
           {blocks.map((block) => {
             const style = block.isCDP && block.status ? bookingStatusStyle(block.status) : null
             return (
-              <div
-                key={block.key}
+              <div key={block.key}
                 onClick={() => block.booking && onBookingClick(block.booking)}
                 className={cn(
                   "absolute left-1 right-1 rounded overflow-hidden border-l-[3px] px-1.5 py-1",
@@ -165,9 +167,7 @@ function DayTimeline({
                   <p className="text-[10px] text-muted-foreground/80 mt-0.5 truncate">{block.sub}</p>
                 )}
                 {block.isCDP && block.status && block.height > 46 && (
-                  <p className={cn("text-[10px] font-medium mt-0.5 capitalize truncate", style?.text)}>
-                    {block.status}
-                  </p>
+                  <p className={cn("text-[10px] font-medium mt-0.5 capitalize truncate", style?.text)}>{block.status}</p>
                 )}
               </div>
             )
@@ -178,13 +178,13 @@ function DayTimeline({
   )
 }
 
-// ─── Week View (condensed per-day list) ───────────────────────────────────────
+// ─── Week View (7-column grid) ────────────────────────────────────────────────
 
 function WeekView({
   weekDates, bookings, calEvents, todayIso, onBookingClick,
 }: {
-  weekDates: Date[]; bookings: PrepMasterBooking[]; calEvents: CalEvent[]
-  todayIso: string; onBookingClick: (b: PrepMasterBooking) => void
+  weekDates: Date[]; bookings: Booking[]; calEvents: CalEvent[]
+  todayIso: string; onBookingClick: (b: Booking) => void
 }) {
   return (
     <div className="grid grid-cols-7 gap-px border border-border rounded-lg overflow-hidden">
@@ -208,7 +208,7 @@ function WeekView({
                 return (
                   <button key={b.id} onClick={() => onBookingClick(b)}
                     className={cn("w-full text-left rounded border-l-2 px-1 py-0.5 text-[10px] truncate", style.border, style.bg, style.text)}>
-                    {b.time ? b.time.replace(/ (AM|PM)/, "$1").replace(/:00/, "") : ""} {b.dancerName || "Member"}
+                    {b.time ? b.time.replace(/ (AM|PM)/, "$1").replace(/:00/, "") : ""} {b.prepMasterName || "Session"}
                   </button>
                 )
               })}
@@ -225,13 +225,13 @@ function WeekView({
   )
 }
 
-// ─── Week Day Strip (for Day view navigation) ─────────────────────────────────
+// ─── Week Strip (Day view navigation) ────────────────────────────────────────
 
 function WeekStrip({
   weekDates, selectedDate, todayIso, bookingsByDate, eventsByDate, onSelect,
 }: {
   weekDates: Date[]; selectedDate: string; todayIso: string
-  bookingsByDate: Record<string, PrepMasterBooking[]>; eventsByDate: Record<string, CalEvent[]>
+  bookingsByDate: Record<string, Booking[]>; eventsByDate: Record<string, CalEvent[]>
   onSelect: (iso: string) => void
 }) {
   return (
@@ -268,21 +268,18 @@ function MonthGrid({
   viewMonth, selectedDate, todayIso, bookingsByDate, eventsByDate, onSelectDay,
 }: {
   viewMonth: Date; selectedDate: string; todayIso: string
-  bookingsByDate: Record<string, PrepMasterBooking[]>; eventsByDate: Record<string, CalEvent[]>
+  bookingsByDate: Record<string, Booking[]>; eventsByDate: Record<string, CalEvent[]>
   onSelectDay: (iso: string) => void
 }) {
   const cells = buildMonthCells(viewMonth.getFullYear(), viewMonth.getMonth())
   const curMonth = viewMonth.getMonth()
-
   return (
     <div className="border border-border rounded-lg overflow-hidden">
-      {/* Day labels */}
       <div className="grid grid-cols-7 border-b border-border bg-muted/50">
         {DAY_LETTER.map((l, i) => (
           <div key={i} className={cn("text-center text-[11px] font-semibold text-muted-foreground py-2", i < 6 && "border-r border-border")}>{l}</div>
         ))}
       </div>
-      {/* Cells */}
       <div className="grid grid-cols-7">
         {cells.map((d, i) => {
           const iso = toIso(d)
@@ -290,20 +287,16 @@ function MonthGrid({
           const isSelected = iso === selectedDate
           const isToday = iso === todayIso
           const activeBookings = (bookingsByDate[iso] ?? []).filter(isActiveBooking)
-          const hasBooking = activeBookings.length > 0
           const hasEvent = (eventsByDate[iso]?.length ?? 0) > 0
           const col = i % 7
-          const isLastInRow = col === 6
           const totalRows = cells.length / 7
           const row = Math.floor(i / 7)
-          const isLastRow = row === totalRows - 1
-
           return (
             <button key={i} onClick={() => onSelectDay(iso)}
               className={cn(
-                "flex flex-col items-start p-1.5 min-h-[72px] transition-colors text-left",
-                !isLastInRow && "border-r border-border",
-                !isLastRow && "border-b border-border",
+                "flex flex-col items-start p-1.5 min-h-[64px] transition-colors text-left",
+                col < 6 && "border-r border-border",
+                row < totalRows - 1 && "border-b border-border",
                 isSelected ? "bg-primary/10 ring-inset ring-1 ring-primary" : isToday ? "bg-primary/5" : "hover:bg-muted/50",
                 !isCurrentMonth && "opacity-40"
               )}>
@@ -317,7 +310,7 @@ function MonthGrid({
                   const style = bookingStatusStyle(b.status)
                   return (
                     <div key={b.id} className={cn("rounded-sm px-1 text-[9px] font-medium truncate border-l-2", style.border, style.bg, style.text)}>
-                      {b.dancerName || "Member"}
+                      {b.prepMasterName || "Session"}
                     </div>
                   )
                 })}
@@ -340,15 +333,19 @@ function MonthGrid({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function PortalTabView({
-  upcoming, completed, cancelled, declined, pendingCount, calendarConnected,
+export function MemberTabView({
+  upcoming, past, cancelled,
+  credits, plans, calendarConnected,
+  availabilityMap, timezoneMap,
 }: {
-  upcoming: PrepMasterBooking[]
-  completed: PrepMasterBooking[]
-  cancelled: PrepMasterBooking[]
-  declined: PrepMasterBooking[]
-  pendingCount: number
+  upcoming: Booking[]
+  past: Booking[]
+  cancelled: Booking[]
+  credits: number
+  plans: MemberPlan[]
   calendarConnected: boolean
+  availabilityMap: Record<string, DayAvailability[]>
+  timezoneMap: Record<string, string | null>
 }) {
   const todayIso = toIso(new Date())
   const [tab, setTab] = useState<"list" | "calendar">("list")
@@ -359,10 +356,11 @@ export function PortalTabView({
   })
   const [calEvents, setCalEvents] = useState<CalEvent[]>([])
   const [calLoading, setCalLoading] = useState(false)
-  const [sheetBooking, setSheetBooking] = useState<PrepMasterBooking | null>(null)
+  const [sheetBooking, setSheetBooking] = useState<Booking | null>(null)
 
-  // Only active bookings on calendar
-  const activeBookings = useMemo(() => [...upcoming, ...completed], [upcoming, completed])
+  // Only active (pending/confirmed) bookings shown on calendar
+  const activeBookings = useMemo(() => [...upcoming, ...past].filter(isActiveBooking), [upcoming, past])
+  const pendingCount = upcoming.filter((b) => b.status.toLowerCase() === "pending").length
 
   useEffect(() => {
     if (tab !== "calendar" || !calendarConnected) return
@@ -377,7 +375,7 @@ export function PortalTabView({
   }, [tab, calendarConnected, viewMonth])
 
   const bookingsByDate = useMemo(() => {
-    const map: Record<string, PrepMasterBooking[]> = {}
+    const map: Record<string, Booking[]> = {}
     for (const b of activeBookings) {
       if (!b.date) continue
       if (!map[b.date]) map[b.date] = []
@@ -453,20 +451,57 @@ export function PortalTabView({
         <>
           <section className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
-              <h2 className="font-heading text-xl font-semibold">Upcoming sessions</h2>
+              <h2 className="font-heading text-xl font-bold tracking-tight">Upcoming sessions</h2>
               {pendingCount > 0 && (
-                <Badge variant="destructive" className="rounded-full">{pendingCount} pending</Badge>
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                  {pendingCount} pending
+                </span>
               )}
             </div>
             {upcoming.length === 0 ? (
-              <Card><CardContent className="p-6 text-center text-muted-foreground">No upcoming sessions booked yet.</CardContent></Card>
+              <Card>
+                <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+                  <CalendarClock className="size-10 text-muted-foreground" />
+                  <p className="font-medium">No upcoming sessions yet</p>
+                  <p className="max-w-sm text-sm text-muted-foreground">
+                    When you book a private session with a PrepMaster, it will appear here.
+                  </p>
+                  <Button asChild variant="outline">
+                    <Link href="/dashboard/coaches">Find a PrepMaster</Link>
+                  </Button>
+                </CardContent>
+              </Card>
             ) : (
-              <div className="flex flex-col gap-3">
-                {upcoming.map((b) => <AppointmentCard key={b.id} booking={b} />)}
-              </div>
+              <ul className="flex flex-col gap-3">
+                {upcoming.map((b) => (
+                  <li key={b.id}>
+                    <BookingRow booking={b} availability={availabilityMap[b.prepMasterName] ?? []} prepMasterTimezone={timezoneMap[b.prepMasterName] ?? null} />
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
-          <PreviousSessionsPanel completed={completed} cancelled={cancelled} declined={declined} />
+
+          {past.length > 0 && (
+            <section className="flex flex-col gap-4">
+              <h2 className="font-heading text-xl font-bold tracking-tight text-muted-foreground">Past sessions</h2>
+              <ul className="flex flex-col gap-3 opacity-75">
+                {past.map((b) => (
+                  <li key={b.id}><BookingRow booking={b} availability={[]} /></li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {cancelled.length > 0 && (
+            <CollapsibleSection title="Cancelled & declined" count={cancelled.length}>
+              <ul className="flex flex-col gap-3 opacity-60">
+                {cancelled.map((b) => (
+                  <li key={b.id}><BookingRow booking={b} availability={[]} /></li>
+                ))}
+              </ul>
+            </CollapsibleSection>
+          )}
         </>
       )}
 
@@ -504,8 +539,10 @@ export function PortalTabView({
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5"><span className="inline-block size-2.5 rounded-sm bg-primary/60 border-l-2 border-primary" /> Confirmed</span>
               <span className="flex items-center gap-1.5"><span className="inline-block size-2.5 rounded-sm bg-amber-100 dark:bg-amber-900/30 border-l-2 border-amber-400" /> Pending</span>
-              {calendarConnected && <span className="flex items-center gap-1.5"><span className="inline-block size-2.5 rounded-sm bg-muted/60 border-l-2 border-muted-foreground/40" /> Google Calendar</span>}
-              {!calendarConnected && <span className="italic">Connect Google Calendar to see external events</span>}
+              {calendarConnected
+                ? <span className="flex items-center gap-1.5"><span className="inline-block size-2.5 rounded-sm bg-muted/60 border-l-2 border-muted-foreground/40" /> Google Calendar</span>
+                : <span className="italic">Connect Google Calendar above to see your other events</span>
+              }
             </div>
 
             {view === "month" && (
@@ -546,7 +583,15 @@ export function PortalTabView({
       <Sheet open={!!sheetBooking} onOpenChange={(open) => { if (!open) setSheetBooking(null) }}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader><SheetTitle>Session details</SheetTitle></SheetHeader>
-          {sheetBooking && <div className="mt-4"><AppointmentCard booking={sheetBooking} /></div>}
+          {sheetBooking && (
+            <div className="mt-4">
+              <BookingRow
+                booking={sheetBooking}
+                availability={availabilityMap[sheetBooking.prepMasterName] ?? []}
+                prepMasterTimezone={timezoneMap[sheetBooking.prepMasterName] ?? null}
+              />
+            </div>
+          )}
         </SheetContent>
       </Sheet>
     </>
