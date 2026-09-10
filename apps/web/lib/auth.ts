@@ -132,6 +132,9 @@ export const auth = betterAuth({
   accountLinking: {
     enabled: true,
     trustedProviders: ["google", "apple"],
+    // Only allow linking when the Google email matches the account email exactly.
+    // This prevents a PM from accidentally (or intentionally) linking a different Gmail.
+    allowDifferentEmail: false,
   },
   databaseHooks: {
     user: {
