@@ -217,8 +217,8 @@ export async function declineBooking(
     const isReschedule = !!(booking.fields["Is Reschedule"])
     const dancerUserId = booking.fields["User ID"]
 
-    if (isReschedule && rescheduleAction === "revert") {
-      // PM is denying the reschedule and wants to keep the original booking
+    if (rescheduleAction === "revert") {
+      // PM explicitly chose to keep the original booking (reschedule denied)
       const origDate = booking.fields["Original Date"] || booking.fields.Date || ""
       const origTime = booking.fields["Original Time"] || booking.fields.Time || ""
       const origUtc = booking.fields["Original UTC Datetime"] || booking.fields["UTC Datetime"] || ""

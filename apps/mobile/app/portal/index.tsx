@@ -921,6 +921,12 @@ export default function PortalDashboard() {
     return () => sub.remove()
   }, [load])
 
+  // Poll every 30 seconds so new reschedule requests appear without a manual reload
+  useEffect(() => {
+    const interval = setInterval(load, 30_000)
+    return () => clearInterval(interval)
+  }, [load])
+
   function handleUpdate(id: string, patch: Partial<PrepMasterBooking>) {
     setData((prev) => {
       if (!prev) return prev

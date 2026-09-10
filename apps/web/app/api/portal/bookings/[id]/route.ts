@@ -71,8 +71,8 @@ export async function PATCH(
     const dancerUserId = booking.fields["User ID"]
     const isReschedule = !!(booking.fields["Is Reschedule"])
 
-    if (isReschedule && body.rescheduleAction === "revert") {
-      // PM is denying the reschedule and wants to keep the original booking
+    if (body.rescheduleAction === "revert") {
+      // PM explicitly chose to keep the original booking (reschedule denied)
       const origDate = booking.fields["Original Date"] ?? booking.fields.Date ?? ""
       const origTime = booking.fields["Original Time"] ?? booking.fields.Time ?? ""
       const origUtc = booking.fields["Original UTC Datetime"] ?? booking.fields["UTC Datetime"] ?? ""
