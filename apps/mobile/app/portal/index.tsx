@@ -492,6 +492,19 @@ function BookingCard({ booking, dimmed, onUpdate }: {
   const [cancelReason, setCancelReason] = useState("")
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState(booking.status.toLowerCase() === "pending")
+
+  // Sync local state when the server data changes (e.g. member submits a reschedule)
+  const prevStatusRef = useRef(booking.status)
+  useEffect(() => {
+    if (booking.status !== prevStatusRef.current) {
+      prevStatusRef.current = booking.status
+      setStatus(booking.status)
+      setLocalDate(booking.date)
+      setLocalTime(booking.time)
+      setLocalUtcDatetime(booking.utcDatetime)
+      if (booking.status.toLowerCase() === "pending") setExpanded(true)
+    }
+  }, [booking.status, booking.date, booking.time, booking.utcDatetime])
   const [availableSlots, setAvailableSlots] = useState<string[]>(TIME_SLOTS)
   const [slotsLoading, setSlotsLoading] = useState(false)
 
