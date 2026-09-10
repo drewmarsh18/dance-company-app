@@ -1,5 +1,5 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal, FlatList,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal, FlatList, Keyboard,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter, useFocusEffect } from "expo-router"
@@ -134,6 +134,7 @@ export default function PortalProfileScreen() {
   }
 
   async function handleSavePhone() {
+    Keyboard.dismiss()
     try {
       await saveField({ phone })
       setDirty(d => ({ ...d, phone: false }))
@@ -141,6 +142,7 @@ export default function PortalProfileScreen() {
   }
 
   async function handleSaveAddress() {
+    Keyboard.dismiss()
     try {
       await saveField({ address })
       setDirty(d => ({ ...d, address: false }))
