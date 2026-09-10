@@ -32,11 +32,9 @@ export function ProfileForm({ profile, isGoogleLinked = false }: { profile: Clie
   async function handleConnectGoogle() {
     setGoogleLinking(true)
     try {
-      await authClient.signIn.social({ provider: "google", callbackURL: window.location.href })
-      setGoogleLinked(true)
+      await authClient.linkSocial({ provider: "google", callbackURL: window.location.href })
     } catch {
       toast.error("Could not connect Google account.")
-    } finally {
       setGoogleLinking(false)
     }
   }

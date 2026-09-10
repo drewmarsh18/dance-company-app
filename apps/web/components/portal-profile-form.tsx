@@ -70,10 +70,9 @@ export function PortalProfileForm({
   async function handleConnectGoogle() {
     setGoogleLinking(true)
     try {
-      await authClient.signIn.social({ provider: "google", callbackURL: window.location.href })
+      await authClient.linkSocial({ provider: "google", callbackURL: window.location.href })
     } catch {
       toast.error("Could not connect Google account.")
-    } finally {
       setGoogleLinking(false)
     }
   }
