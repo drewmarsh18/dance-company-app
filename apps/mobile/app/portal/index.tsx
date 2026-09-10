@@ -430,7 +430,11 @@ function buildDateOptions(): { label: string; value: string }[] {
   for (let i = 0; i < 90; i++) {
     const d = new Date(today)
     d.setDate(today.getDate() + i)
-    const value = d.toISOString().slice(0, 10)
+    // Use local year/month/day to avoid UTC offset shifting the date
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    const value = `${y}-${m}-${day}`
     const label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
     opts.push({ label, value })
   }
