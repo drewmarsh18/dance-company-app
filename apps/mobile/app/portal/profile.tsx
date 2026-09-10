@@ -136,11 +136,13 @@ export default function PortalProfileScreen() {
   async function handleSavePhone() {
     await saveField({ phone }).catch(() => {})
     setDirty(d => ({ ...d, phone: false }))
+    loadConnectedState()
   }
 
   async function handleSaveAddress() {
     await saveField({ address }).catch(() => {})
     setDirty(d => ({ ...d, address: false }))
+    loadConnectedState()
   }
 
   function handleSelectUniversity(v: string) {
