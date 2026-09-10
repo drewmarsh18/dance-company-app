@@ -11,7 +11,7 @@ import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useTheme } from "@/lib/theme-context"
 import type { ThemePreference } from "@/lib/theme-context"
 import { useState, useCallback, useEffect } from "react"
-import AsyncStorage from "@react-native-async-storage/async-storage"
+import * as SecureStore from "expo-secure-store"
 import { getUniversityColor } from "@/lib/university-colors"
 
 const API_BASE = "https://dance-company-app.vercel.app"
@@ -46,13 +46,13 @@ export default function PortalProfileScreen() {
   const [nudgeDismissed, setNudgeDismissed] = useState(true) // default true to avoid flash
 
   useEffect(() => {
-    AsyncStorage.getItem("pm-google-nudge-dismissed").then((v) => {
+    SecureStore.getItemAsync("pm-google-nudge-dismissed").then((v) => {
       setNudgeDismissed(v === "1")
     }).catch(() => { setNudgeDismissed(false) })
   }, [])
 
   function dismissNudge() {
-    AsyncStorage.setItem("pm-google-nudge-dismissed", "1").catch(() => {})
+    SecureStore.setItemAsync("pm-google-nudge-dismissed", "1").catch(() => {})
     setNudgeDismissed(true)
   }
 

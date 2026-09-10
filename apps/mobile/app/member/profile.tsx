@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router"
 import { Link, Sun, Moon, Smartphone, CalendarCheck, CalendarX, LayoutDashboard, Users, ShieldCheck, X } from "lucide-react-native"
 import Svg, { Path } from "react-native-svg"
-import AsyncStorage from "@react-native-async-storage/async-storage"
+import * as SecureStore from "expo-secure-store"
 import * as WebBrowser from "expo-web-browser"
 import { authClient, signOut, useSession } from "@/lib/auth-client"
 import { SPACING, RADIUS, initials } from "@/constants/theme"
@@ -46,13 +46,13 @@ export default function MemberProfileScreen() {
   const params = useLocalSearchParams<{ calendar?: string }>()
 
   useEffect(() => {
-    AsyncStorage.getItem("member-google-nudge-dismissed").then((v) => {
+    SecureStore.getItemAsync("member-google-nudge-dismissed").then((v) => {
       setNudgeDismissed(v === "1")
     }).catch(() => { setNudgeDismissed(false) })
   }, [])
 
   function dismissNudge() {
-    AsyncStorage.setItem("member-google-nudge-dismissed", "1").catch(() => {})
+    SecureStore.setItemAsync("member-google-nudge-dismissed", "1").catch(() => {})
     setNudgeDismissed(true)
   }
 
