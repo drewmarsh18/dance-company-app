@@ -45,7 +45,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
-      <Header />
+      <Header isParentView={profile?.isParentView ?? false} name={profile?.name ?? ""} />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -92,14 +92,17 @@ export default async function ProfilePage() {
   )
 }
 
-function Header() {
+function Header({ isParentView, name }: { isParentView: boolean; name: string }) {
+  const firstName = name.split(" ")[0]
   return (
     <div>
       <h1 className="font-heading text-3xl font-bold tracking-tight">
-        Your profile
+        {isParentView ? `${firstName}'s profile` : "Your profile"}
       </h1>
       <p className="mt-1 text-muted-foreground">
-        Keep your details up to date so your PrepMasters know your goals.
+        {isParentView
+          ? `Keep ${firstName}'s details up to date so their PrepMasters know their goals.`
+          : "Keep your details up to date so your PrepMasters know your goals."}
       </p>
     </div>
   )
