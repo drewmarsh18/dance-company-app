@@ -20,7 +20,7 @@ import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
-import { createCalendarEvent } from "@/lib/google-calendar"
+import { createCalendarEvent, getCalendarBusySlots } from "@/lib/google-calendar"
 import type { SessionType } from "@/lib/session-types"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
@@ -101,6 +101,15 @@ export async function POST(req: Request) {
   const booked = await getBookedSlots(prepMasterName, date)
   if (booked.includes(time)) {
     return NextResponse.json({ ok: false, error: "That time was just booked. Please choose another slot." })
+  }
+
+  // Block if PM's Google Calendar shows a conflict
+  const [pmUserRow] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, prepMaster.email))
+  if (pmUserRow) {
+    const busySlots = await getCalendarBusySlots(pmUserRow.id, date)
+    if (busySlots.includes(time)) {
+      return NextResponse.json({ ok: false, error: "That time is no longer available. Please choose another slot." })
+    }
   }
 
   // Create booking

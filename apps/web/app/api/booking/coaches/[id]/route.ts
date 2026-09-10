@@ -4,6 +4,10 @@ import { auth } from "@/lib/auth"
 import { getPrepMaster, appBase, TABLES, type BookingFields } from "@/lib/airtable"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { buildWeekTemplate } from "@/lib/availability"
+import { getCalendarBusySlots } from "@/lib/google-calendar"
+import { db } from "@/lib/db"
+import { user as userTable } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 
 export async function GET(
   _req: Request,
@@ -48,6 +52,33 @@ export async function GET(
       if (!date || !time) continue
       if (!bookedSlots[date]) bookedSlots[date] = []
       bookedSlots[date].push(time)
+    }
+
+    // Merge Google Calendar busy slots so members can't book over the PM's existing events
+    const [pmUser] = await db
+      .select({ id: userTable.id })
+      .from(userTable)
+      .where(eq(userTable.email, coach.email))
+    if (pmUser) {
+      const dates = Object.keys(bookedSlots)
+      // Also include the next 28 days that have availability
+      const allDates = new Set(dates)
+      const cur = new Date(today)
+      while (cur <= end) {
+        allDates.add(toIso(cur))
+        cur.setDate(cur.getDate() + 1)
+      }
+      await Promise.all(
+        [...allDates].map(async (date) => {
+          const busy = await getCalendarBusySlots(pmUser.id, date)
+          if (busy.length > 0) {
+            if (!bookedSlots[date]) bookedSlots[date] = []
+            for (const slot of busy) {
+              if (!bookedSlots[date].includes(slot)) bookedSlots[date].push(slot)
+            }
+          }
+        }),
+      )
     }
 
     return NextResponse.json({ coach, week, bookedSlots })
