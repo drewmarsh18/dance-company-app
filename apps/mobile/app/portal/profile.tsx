@@ -83,7 +83,7 @@ export default function PortalProfileScreen() {
   async function handleConnectGoogle() {
     setGoogleLinking(true)
     try {
-      await authClient.signIn.social({ provider: "google", callbackURL: "cdp://" })
+      await authClient.linkSocial({ provider: "google", callbackURL: "cdp://portal/profile" })
     } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google account.") }
     finally {
       setGoogleLinking(false)

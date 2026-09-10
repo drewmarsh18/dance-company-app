@@ -135,7 +135,7 @@ export default function MemberProfileScreen() {
   async function handleConnectGoogle() {
     setGoogleLinking(true)
     try {
-      await authClient.signIn.social({ provider: "google", callbackURL: "cdp://" })
+      await authClient.linkSocial({ provider: "google", callbackURL: "cdp://member/profile" })
     } catch (e) { Alert.alert("Error", e instanceof Error ? e.message : "Could not connect Google account.") }
     finally {
       setGoogleLinking(false)
