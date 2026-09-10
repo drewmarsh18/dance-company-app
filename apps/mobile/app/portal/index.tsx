@@ -558,14 +558,20 @@ function BookingCard({ booking, dimmed, onUpdate }: {
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/portal/bookings/${booking.id}`,
         { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } })
       if (error) throw new Error((error as any)?.message ?? "Failed")
-      const res = data as { ok: boolean; error?: string; creditRefunded?: boolean; rescheduleReverted?: boolean }
+      const res = data as { ok: boolean; error?: string; creditRefunded?: boolean; rescheduleReverted?: boolean; origDate?: string; origTime?: string; origUtc?: string | null }
       if (!res.ok) throw new Error(res.error ?? "Failed")
       if (action === "confirm") { setStatus("Confirmed"); onUpdate(booking.id, { status: "Confirmed" }) }
       if (action === "decline") {
         if (res.rescheduleReverted) {
-          // PM denied a reschedule request — booking reverts to original time, stays Confirmed
+          // PM denied a reschedule request — revert card to original date/time
+          const d = res.origDate ?? localDate
+          const t = res.origTime ?? localTime
+          const u = res.origUtc ?? null
           setStatus("Confirmed")
-          onUpdate(booking.id, { status: "Confirmed", isReschedulePending: false })
+          setLocalDate(d)
+          setLocalTime(t)
+          setLocalUtcDatetime(u)
+          onUpdate(booking.id, { status: "Confirmed", isReschedulePending: false, date: d, time: t, utcDatetime: u ?? undefined })
           Alert.alert("Reschedule denied", "The reschedule request was denied. The session remains at its original time.")
         } else {
           setStatus("Declined"); onUpdate(booking.id, { status: "Declined" })

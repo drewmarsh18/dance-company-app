@@ -104,7 +104,7 @@ export async function PATCH(
           pushData: { route: "/member/bookings" },
         }).catch(() => {})
       }
-      return NextResponse.json({ ok: true, rescheduleReverted: true })
+      return NextResponse.json({ ok: true, rescheduleReverted: true, origDate, origTime, origUtc: origUtc || null })
     }
 
     // Full booking decline (no prior reschedule) — refund credit
