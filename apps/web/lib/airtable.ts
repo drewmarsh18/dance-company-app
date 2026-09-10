@@ -264,7 +264,7 @@ export async function getPrepMasterByEmail(email: string): Promise<PrepMaster | 
   const records = await list<WorkerFields>(TABLES.workers, {
     filterByFormula: `LOWER({Email}) = '${safe}'`,
     maxRecords: 1,
-    tags: [`portal-${email}`],
+    revalidate: 0,
   })
   return records[0] ? toPrepMaster(records[0]) : null
 }
