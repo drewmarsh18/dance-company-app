@@ -69,6 +69,7 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
         bookings={bookings.filter((b) => b.prepMasterName === selected.name)}
         onBack={() => setSelected(null)}
         onSaved={(updated) => setSelected(updated)}
+        onDeleted={(id) => { setLocalWorkers((prev) => prev.filter((w) => w.id !== id)); setSelected(null) }}
       />
     )
   }
@@ -248,11 +249,13 @@ function PrepMasterProfile({
   bookings,
   onBack,
   onSaved,
+  onDeleted,
 }: {
   worker: AdminWorker
   bookings: AdminBooking[]
   onBack: () => void
   onSaved: (w: AdminWorker) => void
+  onDeleted: (id: string) => void
 }) {
   const [name, setName] = useState(worker.name)
   const [email, setEmail] = useState(worker.email)
@@ -297,7 +300,7 @@ function PrepMasterProfile({
     startTransition(async () => {
       const result = await deletePrepMaster(worker.id, worker.email)
       setIsDeleting(false)
-      if (result.ok) { toast.success(`${worker.name} has been deleted.`); onBack() }
+      if (result.ok) { toast.success(`${worker.name} has been deleted.`); onDeleted(worker.id) }
       else toast.error(result.error)
     })
   }
