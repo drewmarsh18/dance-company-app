@@ -120,18 +120,14 @@ export default function PortalProfileScreen() {
   async function saveField(fields: Record<string, string>) {
     setSaving(true)
     try {
-      const { data, error } = await authClient.$fetch(`${API_BASE}/api/portal/profile`, {
+      await authClient.$fetch(`${API_BASE}/api/portal/profile`, {
         method: "PATCH",
         body: JSON.stringify(fields),
         headers: { "Content-Type": "application/json" },
       })
-      if (error) {
-        Alert.alert("Save error", `${(error as any)?.status ?? "?"}: ${(error as any)?.message ?? JSON.stringify(error)}`)
-        throw new Error("save failed")
-      }
-    } catch (e: any) {
-      if (!e?.message?.includes("save failed")) Alert.alert("Error", "Could not save. Please try again.")
-      throw e
+    } catch {
+      Alert.alert("Error", "Could not save. Please try again.")
+      throw new Error("save failed")
     } finally {
       setSaving(false)
     }
