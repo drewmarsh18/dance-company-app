@@ -6,11 +6,9 @@ import {
 import { getSessionUserWithRole } from "@/lib/roles"
 import { isCalendarConnected } from "@/lib/google-calendar"
 import { AirtableSetupNotice } from "@/components/airtable-setup-notice"
-import { AppointmentCard } from "@/components/appointment-card"
 import { GoogleCalendarButton } from "@/components/google-calendar-button"
-import { PreviousSessionsPanel } from "@/components/previous-sessions-panel"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { PortalTabView } from "@/components/portal-tab-view"
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 function startOfToday() {
   const d = new Date()
@@ -80,31 +78,14 @@ export default async function PortalPage() {
         <GoogleCalendarButton connected={calendarConnected} />
       </div>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <h2 className="font-heading text-xl font-semibold">Upcoming sessions</h2>
-          {pendingCount > 0 && (
-            <Badge variant="destructive" className="rounded-full">
-              {pendingCount} pending
-            </Badge>
-          )}
-        </div>
-        {upcoming.length === 0 ? (
-          <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">
-              No upcoming sessions booked yet.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {upcoming.map((b) => (
-              <AppointmentCard key={b.id} booking={b} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <PreviousSessionsPanel completed={completed} cancelled={cancelled} declined={declined} />
+      <PortalTabView
+        upcoming={upcoming}
+        completed={completed}
+        cancelled={cancelled}
+        declined={declined}
+        pendingCount={pendingCount}
+        calendarConnected={calendarConnected}
+      />
     </div>
   )
 }
