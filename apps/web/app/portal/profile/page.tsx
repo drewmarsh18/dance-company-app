@@ -4,6 +4,9 @@ import { getPrepMasterByEmail } from "@/lib/airtable"
 import { PortalProfileForm } from "@/components/portal-profile-form"
 import { Card, CardContent } from "@/components/ui/card"
 import { AlertTriangle } from "lucide-react"
+import { db } from "@/lib/db"
+import { account } from "@/lib/db/schema"
+import { and, eq } from "drizzle-orm"
 
 export default async function PortalProfilePage() {
   const user = await getSessionUserWithRole()
@@ -50,7 +53,7 @@ export default async function PortalProfilePage() {
           initialAddress={address}
           initialUniversity={university}
           calendarConnected={calendarConnected}
-          isGoogleLinked={false}
+          isGoogleLinked={await db.select({ id: account.id }).from(account).where(and(eq(account.userId, user.id), eq(account.providerId, "google"))).limit(1).then((rows) => rows.length > 0)}
         />
       )}
     </div>
