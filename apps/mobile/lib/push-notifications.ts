@@ -2,7 +2,7 @@ import Constants from "expo-constants"
 import { Platform } from "react-native"
 import { authClient } from "@/lib/auth-client"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 
 /** Register notification categories with approve/deny actions for prep masters. */
 export async function registerNotificationCategories(): Promise<void> {

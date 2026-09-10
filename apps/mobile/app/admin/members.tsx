@@ -12,7 +12,7 @@ import { authClient } from "@/lib/auth-client"
 import { formatTime } from "@/components/BookingDetailModal"
 import type { AdminMember, AdminBooking, MemberPlan, DancePackage } from "@/lib/admin-types"
 
-const API = "https://dance-company-app.vercel.app"
+const API = "https://app.collegedanceprep.com"
 
 type PendingUser = { id: string; name: string; email: string; status: string; createdAt: string }
 

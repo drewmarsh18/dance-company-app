@@ -5,7 +5,7 @@ import { View, Text, StyleSheet } from "react-native"
 import { useColors } from "@/lib/theme-context"
 import { authClient } from "@/lib/auth-client"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 
 function InboxIcon({ color, size, unread, badgeColor }: { color: string; size: number; unread: number; badgeColor: string }) {
   return (

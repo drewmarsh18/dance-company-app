@@ -3,7 +3,7 @@ import { expoClient } from "@better-auth/expo/client"
 import * as SecureStore from "expo-secure-store"
 
 export const authClient = createAuthClient({
-  baseURL: "https://dance-company-app.vercel.app",
+  baseURL: "https://app.collegedanceprep.com",
   plugins: [
     expoClient({
       scheme: "cdp",

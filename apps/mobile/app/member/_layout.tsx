@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { BlurView } from "expo-blur"
 import { authClient } from "@/lib/auth-client"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 
 const TABS = [
   { name: "index",    href: "/member",          label: "Home",     Icon: Home },

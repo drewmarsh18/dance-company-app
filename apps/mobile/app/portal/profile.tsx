@@ -14,7 +14,7 @@ import { useState, useCallback, useEffect } from "react"
 import * as SecureStore from "expo-secure-store"
 import { getUniversityColor } from "@/lib/university-colors"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 
 const UNIVERSITIES = [
   "Alabama","Arizona","ASU","Boise","Cincinnati","Coastal Carolina","CSU","CU Boulder",
@@ -107,7 +107,11 @@ export default function PortalProfileScreen() {
     Alert.alert("Disconnect Google Calendar", "Are you sure you want to disconnect Google Calendar?", [
       { text: "Cancel", style: "cancel" },
       { text: "Disconnect", style: "destructive", onPress: async () => {
-        await authClient.$fetch(`${API_BASE}/api/google-calendar`, { method: "DELETE" })
+        const { error } = await authClient.$fetch(`${API_BASE}/api/google-calendar`, { method: "DELETE" })
+        if (error) {
+          Alert.alert("Error", "Could not disconnect Google Calendar. Please try again.")
+          return
+        }
         setCalendarConnected(false)
       }},
     ])

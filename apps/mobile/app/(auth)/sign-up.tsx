@@ -19,7 +19,7 @@ WebBrowser.maybeCompleteAuthSession()
 
 const GOOGLE_IOS_CLIENT_ID = "31400941000-8g9ud8c2pfgkb1590hb0606jg70jq152.apps.googleusercontent.com"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 
 export default function SignUpScreen() {
   const router = useRouter()
@@ -71,12 +71,12 @@ export default function SignUpScreen() {
           if (payload.name && !sessionUser?.name) updates.name = payload.name
           if (payload.picture && !sessionUser?.image) updates.image = payload.picture
           if (Object.keys(updates).length > 0) {
-            await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/update-user", {
+            await authClient.$fetch("https://app.collegedanceprep.com/api/auth/update-user", {
               method: "POST",
               body: JSON.stringify(updates),
               headers: { "Content-Type": "application/json" },
             })
-            await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/get-session")
+            await authClient.$fetch("https://app.collegedanceprep.com/api/auth/get-session")
           }
         }
       } catch {}
@@ -87,7 +87,7 @@ export default function SignUpScreen() {
   }
 
   async function routeAfterSocialAuth() {
-    const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
+    const { data: me } = await authClient.$fetch("https://app.collegedanceprep.com/api/me")
     const role = (me as any)?.role ?? "dancer"
     const status = (me as any)?.status ?? "pending"
     const userId = (me as any)?.id
@@ -126,7 +126,7 @@ export default function SignUpScreen() {
       })
       if (result?.error) { setError(result.error.message ?? "Apple sign-up failed."); return }
       if (fullName) {
-        await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/update-user", {
+        await authClient.$fetch("https://app.collegedanceprep.com/api/auth/update-user", {
           method: "POST",
           body: JSON.stringify({ name: fullName }),
           headers: { "Content-Type": "application/json" },

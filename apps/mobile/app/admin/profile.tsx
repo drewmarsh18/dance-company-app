@@ -10,7 +10,7 @@ import { useTheme } from "@/lib/theme-context"
 import type { ThemePreference } from "@/lib/theme-context"
 import { useState, useCallback } from "react"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 
 export default function AdminProfileScreen() {
   const { data: session } = useSession()
@@ -65,7 +65,11 @@ export default function AdminProfileScreen() {
     Alert.alert("Disconnect Google Calendar", "Are you sure you want to disconnect Google Calendar?", [
       { text: "Cancel", style: "cancel" },
       { text: "Disconnect", style: "destructive", onPress: async () => {
-        await authClient.$fetch(`${API_BASE}/api/google-calendar`, { method: "DELETE" })
+        const { error } = await authClient.$fetch(`${API_BASE}/api/google-calendar`, { method: "DELETE" })
+        if (error) {
+          Alert.alert("Error", "Could not disconnect Google Calendar. Please try again.")
+          return
+        }
         setCalendarConnected(false)
       }},
     ])

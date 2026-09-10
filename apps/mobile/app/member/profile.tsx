@@ -14,7 +14,7 @@ import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useTheme } from "@/lib/theme-context"
 import type { ThemePreference } from "@/lib/theme-context"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 
 type Profile = { recordId: string; name: string; email: string; phone: string; goals: string; creditsRemaining: number; parentEmail?: string; isParentView?: boolean }
 
@@ -126,7 +126,11 @@ export default function MemberProfileScreen() {
     Alert.alert("Disconnect Google Calendar", "Are you sure you want to disconnect Google Calendar?", [
       { text: "Cancel", style: "cancel" },
       { text: "Disconnect", style: "destructive", onPress: async () => {
-        await authClient.$fetch(`${API_BASE}/api/google-calendar/disconnect`, { method: "POST" })
+        const { error } = await authClient.$fetch(`${API_BASE}/api/google-calendar`, { method: "DELETE" })
+        if (error) {
+          Alert.alert("Error", "Could not disconnect Google Calendar. Please try again.")
+          return
+        }
         setCalendarConnected(false)
       }},
     ])

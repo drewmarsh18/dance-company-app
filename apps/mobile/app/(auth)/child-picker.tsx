@@ -7,7 +7,7 @@ import { authClient, signOut } from "@/lib/auth-client"
 import { useColors } from "@/lib/theme-context"
 import { SPACING, RADIUS } from "@/constants/theme"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 
 type Child = {
   userId: string

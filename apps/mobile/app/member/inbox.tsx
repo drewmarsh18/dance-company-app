@@ -10,7 +10,7 @@ import { authClient } from "@/lib/auth-client"
 import { useTheme } from "@/lib/theme-context"
 import { SPACING, RADIUS } from "@/constants/theme"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 const SWIPE_THRESHOLD = 72
 
 type Filter = "all" | "unread"

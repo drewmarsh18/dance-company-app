@@ -11,7 +11,7 @@ import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 import { BookingDetailModal, formatDate, formatTime, type Booking } from "@/components/BookingDetailModal"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 const SCREEN_WIDTH = Dimensions.get("window").width
 const HOUR_HEIGHT = 56
 const START_HOUR = 6

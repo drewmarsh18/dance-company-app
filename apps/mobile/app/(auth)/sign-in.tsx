@@ -76,13 +76,13 @@ export default function SignInScreen() {
           if (payload.name && !sessionUser?.name) updates.name = payload.name
           if (payload.picture && !sessionUser?.image) updates.image = payload.picture
           if (Object.keys(updates).length > 0) {
-            await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/update-user", {
+            await authClient.$fetch("https://app.collegedanceprep.com/api/auth/update-user", {
               method: "POST",
               body: JSON.stringify(updates),
               headers: { "Content-Type": "application/json" },
             })
             // Refresh session so useSession picks up the new name/image
-            await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/get-session")
+            await authClient.$fetch("https://app.collegedanceprep.com/api/auth/get-session")
           }
         }
       } catch {}
@@ -104,7 +104,7 @@ export default function SignInScreen() {
   }
 
   async function routeAfterAuth() {
-    const { data: me } = await authClient.$fetch("https://dance-company-app.vercel.app/api/me")
+    const { data: me } = await authClient.$fetch("https://app.collegedanceprep.com/api/me")
     const role = (me as any)?.role ?? "dancer"
     const status = (me as any)?.status ?? "active"
     if (status === "pending") router.replace("/(auth)/pending")
@@ -135,7 +135,7 @@ export default function SignInScreen() {
       if (result?.error) { setError(result.error.message ?? "Apple sign-in failed."); return }
       // Apple only gives the name on the very first sign-in — persist it if we got one
       if (fullName) {
-        await authClient.$fetch("https://dance-company-app.vercel.app/api/auth/update-user", {
+        await authClient.$fetch("https://app.collegedanceprep.com/api/auth/update-user", {
           method: "POST",
           body: JSON.stringify({ name: fullName }),
           headers: { "Content-Type": "application/json" },

@@ -7,7 +7,7 @@ import { useColors } from "@/lib/theme-context"
 import { registerForPushNotifications } from "@/lib/push-notifications"
 import { authClient } from "@/lib/auth-client"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 const PRIMER_KEY = "notify_primer_seen"
 
 async function getDestination(): Promise<"/(auth)/sign-in" | "/admin" | "/portal" | "/member"> {

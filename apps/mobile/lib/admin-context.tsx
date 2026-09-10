@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { authClient } from "@/lib/auth-client"
 import type { AdminDashboard } from "@/lib/admin-types"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 
 type AdminContextValue = {
   data: AdminDashboard | null

@@ -20,7 +20,7 @@ export default function Index() {
       return
     }
 
-    authClient.$fetch("https://dance-company-app.vercel.app/api/me")
+    authClient.$fetch("https://app.collegedanceprep.com/api/me")
       .then(async ({ data, error }) => {
         if (error || !data) { router.replace("/(auth)/sign-in"); return }
         const role: string = (data as any).role ?? "dancer"

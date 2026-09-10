@@ -16,7 +16,7 @@ import { authClient } from "@/lib/auth-client"
 import { getUniversityColor } from "@/lib/university-colors"
 import type { AdminWorker, AdminBooking } from "@/lib/admin-types"
 
-const API = "https://dance-company-app.vercel.app"
+const API = "https://app.collegedanceprep.com"
 const PACK_SESSION_PRICE = 99
 
 const UNIVERSITIES = [

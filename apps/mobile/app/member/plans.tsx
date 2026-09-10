@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth-client"
 import { PACKAGES, PER_PRIVATE } from "@cdp/core"
 import { useColors } from "@/lib/theme-context"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 
 async function startCheckout(itemId: string, setLoading: (id: string | null) => void) {
   setLoading(itemId)
