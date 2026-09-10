@@ -116,6 +116,7 @@ export async function cancelBooking(
     await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
       Status: within24 ? "Cancelled (Late)" : "Cancelled",
       ...(cancellationReason ? { "Cancellation Reason": cancellationReason } : {}),
+      ...(within24 ? { "Payable to PrepMaster": true } : {}),
     })
 
     // Refund credit only when cancelled outside the 24-hour window
