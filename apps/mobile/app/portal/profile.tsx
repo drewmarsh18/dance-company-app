@@ -138,7 +138,6 @@ export default function PortalProfileScreen() {
     try {
       await saveField({ phone })
       setDirty(d => ({ ...d, phone: false }))
-      loadConnectedState()
     } catch {}
   }
 
@@ -146,7 +145,6 @@ export default function PortalProfileScreen() {
     try {
       await saveField({ address })
       setDirty(d => ({ ...d, address: false }))
-      loadConnectedState()
     } catch {}
   }
 
