@@ -1,6 +1,6 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { getSessionUserWithRole } from "@/lib/roles"
 import { TABLES, appBase, getPrepMasterByEmail, getBookedSlots, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { sendEmail, bookingUpdatedEmail, bookingCancelledEmail } from "@/lib/email"
@@ -323,17 +323,6 @@ export async function cancelBookingAsPrepMaster(
     const dancerUserId = booking["User ID"]
     const dancerEmail = booking["Client Email"]
 
-    // Determine if within 24 hours of session start
-    let creditRefunded = false
-    if (dateStr) {
-      const sessionDate = new Date(`${dateStr}T${timeStr ? timeStr.replace(/(\d+):(\d+)\s*(AM|PM)/i, (_, h, m, p) => {
-        let hour = parseInt(h); if (p.toUpperCase() === "PM" && hour !== 12) hour += 12; if (p.toUpperCase() === "AM" && hour === 12) hour = 0
-        return `${String(hour).padStart(2, "0")}:${m}:00`
-      }) : "00:00:00"}`)
-      const hoursUntil = (sessionDate.getTime() - Date.now()) / (1000 * 60 * 60)
-      creditRefunded = hoursUntil <= 24
-    }
-
     await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
       Status: "Cancelled",
       "Cancellation Reason": reason,
@@ -342,18 +331,36 @@ export async function cancelBookingAsPrepMaster(
     const dateLabel = fmtDate(dateStr)
     const utcCancel = etToUtcIso(dateStr, timeStr, COMPANY_TZ)
 
+    // PM cancellation always refunds the member's credit
+    if (dancerUserId) {
+      const safeId = dancerUserId.replace(/'/g, "\\'")
+      const clientRecords = await appBase.list<ClientFields>(TABLES.clients, {
+        filterByFormula: `{User ID} = '${safeId}'`,
+        maxRecords: 1,
+        revalidate: 0,
+      })
+      const client = clientRecords[0]
+      if (client) {
+        const SESSION_CREDIT_COST: Record<string, number> = { "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5 }
+        const sessionType = (booking["Session Type"] as string) ?? "private-60"
+        const creditRefund = SESSION_CREDIT_COST[sessionType] ?? 1
+        const current = client.fields["Credits Remaining"] ?? 0
+        await appBase.update<ClientFields>(TABLES.clients, client.id, {
+          "Credits Remaining": Math.round((current + creditRefund) * 100) / 100,
+        })
+      }
+      revalidateTag(`member-${dancerUserId}`)
+    }
+
     // Notify member
     if (dancerUserId) {
       const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
       const memberCancelLabel = utcCancel ? fmtTimeForNotif(utcCancel, COMPANY_TZ, memberRow?.timezone ?? null) : `${fmtTime(timeStr)} ET`
-      const body = creditRefunded
-        ? `${pm.name} cancelled your session on ${dateLabel} at ${memberCancelLabel}. Your credit has been refunded since the cancellation was within 24 hours.`
-        : `${pm.name} cancelled your session on ${dateLabel} at ${memberCancelLabel}.`
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
         title: "Session cancelled by PrepMaster",
-        body,
+        body: `${pm.name} cancelled your session on ${dateLabel} at ${memberCancelLabel}. Your credit has been refunded.`,
         bookingId,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
@@ -366,7 +373,7 @@ export async function cancelBookingAsPrepMaster(
       userId: user.id,
       type: "booking_cancelled",
       title: "Session cancelled",
-      body: `You cancelled the session on ${dateLabel} at ${pmCancelLabel}.${creditRefunded ? " The member's credit was refunded." : ""}`,
+      body: `You cancelled the session on ${dateLabel} at ${pmCancelLabel}. The member's credit has been refunded.`,
       bookingId,
       pushData: { route: "/portal" },
     }).catch(() => {})
@@ -386,13 +393,13 @@ export async function cancelBookingAsPrepMaster(
         prepMasterName: pm.name,
         date: dateStr,
         time: timeStr,
-        creditRefunded,
+        creditRefunded: true,
       })
       sendEmail({ to: dancerEmail, subject, html }).catch(() => {})
     }
 
     revalidatePath("/portal")
-    return { ok: true, creditRefunded }
+    return { ok: true, creditRefunded: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to cancel." }
   }
