@@ -314,10 +314,13 @@ function MonthGrid({
                     </div>
                   )
                 })}
-                {hasEvent && (
-                  <div className="rounded-sm px-1 text-[9px] text-muted-foreground bg-muted/60 truncate border-l-2 border-muted-foreground/30">
-                    Google event
+                {(eventsByDate[iso] ?? []).slice(0, 2).map((e) => (
+                  <div key={e.id} className="rounded-sm px-1 text-[9px] text-muted-foreground bg-muted/60 truncate border-l-2 border-muted-foreground/30">
+                    {e.title}
                   </div>
+                ))}
+                {(eventsByDate[iso]?.length ?? 0) > 2 && (
+                  <p className="text-[9px] text-muted-foreground px-1">+{(eventsByDate[iso]?.length ?? 0) - 2} more</p>
                 )}
                 {activeBookings.length > 2 && (
                   <p className="text-[9px] text-muted-foreground px-1">+{activeBookings.length - 2} more</p>
