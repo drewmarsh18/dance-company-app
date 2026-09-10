@@ -200,7 +200,8 @@ export async function adjustBooking(
 export async function declineBooking(
   bookingId: string,
   reason: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+  rescheduleAction?: "revert" | "cancel",
+): Promise<{ ok: true; rescheduleReverted?: boolean } | { ok: false; error: string }> {
   try {
     const user = await assertPrepMaster()
     const pm = await getPrepMasterByEmail(user.email)
@@ -216,11 +217,11 @@ export async function declineBooking(
     const isReschedule = !!(booking.fields["Is Reschedule"])
     const dancerUserId = booking.fields["User ID"]
 
-    if (isReschedule) {
-      // PM is denying a reschedule request — restore original date/time, keep booking active
-      const origDate = booking.fields["Original Date"] ?? booking.fields.Date ?? ""
-      const origTime = booking.fields["Original Time"] ?? booking.fields.Time ?? ""
-      const origUtc = booking.fields["Original UTC Datetime"] ?? booking.fields["UTC Datetime"] ?? ""
+    if (isReschedule && rescheduleAction === "revert") {
+      // PM is denying the reschedule and wants to keep the original booking
+      const origDate = booking.fields["Original Date"] || booking.fields.Date || ""
+      const origTime = booking.fields["Original Time"] || booking.fields.Time || ""
+      const origUtc = booking.fields["Original UTC Datetime"] || booking.fields["UTC Datetime"] || ""
       await appBase.update<BookingFields>(TABLES.bookings, bookingId, {
         Status: "Confirmed",
         "Is Reschedule": false,
@@ -246,7 +247,7 @@ export async function declineBooking(
         }).catch(() => {})
       }
       revalidatePath("/portal")
-      return { ok: true }
+      return { ok: true, rescheduleReverted: true }
     }
 
     // Full booking decline (no prior reschedule) — refund credit

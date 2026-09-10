@@ -484,7 +484,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
   const [editDate, setEditDate] = useState(booking.date)
   const [editTime, setEditTime] = useState(booking.time)
   const [editPrepMasterNotes, setEditPrepMasterNotes] = useState(booking.prepMasterNotes)
-  const [mode, setMode] = useState<"idle" | "edit" | "decline-reason" | "cancel-reason">("idle")
+  const [mode, setMode] = useState<"idle" | "edit" | "decline-reason" | "decline-reschedule" | "cancel-reason">("idle")
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showTimePicker, setShowTimePicker] = useState(false)
   const dateOptions = useMemo(() => buildDateOptions(), [])
@@ -532,13 +532,13 @@ function BookingCard({ booking, dimmed, onUpdate }: {
     : s === "pending" ? { bg: COLORS.amberLight, text: COLORS.amber }
     : { bg: COLORS.grayLight, text: COLORS.textMuted }
 
-  async function callAction(action: "confirm" | "decline" | "cancel" | "edit", reason?: string) {
+  async function callAction(action: "confirm" | "decline" | "cancel" | "edit", reason?: string, rescheduleAction?: "revert" | "cancel") {
     setSaving(true)
     try {
       const body: Record<string, unknown> = action === "edit"
         ? { date: editDate, time: editTime, prepMasterNotes: editPrepMasterNotes }
         : action === "decline"
-        ? { action, declineReason: reason }
+        ? { action, declineReason: reason, ...(rescheduleAction ? { rescheduleAction } : {}) }
         : action === "cancel"
         ? { action: "cancel", cancellationReason: reason }
         : { action }
@@ -614,7 +614,7 @@ function BookingCard({ booking, dimmed, onUpdate }: {
                     {saving ? <ActivityIndicator size="small" color="#fff" /> : <><Check size={14} color="#fff" /><Text style={styles.actionBtnPrimaryText}>Confirm</Text></>}
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.actionBtn, styles.actionBtnDanger, saving && { opacity: 0.5 }]}
-                    onPress={() => { setDeclineReason(""); setMode("decline-reason") }}
+                    onPress={() => { setDeclineReason(""); setMode(booking.isReschedulePending ? "decline-reschedule" : "decline-reason") }}
                     disabled={saving} activeOpacity={0.8}>
                     <X size={14} color={COLORS.red} /><Text style={styles.actionBtnDangerText}>Decline</Text>
                   </TouchableOpacity>
@@ -631,6 +631,47 @@ function BookingCard({ booking, dimmed, onUpdate }: {
                 <Pencil size={14} color={COLORS.textMuted} /><Text style={styles.actionBtnGhostText}>Edit</Text>
               </TouchableOpacity>
             </View>
+          )}
+
+          {mode === "decline-reschedule" && (
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+              <View style={styles.editPanel}>
+                <Text style={styles.editPanelTitle}>Decline reschedule request</Text>
+                <Text style={{ fontSize: 13, color: COLORS.textMuted, marginBottom: 8 }}>Provide a reason, then choose what to do with the original booking.</Text>
+                <TextInput
+                  style={[styles.editInput, { minHeight: 56, textAlignVertical: "top" }]}
+                  value={declineReason}
+                  onChangeText={setDeclineReason}
+                  placeholder="e.g. Already booked at that time…"
+                  placeholderTextColor={COLORS.textMuted}
+                  multiline
+                  autoFocus
+                />
+                <View style={[styles.actionRow, { flexDirection: "column", gap: 8 }]}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { borderWidth: 1, borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight, opacity: saving ? 0.5 : 1, flex: undefined, width: "100%" }]}
+                    onPress={() => {
+                      if (!declineReason.trim()) { Alert.alert("Required", "Please enter a reason."); return }
+                      callAction("decline", declineReason.trim(), "revert")
+                    }}
+                    disabled={saving} activeOpacity={0.8}>
+                    {saving ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Text style={{ color: COLORS.primary, fontWeight: "700", fontSize: 14 }}>Keep original booking</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.actionBtnDanger, { opacity: saving ? 0.5 : 1, flex: undefined, width: "100%" }]}
+                    onPress={() => {
+                      if (!declineReason.trim()) { Alert.alert("Required", "Please enter a reason."); return }
+                      callAction("decline", declineReason.trim(), "cancel")
+                    }}
+                    disabled={saving} activeOpacity={0.8}>
+                    {saving ? <ActivityIndicator size="small" color={COLORS.red} /> : <Text style={styles.actionBtnDangerText}>Cancel booking entirely</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtn, styles.actionBtnGhost]} onPress={() => setMode("idle")} activeOpacity={0.8}>
+                    <Text style={styles.actionBtnGhostText}>Go back</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </KeyboardAvoidingView>
           )}
 
           {mode === "decline-reason" && (

@@ -59,7 +59,7 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
   const [editDate, setEditDate] = useState(booking.date)
   const [editTime, setEditTime] = useState(booking.time)
   const [editNotes, setEditNotes] = useState(booking.notes)
-  const [mode, setMode] = useState<"idle" | "edit" | "confirm-decline" | "confirm-cancel">("idle")
+  const [mode, setMode] = useState<"idle" | "edit" | "confirm-decline" | "confirm-decline-reschedule" | "confirm-cancel">("idle")
   const [declineReason, setDeclineReason] = useState("")
   const [cancelReason, setCancelReason] = useState("")
   const [isPending, startTransition] = useTransition()
@@ -108,12 +108,22 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
     })
   }
 
-  function handleDecline() {
+  function handleDecline(rescheduleAction?: "revert" | "cancel") {
     if (!declineReason.trim()) { toast.error("Please enter a reason before declining."); return }
     startTransition(async () => {
-      const result = await declineBooking(booking.id, declineReason.trim())
-      if (result.ok) { setStatus("Cancelled"); setMode("idle"); toast.success("Session declined.") }
-      else toast.error(result.error)
+      const result = await declineBooking(booking.id, declineReason.trim(), rescheduleAction)
+      if (result.ok) {
+        if ("rescheduleReverted" in result && result.rescheduleReverted) {
+          setStatus("Confirmed")
+          toast.success("Reschedule denied. Booking reverted to original time.")
+        } else {
+          setStatus("Declined")
+          toast.success("Session declined.")
+        }
+        setMode("idle")
+      } else {
+        toast.error(result.error)
+      }
     })
   }
 
@@ -215,7 +225,7 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
                   <Check className="mr-1.5 size-4" />Confirm
                 </Button>
                 <Button size="sm" variant="outline" disabled={isPending}
-                  onClick={() => { setDeclineReason(""); setMode("confirm-decline") }}
+                  onClick={() => { setDeclineReason(""); setMode(booking.isReschedulePending ? "confirm-decline-reschedule" : "confirm-decline") }}
                   className="text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10">
                   <X className="mr-1.5 size-4" />Decline
                 </Button>
@@ -235,6 +245,41 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
             )}
           </div>
         </div>
+
+        {/* Reschedule denial dialog — choose revert or cancel entirely */}
+        {mode === "confirm-decline-reschedule" && (
+          <>
+            <Separator />
+            <div className="flex flex-col gap-3">
+              <p className="text-sm font-medium text-destructive">Decline this reschedule request?</p>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`decline-reschedule-reason-${booking.id}`}>Reason for declining</Label>
+                <Textarea
+                  id={`decline-reschedule-reason-${booking.id}`}
+                  placeholder="e.g. Already booked at that time…"
+                  rows={2}
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">What should happen to the original booking?</p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button size="sm" variant="outline" disabled={isPending || !declineReason.trim()}
+                  onClick={() => handleDecline("revert")}
+                  className="flex-1 border-primary/40 text-primary hover:bg-primary/10">
+                  {isPending ? "Saving…" : "Keep original booking"}
+                </Button>
+                <Button size="sm" variant="destructive" disabled={isPending || !declineReason.trim()}
+                  onClick={() => handleDecline("cancel")}
+                  className="flex-1">
+                  {isPending ? "Saving…" : "Cancel booking entirely"}
+                </Button>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => setMode("idle")}>Go back</Button>
+            </div>
+          </>
+        )}
 
         {/* Decline reason panel */}
         {mode === "confirm-decline" && (

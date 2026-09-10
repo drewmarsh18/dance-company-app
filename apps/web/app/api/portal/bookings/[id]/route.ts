@@ -33,10 +33,16 @@ export async function PATCH(
   const { pm, booking } = await getPmAndBooking(session.user.email, id)
   if (!pm || !booking) return NextResponse.json({ ok: false, error: "Booking not found." })
 
-  const body = await req.json() as { date?: string; time?: string; prepMasterNotes?: string; action?: "confirm" | "decline" | "cancel"; declineReason?: string; cancellationReason?: string }
+  const body = await req.json() as { date?: string; time?: string; prepMasterNotes?: string; action?: "confirm" | "decline" | "cancel"; declineReason?: string; cancellationReason?: string; rescheduleAction?: "revert" | "cancel" }
 
   if (body.action === "confirm") {
-    await appBase.update<BookingFields>(TABLES.bookings, id, { Status: "Confirmed", "Is Reschedule": false })
+    await appBase.update<BookingFields>(TABLES.bookings, id, {
+      Status: "Confirmed",
+      "Is Reschedule": false,
+      "Original Date": "",
+      "Original Time": "",
+      "Original UTC Datetime": "",
+    })
     revalidateTag(`portal-${session.user.email}`, "max")
     const dancerUserId = booking.fields["User ID"]
     if (dancerUserId) {
@@ -65,8 +71,8 @@ export async function PATCH(
     const dancerUserId = booking.fields["User ID"]
     const isReschedule = !!(booking.fields["Is Reschedule"])
 
-    if (isReschedule) {
-      // PM is denying a reschedule — restore original date/time, keep booking active (no credit refund)
+    if (isReschedule && body.rescheduleAction === "revert") {
+      // PM is denying the reschedule and wants to keep the original booking
       const origDate = booking.fields["Original Date"] ?? booking.fields.Date ?? ""
       const origTime = booking.fields["Original Time"] ?? booking.fields.Time ?? ""
       const origUtc = booking.fields["Original UTC Datetime"] ?? booking.fields["UTC Datetime"] ?? ""
