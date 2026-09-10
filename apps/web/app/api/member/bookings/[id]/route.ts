@@ -28,6 +28,16 @@ async function findClientRecord(userId: string) {
   return records[0] ?? null
 }
 
+async function findClientByRecordId(recordId: string) {
+  if (!recordId) return null
+  const records = await appBase.list<ClientFields>(TABLES.clients, {
+    filterByFormula: `RECORD_ID() = '${recordId}'`,
+    maxRecords: 1,
+    revalidate: 0,
+  })
+  return records[0] ?? null
+}
+
 const SESSION_CREDIT_COST: Record<string, number> = {
   "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5,
 }
@@ -78,7 +88,9 @@ export async function DELETE(
   })
 
   if (!within24) {
-    const client = await findClientRecord(effectiveUserId)
+    const client = effectiveUserId
+      ? await findClientRecord(effectiveUserId)
+      : await findClientByRecordId(profile.recordId)
     if (client) {
       const current = client.fields["Credits Remaining"] ?? 0
       await appBase.update<ClientFields>(TABLES.clients, client.id, {
@@ -90,7 +102,9 @@ export async function DELETE(
   const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
   const dateLabel = booking.fields.Date ?? "your session"
   const cancelledTime = booking.fields.Time ?? ""
-  const client = await findClientRecord(effectiveUserId)
+  const client = effectiveUserId
+    ? await findClientRecord(effectiveUserId)
+    : await findClientByRecordId(profile.recordId)
   const memberName = client?.fields.Name ?? user.name ?? user.email ?? "A member"
 
   // Notify the dancer (not the parent)
@@ -102,8 +116,9 @@ export async function DELETE(
     bookingId: id,
   }).catch(() => {})
 
-  if (user.email) {
-    const parentCC = client?.fields?.["Parent Email"] ?? null
+  {
+    const effectiveEmail = profile.email || user.email
+    const parentCC = profile.isParentView && user.email && user.email !== effectiveEmail ? user.email : (client?.fields?.["Parent Email"] ?? null)
     const { subject, html } = bookingCancelledEmail({
       dancerName: memberName,
       prepMasterName: pmName,
@@ -111,7 +126,8 @@ export async function DELETE(
       time: cancelledTime,
       creditRefunded: !within24,
     })
-    sendEmail({ to: user.email, cc: parentCC ?? undefined, subject, html }).catch(() => {})
+    const cancelRecipients = [effectiveEmail, ...(parentCC && parentCC !== effectiveEmail ? [parentCC] : [])].filter(Boolean)
+    sendEmail({ to: cancelRecipients, subject, html }).catch(() => {})
   }
 
   // Notify the PrepMaster
@@ -208,7 +224,7 @@ export async function PATCH(
   const newDate = body.date ?? booking.fields.Date ?? ""
   const newTime = body.time ?? booking.fields.Time ?? ""
   const [client, memberDbRow] = await Promise.all([
-    findClientRecord(effectiveUserId),
+    effectiveUserId ? findClientRecord(effectiveUserId) : findClientByRecordId(profile.recordId),
     db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, effectiveUserId)).limit(1),
   ])
   const memberName = client?.fields.Name ?? user.name ?? user.email ?? "Your member"
@@ -227,8 +243,9 @@ export async function PATCH(
     bookingId: id,
   }).catch(() => {})
 
-  if (user.email) {
-    const parentCC = client?.fields?.["Parent Email"] ?? null
+  {
+    const effectiveEmail = profile.email || user.email
+    const parentCC = profile.isParentView && user.email && user.email !== effectiveEmail ? user.email : (client?.fields?.["Parent Email"] ?? null)
     const { subject, html } = bookingUpdatedEmail({
       recipientName: memberName,
       updatedByName: memberName,
@@ -237,7 +254,8 @@ export async function PATCH(
       time: newTime,
       notes: body.notes,
     })
-    sendEmail({ to: user.email, cc: parentCC ?? undefined, subject, html }).catch(() => {})
+    const rescheduleRecipients = [effectiveEmail, ...(parentCC && parentCC !== effectiveEmail ? [parentCC] : [])].filter(Boolean)
+    sendEmail({ to: rescheduleRecipients, subject, html }).catch(() => {})
   }
 
   // Notify PrepMaster

@@ -204,7 +204,7 @@ export default function MemberHomeScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}>
         <View style={styles.header}>
           <Text style={styles.greeting}>{isParentView ? `Welcome to ${firstName}'s account!` : `Welcome, ${firstName}!`}</Text>
-          <Text style={styles.greetingSub}>Here's your training overview.</Text>
+          <Text style={styles.greetingSub}>{isParentView ? `Here's ${firstName}'s training overview.` : "Here's your training overview."}</Text>
         </View>
         {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
         <CreditsCard plans={plans} credits={credits} />

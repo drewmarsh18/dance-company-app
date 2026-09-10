@@ -322,6 +322,8 @@ export default function BookScreen() {
   const [plans, setPlans] = useState<MemberPlan[]>([])
   const [credits, setCredits] = useState(0)
   const [confirming, setConfirming] = useState(false)
+  const [isParentView, setIsParentView] = useState(false)
+  const [childFirstName, setChildFirstName] = useState("")
 
   const loadCoaches = useCallback(async () => {
     try {
@@ -336,8 +338,10 @@ export default function BookScreen() {
     try {
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/member/dashboard`)
       if (error || !data) return
-      const d = data as { profile: { creditsRemaining: number }; plans: MemberPlan[] }
+      const d = data as { profile: { creditsRemaining: number; isParentView?: boolean; name?: string }; plans: MemberPlan[] }
       setCredits(d.profile.creditsRemaining); setPlans(d.plans)
+      setIsParentView(d.profile.isParentView ?? false)
+      setChildFirstName((d.profile.isParentView && d.profile.name) ? d.profile.name.split(" ")[0] : "")
     } catch {}
   }, [])
 
@@ -413,6 +417,12 @@ export default function BookScreen() {
         <Text style={styles.headerTitle}>{title}</Text>
         <View style={{ width: 36 }} />
       </View>
+      {isParentView && childFirstName ? (
+        <View style={styles.parentBanner}>
+          <Users size={14} color={COLORS.primary} />
+          <Text style={styles.parentBannerText}>Booking for {childFirstName}</Text>
+        </View>
+      ) : null}
       {coachesLoading ? (
         <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>
       ) : step === "coaches" ? (
@@ -435,6 +445,8 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     backBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
     headerTitle: { fontSize: 17, fontWeight: "700", color: COLORS.text, flex: 1, textAlign: "center" },
     loadingOverlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.15)", justifyContent: "center", alignItems: "center", zIndex: 10 },
+    parentBanner: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: COLORS.primaryLight, paddingHorizontal: SPACING.md, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+    parentBannerText: { fontSize: 13, fontWeight: "600", color: COLORS.primary },
     searchRow: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.border },
     searchInput: { backgroundColor: COLORS.surface, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: SPACING.md, paddingVertical: 9, fontSize: 14, color: COLORS.text },
     coachCard: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md },

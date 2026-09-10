@@ -41,6 +41,11 @@ export async function updateProfile(input: {
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const user = await getSessionUser()
+    // Verify the caller owns this Airtable record — either directly or as a parent viewing a child
+    const profile = await resolveClientProfile({ id: user.id, email: user.email, name: user.name ?? "" }, true)
+    if (!profile || profile.recordId !== input.recordId) {
+      return { ok: false, error: "Unauthorized" }
+    }
     await appBase.update<ClientFields>(TABLES.clients, input.recordId, {
       ...(input.name ? { Name: input.name } : {}),
       Phone: input.phone,

@@ -86,6 +86,17 @@ async function findClientRecord(userId: string) {
   return records[0] ?? null
 }
 
+// Fallback for children who have no User ID set — look up directly by Airtable record ID.
+async function findClientByRecordId(recordId: string) {
+  if (!recordId) return null
+  const records = await appBase.list<ClientFields>(TABLES.clients, {
+    filterByFormula: `RECORD_ID() = '${recordId}'`,
+    maxRecords: 1,
+    revalidate: 0,
+  })
+  return records[0] ?? null
+}
+
 export async function cancelBooking(
   bookingId: string,
   cancellationReason?: string,
@@ -126,7 +137,9 @@ export async function cancelBooking(
 
     // Refund credit only when cancelled outside the 24-hour window
     if (!within24) {
-      const client = await findClientRecord(effectiveUserId)
+      const client = effectiveUserId
+        ? await findClientRecord(effectiveUserId)
+        : await findClientByRecordId(profile.recordId)
       if (client) {
         const SESSION_CREDIT_COST: Record<string, number> = { "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5 }
         const sessionType = booking.fields["Session Type"] ?? "private-60"
@@ -147,7 +160,9 @@ export async function cancelBooking(
     const dateLabel = fmtDate(booking.fields.Date ?? "") || "your session"
     const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
     const cancelledTime = booking.fields.Time ?? ""
-    const clientRecord = await findClientRecord(effectiveUserId)
+    const clientRecord = effectiveUserId
+      ? await findClientRecord(effectiveUserId)
+      : await findClientByRecordId(profile.recordId)
     const memberName = clientRecord?.fields.Name ?? user.name ?? user.email ?? "A member"
 
     // Notify the member (child's account)
@@ -214,6 +229,7 @@ export async function rescheduleBooking(
     const user = await getSessionUser()
     const profile = await resolveClientProfile({ id: user.id, email: user.email, name: user.name ?? "" }, true)
     const effectiveUserId = profile.effectiveUserId || user.id
+    const effectiveEmail = profile.email || user.email
 
     const safeId = effectiveUserId.replace(/'/g, "\\'")
     const records = await appBase.list<BookingFields>(TABLES.bookings, {
@@ -266,10 +282,12 @@ export async function rescheduleBooking(
 
     // Email both parties about the reschedule — fire and forget
     // Use effectiveUserId so parent bookings show the dancer's name, not the parent's
-    const clientRecord = await findClientRecord(effectiveUserId)
+    const clientRecord = effectiveUserId
+      ? await findClientRecord(effectiveUserId)
+      : await findClientByRecordId(profile.recordId)
     const memberName = clientRecord?.fields.Name ?? user.name ?? user.email ?? "Your member"
     const existingNotes = existing.fields.Notes || undefined
-    if (user.email) {
+    if (effectiveEmail) {
       const { subject, html } = bookingUpdatedEmail({
         recipientName: memberName,
         updatedByName: memberName,
@@ -278,7 +296,8 @@ export async function rescheduleBooking(
         time: newTime,
         notes: existingNotes,
       })
-      sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Reschedule email to member failed:", e))
+      const rescheduleRecipients = [effectiveEmail, ...(profile.isParentView && user.email && user.email !== effectiveEmail ? [user.email] : [])].filter(Boolean)
+      sendEmail({ to: rescheduleRecipients, subject, html }).catch((e) => console.error("Reschedule email to member failed:", e))
     }
     // Find PrepMaster's email + userId to notify them (email + in-app)
     getPrepMasters().then(async (all) => {
@@ -338,7 +357,10 @@ export async function createBooking(input: {
     const effectiveEmail = profile.email || user.email
 
     // 1) Credit gate — block when the dancer doesn't have enough credits for this session type.
-    const client = await findClientRecord(effectiveUserId)
+    // Use record ID fallback for children who have no auth User ID set in Airtable.
+    const client = effectiveUserId
+      ? await findClientRecord(effectiveUserId)
+      : await findClientByRecordId(profile.recordId)
     const credits = client?.fields["Credits Remaining"] ?? 0
     const BOOKING_CREDIT_COST: Record<string, number> = {
       "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5,
