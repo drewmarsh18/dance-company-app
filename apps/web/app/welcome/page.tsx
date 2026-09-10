@@ -23,7 +23,7 @@ export default async function WelcomePage({ searchParams }: { searchParams: Prom
       </div>
 
       <a
-        href={isPrep ? "cdp://portal" : "cdp://member/plans"}
+        href={isPrep ? "cdp://" : "cdp://member/plans"}
         className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-base font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
       >
         <Smartphone className="size-5" />
