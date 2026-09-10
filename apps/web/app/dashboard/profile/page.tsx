@@ -61,7 +61,7 @@ export default async function ProfilePage() {
               <CardTitle className="text-lg">Your details</CardTitle>
             </CardHeader>
             <CardContent>
-              <ProfileForm profile={profile} isGoogleLinked={isGoogleLinked} />
+              <ProfileForm profile={profile} isGoogleLinked={isGoogleLinked} isParentView={profile.isParentView} />
             </CardContent>
           </Card>
 

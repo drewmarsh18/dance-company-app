@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, X } from "lucide-react"
+import { Loader2, X, Users } from "lucide-react"
 
-export function ProfileForm({ profile, isGoogleLinked = false }: { profile: ClientProfile; isGoogleLinked?: boolean }) {
+export function ProfileForm({ profile, isGoogleLinked = false, isParentView = false }: { profile: ClientProfile; isGoogleLinked?: boolean; isParentView?: boolean }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [name, setName] = useState(profile.name)
@@ -60,7 +60,13 @@ export function ProfileForm({ profile, isGoogleLinked = false }: { profile: Clie
 
   return (
     <div className="flex flex-col gap-5">
-      {!googleLinked && !nudgeDismissed && (
+      {isParentView && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.06] px-3 py-2 w-fit">
+          <Users className="size-3.5 text-primary" />
+          <span className="text-xs font-semibold text-primary">Parent / Guardian View</span>
+        </div>
+      )}
+      {!googleLinked && !nudgeDismissed && !isParentView && (
         <div className="relative flex items-center gap-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3.5">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40">
             <svg viewBox="0 0 24 24" className="size-5" fill="none">

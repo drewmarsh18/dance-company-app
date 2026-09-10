@@ -201,9 +201,15 @@ export default function MemberProfileScreen() {
               <Text style={styles.avatarText}>{initials(name || session?.user?.name || "?")}</Text>
             </View>
             <Text style={styles.avatarEmail}>{profile?.email ?? session?.user?.email ?? ""}</Text>
+            {profile?.isParentView && (
+              <View style={styles.parentBadge}>
+                <Users size={12} color={COLORS.primary} />
+                <Text style={styles.parentBadgeText}>Parent / Guardian View</Text>
+              </View>
+            )}
           </View>
 
-          {!isGoogleLinked && !nudgeDismissed && (
+          {!isGoogleLinked && !nudgeDismissed && !profile?.isParentView && (
             <View style={styles.nudgeBanner}>
               <View style={styles.nudgeGIcon}>
                 <Svg viewBox="0 0 24 24" width={20} height={20}>
@@ -364,6 +370,8 @@ function makeStyles(COLORS: ReturnType<typeof useTheme>["colors"]) {
     avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.primaryLight, justifyContent: "center", alignItems: "center" },
     avatarText: { fontSize: 30, fontWeight: "700", color: COLORS.primary },
     avatarEmail: { fontSize: 13, color: COLORS.textMuted },
+    parentBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: COLORS.primaryLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.full },
+    parentBadgeText: { fontSize: 12, fontWeight: "700", color: COLORS.primary },
     card: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden" },
     field: { padding: SPACING.md },
     fieldLabel: { fontSize: 12, fontWeight: "600", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
