@@ -204,7 +204,21 @@ export const auth = betterAuth({
             }
           } catch { /* non-fatal */ }
 
-          if (isAdmin || isPrepMaster || isParent) {
+          // Apple Sign In accounts are auto-activated so Apple reviewers can access the app.
+          // Google accounts still go through the normal pending approval flow.
+          let isAppleSignIn = false
+          try {
+            const { account: accountTable } = await import("@/lib/db/schema")
+            const { eq: eqOp } = await import("drizzle-orm")
+            const appleAccount = await db
+              .select({ providerId: accountTable.providerId })
+              .from(accountTable)
+              .where(eqOp(accountTable.userId, newUser.id))
+              .limit(5)
+            isAppleSignIn = appleAccount.some((a) => a.providerId === "apple")
+          } catch { /* non-fatal */ }
+
+          if (isAdmin || isPrepMaster || isParent || isAppleSignIn) {
             await db.update(userTable).set({ status: "active" }).where(eq(userTable.id, newUser.id))
             return
           }
