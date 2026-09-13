@@ -3,9 +3,10 @@ import { headers } from "next/headers"
 import { randomUUID } from "crypto"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { prepMasterAvailability } from "@/lib/db/schema"
+import { prepMasterAvailability, user as userTable } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
 import { buildWeekTemplate, type DayAvailability } from "@/lib/availability"
+import { getCalendarBusyRange } from "@/lib/google-calendar"
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
@@ -28,7 +29,18 @@ export async function GET() {
     endTime: r.endTime,
   }))
 
-  return NextResponse.json({ week: buildWeekTemplate(saved) })
+  // Include calendar busy slots for the next 56 days so the PM's own schedule
+  // form can grey out times that are blocked by existing Google Calendar events.
+  const today = new Date()
+  const startIso = today.toISOString().slice(0, 10)
+  const endDate = new Date(today); endDate.setDate(endDate.getDate() + 56)
+  const endIso = endDate.toISOString().slice(0, 10)
+  const [pmRow] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, email)).limit(1)
+  const calBusy = pmRow
+    ? await getCalendarBusyRange(pmRow.id, startIso, endIso, 60, pmRow.timezone ?? "America/New_York").catch(() => ({}))
+    : {}
+
+  return NextResponse.json({ week: buildWeekTemplate(saved), calBusy })
 }
 
 export async function POST(req: Request) {

@@ -82,12 +82,15 @@ export default function PortalScheduleScreen() {
   const [selectedDuration, setSelectedDuration] = useState<"private-30" | "private-45" | "private-60" | "private-90">("private-60")
   const [bookNotes, setBookNotes] = useState("")
   const [booking, setBooking] = useState(false)
+  const [calBusy, setCalBusy] = useState<Record<string, string[]>>({})
 
   const load = useCallback(async () => {
     try {
       const { data, error } = await authClient.$fetch(`${API_BASE}/api/portal/availability`)
       if (error || !data) throw new Error("Failed to load")
-      setWeek((data as { week: DayAvailability[] }).week)
+      const d = data as { week: DayAvailability[]; calBusy?: Record<string, string[]> }
+      setWeek(d.week)
+      setCalBusy(d.calBusy ?? {})
     } catch { Alert.alert("Error", "Could not load availability.") }
   }, [])
 
@@ -224,12 +227,14 @@ export default function PortalScheduleScreen() {
             {(() => {
               const slots = slotsForDate(selectedDate, week).filter((t) => {
                 const isToday = selectedDate === toIso(new Date())
-                if (!isToday) return true
-                const [timePart, period] = t.split(" ")
-                let h = Number(timePart.split(":")[0])
-                if (period === "PM" && h !== 12) h += 12
-                else if (period === "AM" && h === 12) h = 0
-                return h > new Date().getHours()
+                if (isToday) {
+                  const [timePart, period] = t.split(" ")
+                  let h = Number(timePart.split(":")[0])
+                  if (period === "PM" && h !== 12) h += 12
+                  else if (period === "AM" && h === 12) h = 0
+                  if (h <= new Date().getHours()) return false
+                }
+                return !(calBusy[selectedDate] ?? []).includes(t)
               })
               if (slots.length === 0) return <Text style={styles.emptyText}>No available times for this day.</Text>
               const value = selectedTime && slots.includes(selectedTime) ? selectedTime : slots[0]
