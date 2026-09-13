@@ -6,6 +6,7 @@ import { getPrepMasterByEmail, TABLES, appBase, type BookingFields, type ClientF
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingUpdatedEmail, bookingCancelledEmail } from "@/lib/email"
 import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
+import { createCalendarEvent } from "@/lib/google-calendar"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -62,6 +63,17 @@ export async function PATCH(
         body: `${pm.name} has confirmed your session on ${fmtDate(booking.fields.Date ?? "")} at ${timeLabel}.`,
         bookingId: id,
         pushData: { route: "/member/bookings" },
+      }).catch(() => {})
+    }
+    // Create Google Calendar event on the PM's calendar now that the booking is confirmed
+    const [pmUserRow] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
+    if (pmUserRow) {
+      createCalendarEvent(pmUserRow.id, {
+        dancerName: booking.fields.Name ?? "Member",
+        date: booking.fields.Date ?? "",
+        time: booking.fields.Time ?? "",
+        notes: booking.fields.Notes ?? "",
+        sessionType: booking.fields["Session Type"] ?? "private-60",
       }).catch(() => {})
     }
     return NextResponse.json({ ok: true })

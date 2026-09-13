@@ -949,8 +949,14 @@ export default function PortalDashboard() {
   function handleUpdate(id: string, patch: Partial<PrepMasterBooking>) {
     setData((prev) => {
       if (!prev) return prev
+      const newStatus = patch.status?.toLowerCase()
+      const isTerminal = newStatus === "declined" || newStatus === "cancelled"
       const patchList = (list: PrepMasterBooking[]) => list.map((b) => b.id === id ? { ...b, ...patch } : b)
-      return { ...prev, upcoming: patchList(prev.upcoming), completed: patchList(prev.completed), cancelled: patchList(prev.cancelled) }
+      // Remove terminal items from upcoming so they don't remain tappable while load() is in flight
+      const upcoming = isTerminal
+        ? prev.upcoming.filter((b) => b.id !== id)
+        : patchList(prev.upcoming)
+      return { ...prev, upcoming, completed: patchList(prev.completed), cancelled: patchList(prev.cancelled) }
     })
     setSelectedBooking((prev) => prev?.id === id ? { ...prev, ...patch } : prev)
   }
