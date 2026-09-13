@@ -282,9 +282,15 @@ export async function createCalendarEvent(
     summary,
     description: notes ? `Notes: ${notes}` : "College Dance Prep private session",
     ...buildEventTimes(date, time, timezone, durationMin),
+    conferenceData: {
+      createRequest: {
+        requestId: crypto.randomUUID(),
+        conferenceSolutionKey: { type: "hangoutsMeet" },
+      },
+    },
   }
 
-  const res = await fetch(`${GOOGLE_CALENDAR_API}/calendars/primary/events`, {
+  const res = await fetch(`${GOOGLE_CALENDAR_API}/calendars/primary/events?conferenceDataVersion=1`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify(event),
@@ -323,9 +329,16 @@ export async function updateCalendarEvent(
     summary,
     description: notes ? `Notes: ${notes}` : "College Dance Prep private session",
     ...buildEventTimes(date, time, timezone, durationMin),
+    // Preserve existing Meet link on reschedule; Google keeps the same room
+    conferenceData: {
+      createRequest: {
+        requestId: crypto.randomUUID(),
+        conferenceSolutionKey: { type: "hangoutsMeet" },
+      },
+    },
   }
 
-  const res = await fetch(`${GOOGLE_CALENDAR_API}/calendars/primary/events/${eventId}`, {
+  const res = await fetch(`${GOOGLE_CALENDAR_API}/calendars/primary/events/${eventId}?conferenceDataVersion=1`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify(event),
