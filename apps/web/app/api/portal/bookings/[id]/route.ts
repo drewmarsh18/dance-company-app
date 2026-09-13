@@ -80,16 +80,19 @@ export async function PATCH(
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }
-    // Create / update Google Calendar events for both PM and member at confirm time.
+    // Create or update Google Calendar events for both PM and member at confirm time.
+    // If events already exist (reschedule flow), update them — don't create duplicates.
     // Fire in background — don't block the confirm response.
     ;(async () => {
       try {
-        const [pmUserRow, dancerUserRow] = await Promise.all([
+        const [pmUserRow, dancerUserRow, existingLinks] = await Promise.all([
           db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1),
           booking.fields["User ID"]
             ? db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, booking.fields["User ID"]!)).limit(1)
             : Promise.resolve([]),
+          getCalendarLinks(id),
         ])
+        const existingByUser = new Map(existingLinks.map((l) => [l.userId, l.gcalEventId]))
         const pmTz = pmUserRow[0]?.timezone ?? COMPANY_TZ
         const bDate = booking.fields.Date ?? ""
         const bTime = booking.fields.Time ?? ""
@@ -99,32 +102,27 @@ export async function PATCH(
 
         // PM event
         if (pmUserRow[0]) {
-          const pmEventId = await createCalendarEvent(pmUserRow[0].id, {
-            dancerName,
-            date: bDate,
-            time: bTime,
-            notes: bNotes,
-            sessionType: bType,
-            timezone: pmTz,
-          })
-          if (pmEventId) await saveCalendarLink(id, pmUserRow[0].id, pmEventId)
+          const existingId = existingByUser.get(pmUserRow[0].id)
+          if (existingId) {
+            await updateCalendarEvent(pmUserRow[0].id, existingId, { dancerName, date: bDate, time: bTime, notes: bNotes, sessionType: bType, timezone: pmTz })
+          } else {
+            const newId = await createCalendarEvent(pmUserRow[0].id, { dancerName, date: bDate, time: bTime, notes: bNotes, sessionType: bType, timezone: pmTz })
+            if (newId) await saveCalendarLink(id, pmUserRow[0].id, newId)
+          }
         }
 
         // Member event (uses PM timezone so it shows the correct session time)
         if (dancerUserRow[0]) {
-          const memberEventId = await createCalendarEvent(dancerUserRow[0].id, {
-            dancerName,
-            prepMasterName: pm.name,
-            date: bDate,
-            time: bTime,
-            notes: bNotes,
-            sessionType: bType,
-            timezone: pmTz,
-          })
-          if (memberEventId) await saveCalendarLink(id, dancerUserRow[0].id, memberEventId)
+          const existingId = existingByUser.get(dancerUserRow[0].id)
+          if (existingId) {
+            await updateCalendarEvent(dancerUserRow[0].id, existingId, { dancerName, prepMasterName: pm.name, date: bDate, time: bTime, notes: bNotes, sessionType: bType, timezone: pmTz })
+          } else {
+            const newId = await createCalendarEvent(dancerUserRow[0].id, { dancerName, prepMasterName: pm.name, date: bDate, time: bTime, notes: bNotes, sessionType: bType, timezone: pmTz })
+            if (newId) await saveCalendarLink(id, dancerUserRow[0].id, newId)
+          }
         }
       } catch (e) {
-        console.error("Calendar event creation at confirm failed:", e)
+        console.error("Calendar event upsert at confirm failed:", e)
       }
     })()
     return NextResponse.json({ ok: true })
