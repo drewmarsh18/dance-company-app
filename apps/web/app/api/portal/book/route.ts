@@ -74,6 +74,7 @@ export async function POST(req: Request) {
   // Credit deduction for PM-scheduled sessions
   const CREDIT_COST: Record<string, number> = { "private-30": 0.5, "private-45": 0.75, "private-60": 1, "private-90": 1.5 }
   const creditCost = CREDIT_COST[sessionType ?? "private-60"] ?? 1
+  let dancerDisplayName: string = dancer?.name ?? dancerEmail
   if (dancer?.id) {
     const safeId = dancer.id.replace(/'/g, "\\'")
     const clientRecords = await appBase.list<{ "Credits Remaining": number; Name: string }>(
@@ -81,6 +82,7 @@ export async function POST(req: Request) {
     )
     const clientRecord = clientRecords[0]
     if (clientRecord) {
+      if (clientRecord.fields.Name) dancerDisplayName = clientRecord.fields.Name
       const current = (clientRecord.fields["Credits Remaining"] ?? 0) as number
       if (current < creditCost) {
         return NextResponse.json({ ok: false, error: "NO_CREDITS" })
@@ -118,7 +120,7 @@ export async function POST(req: Request) {
   ;(async () => {
     const pmUserId = pmRow?.id
     const eventArgs = {
-      dancerName: dancer?.name ?? dancerEmail,
+      dancerName: dancerDisplayName,
       prepMasterName: prepMaster.name,
       date,
       time,
