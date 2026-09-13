@@ -197,7 +197,7 @@ function HourlyView({
                 }}>
                   <Text style={{ fontSize: 12, fontWeight: "600", color: block.isCDP ? COLORS.primary : COLORS.text }} numberOfLines={1}>{block.title}</Text>
                   {block.height > 36 && block.subtitle ? <Text style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 1 }} numberOfLines={1}>{block.subtitle}</Text> : null}
-                  {block.height > 36 ? <Text style={{ fontSize: 10, color: block.isCDP ? COLORS.primary : COLORS.textMuted, marginTop: 1 }}>{formatEventTime(block.isCDP ? null : (calEvents.find(e => `e-${e.id}` === block.key)?.start ?? null))}{block.isCDP && block.booking ? formatTime(block.booking.time, block.booking.utcDatetime) : ""}</Text> : null}
+                  {block.height > 36 ? <Text style={{ fontSize: 10, color: block.isCDP ? COLORS.primary : COLORS.textMuted, marginTop: 1 }}>{block.isCDP && block.booking ? formatTime(block.booking.time, block.booking.utcDatetime) : formatEventTime(calEvents.find(e => `e-${e.id}` === block.key)?.start ?? null)}</Text> : null}
                 </View>
               )
               if (block.booking) {
