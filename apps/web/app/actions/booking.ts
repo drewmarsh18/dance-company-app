@@ -494,18 +494,7 @@ export async function createBooking(input: {
       }
     }).catch(() => {})
 
-    // Create Google Calendar event on PrepMaster's calendar — fire and forget
-    getPrepMaster(input.prepMasterId).then(async (pm) => {
-      if (!pm?.email) return
-      const [pmUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, pm.email))
-      if (!pmUser) return
-      createCalendarEvent(pmUser.id, {
-        dancerName: user.name,
-        date: input.date,
-        time: input.time,
-        notes: input.notes,
-      }).catch((e) => console.error("Calendar event failed:", e))
-    }).catch(() => {})
+    // PM and member calendar events are created at confirm time, not at booking request time.
 
     // Notify PrepMaster by SMS — fire and forget so a Twilio error never blocks the booking
     getPrepMasterPhone(input.prepMasterId).then((phone) => {

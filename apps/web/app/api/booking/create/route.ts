@@ -140,15 +140,7 @@ export async function POST(req: Request) {
     if (planToMark) await setPlanStatus(planToMark.id, "Used")
   }
 
-  // Add to member's Google Calendar (fire and forget)
-  createCalendarEvent(effectiveUserId, {
-    dancerName: client.fields.Name ?? user.name ?? "Member",
-    prepMasterName,
-    date,
-    time,
-    notes,
-    sessionType: sessionType ?? "pack-hour",
-  }).catch(() => {})
+  // Calendar events for PM and member are created at confirm time, not here.
 
   // Look up member timezone for notification body
   const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, effectiveUserId)).limit(1)
@@ -209,13 +201,7 @@ export async function POST(req: Request) {
         pushData: { bookingId: record.id, approveUrl, denyUrl },
       }).catch(() => {})
 
-      createCalendarEvent(pmUser.id, {
-        dancerName: user.name,
-        date,
-        time,
-        notes,
-        sessionType,
-      }).catch(() => {})
+      // PM calendar event created at confirm time, not here.
     }
   }).catch(() => {})
 
