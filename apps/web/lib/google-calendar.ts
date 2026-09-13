@@ -109,7 +109,6 @@ function formatSlotInTz(utcMs: number, timezone: string): string {
 function busyWindowsToSlots(
   busy: { start: string; end: string }[],
   dateIso: string,
-  slotDurationMin: number,
   timezone: string,
 ): string[] {
   const blocked = new Set<string>()
@@ -123,8 +122,10 @@ function busyWindowsToSlots(
     // (15-min steps so we catch :00, :15, :30, :45 slots — PMs can have any granularity)
     for (let offsetMin = -24 * 60; offsetMin < 48 * 60; offsetMin += 15) {
       const slotStartMs = dayUtcMs + offsetMin * 60_000
-      const slotEndMs = slotStartMs + slotDurationMin * 60_000
-      if (slotStartMs >= windowEnd || slotEndMs <= windowStart) continue
+      // Block only slots whose start falls inside the busy window.
+      // Overlap-based blocking (slotEnd > windowStart) caused slots before the
+      // window to be blocked because a 60-min session would run into it.
+      if (slotStartMs < windowStart || slotStartMs >= windowEnd) continue
       // Check if this UTC instant falls on the correct local date
       const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date(slotStartMs))
       if (localDate !== dateIso) continue
@@ -159,7 +160,7 @@ export async function getCalendarBusySlots(
   if (!res.ok) return []
 
   const data = await res.json() as { calendars?: { primary?: { busy?: { start: string; end: string }[] } } }
-  return busyWindowsToSlots(data.calendars?.primary?.busy ?? [], dateIso, slotDurationMin, timezone)
+  return busyWindowsToSlots(data.calendars?.primary?.busy ?? [], dateIso, timezone)
 }
 
 /**
@@ -216,7 +217,7 @@ export async function getCalendarBusyRange(
 
   const result: Record<string, string[]> = {}
   for (const [dateIso, windows] of Object.entries(byDate)) {
-    const slots = busyWindowsToSlots(windows, dateIso, slotDurationMin, timezone)
+    const slots = busyWindowsToSlots(windows, dateIso, timezone)
     if (slots.length > 0) result[dateIso] = slots
   }
   return result
