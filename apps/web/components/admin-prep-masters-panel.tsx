@@ -43,6 +43,28 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
   const [selected, setSelected] = useState<AdminWorker | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [localWorkers, setLocalWorkers] = useState<AdminWorker[]>(workers)
+  const [isBulkInviting, setIsBulkInviting] = useState(false)
+
+  const uninvited = localWorkers.filter((w) => w.inviteStatus !== "accepted" && w.email)
+
+  async function handleBulkInvite() {
+    if (uninvited.length === 0) { toast.info("All PrepMasters have already joined."); return }
+    setIsBulkInviting(true)
+    const results = await Promise.allSettled(
+      uninvited.map((w) =>
+        fetch("/api/admin/prep-masters/invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: w.email, name: w.name }),
+        }).then((r) => r.json())
+      )
+    )
+    const sent = results.filter((r) => r.status === "fulfilled" && (r.value as any).ok).length
+    const failed = results.length - sent
+    setIsBulkInviting(false)
+    if (sent > 0) toast.success(`Invite${sent === 1 ? "" : "s"} sent to ${sent} PrepMaster${sent === 1 ? "" : "s"}.`)
+    if (failed > 0) toast.error(`${failed} invite${failed === 1 ? "" : "s"} failed to send.`)
+  }
 
   const filtered = query.trim()
     ? localWorkers.filter((w) => w.name.toLowerCase().includes(query.toLowerCase()))
@@ -76,7 +98,13 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {uninvited.length > 0 && (
+          <Button size="sm" variant="outline" onClick={handleBulkInvite} disabled={isBulkInviting}>
+            <Send className="mr-1.5 size-3.5" />
+            {isBulkInviting ? "Sending…" : `Send ${uninvited.length} pending invite${uninvited.length === 1 ? "" : "s"}`}
+          </Button>
+        )}
         <Button size="sm" onClick={() => setShowAddForm((v) => !v)} variant={showAddForm ? "outline" : "default"}>
           {showAddForm ? <><X className="mr-1.5 size-3.5" />Cancel</> : <><PlusCircle className="mr-1.5 size-3.5" />Add PrepMaster</>}
         </Button>

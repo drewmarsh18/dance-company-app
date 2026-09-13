@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
   const { subject, html } = prepMasterInviteEmail({ name: name.trim(), email: normalizedEmail })
   try {
-    await sendEmail({ to: normalizedEmail, subject, html })
+    await sendEmail({ to: normalizedEmail, cc: "cdprepadmin1@gmail.com", subject, html })
   } catch (e) {
     const emailError = e instanceof Error ? e.message : String(e)
     console.error("[prepmaster invite] email failed:", emailError)
