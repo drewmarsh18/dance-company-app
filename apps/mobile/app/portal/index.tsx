@@ -894,9 +894,10 @@ export default function PortalDashboard() {
   const [calConnected, setCalConnected] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<PrepMasterBooking | null>(null)
 
-  // Tracks optimistic status patches so a stale server re-fetch can't downgrade them.
-  // Entries expire after 8 seconds — enough time for Airtable to reflect the change.
-  const optimisticRef = useRef<Map<string, { patch: Partial<PrepMasterBooking>; expiry: number }>>(new Map())
+  // Tracks optimistic status patches so stale server re-fetches can't downgrade them.
+  // Patches are cleared only once the server data catches up to the optimistic status —
+  // never on a timer — so any polling interval length is safe.
+  const optimisticRef = useRef<Map<string, Partial<PrepMasterBooking>>>(new Map())
 
   const load = useCallback(async () => {
     try {
@@ -906,16 +907,40 @@ export default function PortalDashboard() {
       ])
       if (dashRes.error || !dashRes.data) throw new Error((dashRes.error as any)?.statusText ?? "Failed to load")
       const raw = dashRes.data as DashData
-      // Apply any live optimistic patches on top of server data to prevent stale overwrites
-      const now = Date.now()
       const patches = optimisticRef.current
-      for (const [pid, entry] of patches) { if (entry.expiry < now) patches.delete(pid) }
-      const applyPatches = (list: PrepMasterBooking[]) =>
-        list.map((b) => { const p = patches.get(b.id); return p ? { ...b, ...p.patch } : b })
-      setData(patches.size > 0
-        ? { ...raw, upcoming: applyPatches(raw.upcoming), completed: applyPatches(raw.completed), cancelled: applyPatches(raw.cancelled) }
-        : raw
-      )
+
+      if (patches.size > 0) {
+        // Apply optimistic patches on top of server data.
+        // If the server has caught up (status matches), clear the patch so it doesn't linger.
+        // If the server is still stale, keep our patch so it wins.
+        const applyToList = (list: PrepMasterBooking[], removeTerminal = false) =>
+          list
+            .filter((b) => {
+              if (!removeTerminal) return true
+              const optStatus = patches.get(b.id)?.status?.toLowerCase()
+              // Remove from upcoming if we already optimistically marked it as terminal
+              return optStatus !== "declined" && optStatus !== "cancelled"
+            })
+            .map((b) => {
+              const p = patches.get(b.id)
+              if (!p) return b
+              const serverStatus = b.status.toLowerCase()
+              const optStatus = p.status?.toLowerCase()
+              if (!optStatus || serverStatus === optStatus) {
+                patches.delete(b.id) // server caught up — drop the patch
+                return b
+              }
+              return { ...b, ...p } // server is stale — apply our optimistic version
+            })
+        setData({
+          ...raw,
+          upcoming: applyToList(raw.upcoming, true),
+          completed: applyToList(raw.completed),
+          cancelled: applyToList(raw.cancelled),
+        })
+      } else {
+        setData(raw)
+      }
       setError(null)
       if (!calRes.error && calRes.data) {
         const cal = calRes.data as { connected: boolean; events: CalEvent[] }
@@ -963,8 +988,8 @@ export default function PortalDashboard() {
 
   function handleUpdate(id: string, patch: Partial<PrepMasterBooking>) {
     // Register optimistic patch so load() can't overwrite it with stale server data
-    const existing = optimisticRef.current.get(id)?.patch ?? {}
-    optimisticRef.current.set(id, { patch: { ...existing, ...patch }, expiry: Date.now() + 8000 })
+    const existing = optimisticRef.current.get(id) ?? {}
+    optimisticRef.current.set(id, { ...existing, ...patch })
 
     setData((prev) => {
       if (!prev) return prev
