@@ -106,32 +106,38 @@ function MiniCalendar({
         </TouchableOpacity>
       </View>
       <View style={styles.calGrid}>
-        {WEEK_DAYS.map((wd) => (
-          <View key={wd} style={styles.calDayHeader}>
-            <Text style={styles.calDayHeaderText}>{wd}</Text>
+        <View style={styles.calRow}>
+          {WEEK_DAYS.map((wd) => (
+            <View key={wd} style={styles.calDayHeader}>
+              <Text style={styles.calDayHeaderText}>{wd}</Text>
+            </View>
+          ))}
+        </View>
+        {Array.from({ length: Math.ceil(cells.length / 7) }, (_, rowIdx) => (
+          <View key={rowIdx} style={styles.calRow}>
+            {cells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => {
+              if (!day) return <View key={`e-${rowIdx}-${colIdx}`} style={styles.calCell} />
+              const dateStr = `${year}-${pad2(month + 1)}-${pad2(day)}`
+              const cellDate = new Date(year, month, day)
+              const isPast = cellDate < today
+              const isSelected = dateStr === selectedDate
+              const isToday = cellDate.getTime() === today.getTime()
+              return (
+                <TouchableOpacity
+                  key={dateStr}
+                  style={[styles.calCell, isSelected && styles.calCellSelected, isToday && !isSelected && styles.calCellToday]}
+                  onPress={() => !isPast && onSelect(dateStr)}
+                  activeOpacity={isPast ? 1 : 0.7}
+                  disabled={isPast}
+                >
+                  <Text style={[styles.calCellText, isPast && styles.calCellPast, isSelected && styles.calCellTextSelected]}>
+                    {day}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
           </View>
         ))}
-        {cells.map((day, i) => {
-          if (!day) return <View key={`e-${i}`} style={styles.calCell} />
-          const dateStr = `${year}-${pad2(month + 1)}-${pad2(day)}`
-          const cellDate = new Date(year, month, day)
-          const isPast = cellDate < today
-          const isSelected = dateStr === selectedDate
-          const isToday = cellDate.getTime() === today.getTime()
-          return (
-            <TouchableOpacity
-              key={dateStr}
-              style={[styles.calCell, isSelected && styles.calCellSelected, isToday && !isSelected && styles.calCellToday]}
-              onPress={() => !isPast && onSelect(dateStr)}
-              activeOpacity={isPast ? 1 : 0.7}
-              disabled={isPast}
-            >
-              <Text style={[styles.calCellText, isPast && styles.calCellPast, isSelected && styles.calCellTextSelected]}>
-                {day}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
       </View>
     </View>
   )
@@ -483,10 +489,11 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     calNavRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
     calNavBtn: { padding: 4 },
     calMonthLabel: { fontSize: 14, fontWeight: "700", color: COLORS.text },
-    calGrid: { flexDirection: "row", flexWrap: "wrap" },
-    calDayHeader: { width: "14.285714%", alignItems: "center", paddingVertical: 4 },
+    calGrid: { flexDirection: "column" },
+    calRow: { flexDirection: "row" },
+    calDayHeader: { flex: 1, alignItems: "center", paddingVertical: 4 },
     calDayHeaderText: { fontSize: 11, fontWeight: "600", color: COLORS.textMuted },
-    calCell: { width: "14.285714%", alignItems: "center", paddingVertical: 6 },
+    calCell: { flex: 1, alignItems: "center", paddingVertical: 6 },
     calCellSelected: { backgroundColor: COLORS.primary, borderRadius: RADIUS.full },
     calCellToday: { borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.primary },
     calCellText: { fontSize: 13, color: COLORS.text, fontWeight: "500" },
