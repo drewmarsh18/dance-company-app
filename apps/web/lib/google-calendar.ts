@@ -87,6 +87,22 @@ const SESSION_DURATION: Record<string, number> = {
   "pack-hour": 60,
 }
 
+// Formats a UTC timestamp as an Airtable-style slot string ("10:00 AM", "1:30 PM")
+// in the given timezone. Uses formatToParts to avoid the narrow no-break space
+// (U+202F) that toLocaleTimeString inserts between digits and AM/PM in Node 18+.
+function formatSlotInTz(utcMs: number, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(new Date(utcMs))
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "12"
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "00"
+  const period = (parts.find((p) => p.type === "dayPeriod")?.value ?? "AM").toUpperCase()
+  return `${hour}:${minute} ${period}`
+}
+
 // Converts busy windows from Google (UTC ISO strings) to Airtable-style time slot strings
 // ("9:00 AM", "1:30 PM", etc.) in the PrepMaster's local timezone.
 // Slots are 30-min aligned; a slot is blocked if it overlaps the busy window by any amount.
@@ -108,18 +124,10 @@ function busyWindowsToSlots(
       const slotStartMs = dayUtcMs + offsetMin * 60_000
       const slotEndMs = slotStartMs + slotDurationMin * 60_000
       if (slotStartMs >= windowEnd || slotEndMs <= windowStart) continue
-      // This UTC interval overlaps the busy window — check if it falls on the right local date
-      const d = new Date(slotStartMs)
-      const localDate = d.toLocaleDateString("en-CA", { timeZone: timezone }) // YYYY-MM-DD
+      // Check if this UTC instant falls on the correct local date
+      const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date(slotStartMs))
       if (localDate !== dateIso) continue
-      // Format as Airtable time string: "10:00 AM", "1:30 PM", etc.
-      const timeStr = d.toLocaleTimeString("en-US", {
-        timeZone: timezone,
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      })
-      blocked.add(timeStr)
+      blocked.add(formatSlotInTz(slotStartMs, timezone))
     }
   }
   return [...blocked]
