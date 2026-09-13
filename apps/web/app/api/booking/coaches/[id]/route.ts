@@ -57,11 +57,12 @@ export async function GET(
     // Merge Google Calendar busy slots so members can't book over the PM's existing events.
     // Single freebusy API call for the whole window instead of one call per day.
     const [pmUser] = await db
-      .select({ id: userTable.id })
+      .select({ id: userTable.id, timezone: userTable.timezone })
       .from(userTable)
       .where(eq(userTable.email, coach.email))
     if (pmUser) {
-      const calBusy = await getCalendarBusyRange(pmUser.id, todayIso, endIso).catch(() => ({}))
+      const pmTimezone = pmUser.timezone ?? "America/New_York"
+      const calBusy = await getCalendarBusyRange(pmUser.id, todayIso, endIso, 60, pmTimezone).catch(() => ({}))
       for (const [date, slots] of Object.entries(calBusy)) {
         if (!bookedSlots[date]) bookedSlots[date] = []
         for (const slot of slots) {

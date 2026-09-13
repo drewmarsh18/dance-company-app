@@ -55,7 +55,7 @@ export default async function BookPage({
     const end = new Date(today)
     end.setDate(end.getDate() + 56)
     const endIso = end.toISOString().slice(0, 10)
-    const calBusy = await getCalendarBusyRange(pmUserRow[0].id, startIso, endIso).catch(() => ({}))
+    const calBusy = await getCalendarBusyRange(pmUserRow[0].id, startIso, endIso, 60, prepMasterTimezone).catch(() => ({}))
     for (const [date, slots] of Object.entries(calBusy)) {
       if (!bookedSlots[date]) bookedSlots[date] = []
       for (const slot of slots) {

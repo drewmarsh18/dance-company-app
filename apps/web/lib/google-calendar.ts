@@ -87,28 +87,42 @@ const SESSION_DURATION: Record<string, number> = {
   "pack-hour": 60,
 }
 
+// Converts busy windows from Google (UTC ISO strings) to Airtable-style time slot strings
+// ("9:00 AM", "1:30 PM", etc.) in the PrepMaster's local timezone.
+// Slots are 30-min aligned; a slot is blocked if it overlaps the busy window by any amount.
 function busyWindowsToSlots(
   busy: { start: string; end: string }[],
   dateIso: string,
   slotDurationMin: number,
+  timezone: string,
 ): string[] {
-  const blocked: string[] = []
+  const blocked = new Set<string>()
+  // UTC ms for the start of this date — used as anchor; we walk ±24h to cover all tz offsets
+  const dayUtcMs = new Date(`${dateIso}T00:00:00Z`).getTime()
+
   for (const window of busy) {
     const windowStart = new Date(window.start).getTime()
     const windowEnd = new Date(window.end).getTime()
-    for (let minuteOfDay = 0; minuteOfDay < 24 * 60; minuteOfDay += 30) {
-      const slotStart = new Date(`${dateIso}T00:00:00Z`).getTime() + minuteOfDay * 60_000
-      const slotEnd = slotStart + slotDurationMin * 60_000
-      if (slotStart < windowEnd && slotEnd > windowStart) {
-        const hour = Math.floor(minuteOfDay / 60)
-        const min = minuteOfDay % 60
-        const ampm = hour < 12 ? "AM" : "PM"
-        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
-        blocked.push(`${displayHour}:${String(min).padStart(2, "0")} ${ampm}`)
-      }
+    // Walk every 30-min UTC increment across the full ±24h window around this date
+    for (let offsetMin = -24 * 60; offsetMin < 48 * 60; offsetMin += 30) {
+      const slotStartMs = dayUtcMs + offsetMin * 60_000
+      const slotEndMs = slotStartMs + slotDurationMin * 60_000
+      if (slotStartMs >= windowEnd || slotEndMs <= windowStart) continue
+      // This UTC interval overlaps the busy window — check if it falls on the right local date
+      const d = new Date(slotStartMs)
+      const localDate = d.toLocaleDateString("en-CA", { timeZone: timezone }) // YYYY-MM-DD
+      if (localDate !== dateIso) continue
+      // Format as Airtable time string: "10:00 AM", "1:30 PM", etc.
+      const timeStr = d.toLocaleTimeString("en-US", {
+        timeZone: timezone,
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+      blocked.add(timeStr)
     }
   }
-  return [...new Set(blocked)]
+  return [...blocked]
 }
 
 /**
@@ -120,6 +134,7 @@ export async function getCalendarBusySlots(
   userId: string,
   dateIso: string,
   slotDurationMin = 60,
+  timezone = "America/New_York",
 ): Promise<string[]> {
   const accessToken = await getAccessToken(userId)
   if (!accessToken) return []
@@ -135,7 +150,7 @@ export async function getCalendarBusySlots(
   if (!res.ok) return []
 
   const data = await res.json() as { calendars?: { primary?: { busy?: { start: string; end: string }[] } } }
-  return busyWindowsToSlots(data.calendars?.primary?.busy ?? [], dateIso, slotDurationMin)
+  return busyWindowsToSlots(data.calendars?.primary?.busy ?? [], dateIso, slotDurationMin, timezone)
 }
 
 /**
@@ -148,6 +163,7 @@ export async function getCalendarBusyRange(
   startIso: string,
   endIso: string,
   slotDurationMin = 60,
+  timezone = "America/New_York",
 ): Promise<Record<string, string[]>> {
   const accessToken = await getAccessToken(userId)
   if (!accessToken) return {}
@@ -166,24 +182,33 @@ export async function getCalendarBusyRange(
   const busy = data.calendars?.primary?.busy ?? []
   if (busy.length === 0) return {}
 
-  // Group busy windows by date, then convert each group to slot strings
+  // Group busy windows by date (in the PM's local timezone), then convert to slot strings.
+  // A window that spans midnight local time needs to appear on both dates.
   const byDate: Record<string, { start: string; end: string }[]> = {}
   for (const window of busy) {
-    // A window can span midnight — attribute it to every date it touches
+    const windowEndMs = new Date(window.end).getTime()
     const cur = new Date(window.start)
     cur.setUTCHours(0, 0, 0, 0)
-    const windowEndMs = new Date(window.end).getTime()
     while (cur.getTime() < windowEndMs) {
-      const dateIso = cur.toISOString().slice(0, 10)
-      if (!byDate[dateIso]) byDate[dateIso] = []
-      byDate[dateIso].push(window)
+      const utcDateIso = cur.toISOString().slice(0, 10)
+      // Check the local date on both sides of UTC midnight to handle timezone offsets
+      const localDates = new Set([
+        utcDateIso,
+        new Date(cur.getTime() - 14 * 3600_000).toLocaleDateString("en-CA", { timeZone: timezone }),
+        new Date(cur.getTime() + 14 * 3600_000).toLocaleDateString("en-CA", { timeZone: timezone }),
+      ])
+      for (const dateIso of localDates) {
+        if (!byDate[dateIso]) byDate[dateIso] = []
+        if (!byDate[dateIso].includes(window)) byDate[dateIso].push(window)
+      }
       cur.setUTCDate(cur.getUTCDate() + 1)
     }
   }
 
   const result: Record<string, string[]> = {}
   for (const [dateIso, windows] of Object.entries(byDate)) {
-    result[dateIso] = busyWindowsToSlots(windows, dateIso, slotDurationMin)
+    const slots = busyWindowsToSlots(windows, dateIso, slotDurationMin, timezone)
+    if (slots.length > 0) result[dateIso] = slots
   }
   return result
 }
