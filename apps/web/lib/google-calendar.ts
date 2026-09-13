@@ -119,8 +119,9 @@ function busyWindowsToSlots(
   for (const window of busy) {
     const windowStart = new Date(window.start).getTime()
     const windowEnd = new Date(window.end).getTime()
-    // Walk every 30-min UTC increment across the full ±24h window around this date
-    for (let offsetMin = -24 * 60; offsetMin < 48 * 60; offsetMin += 30) {
+    // Walk every 15-min UTC increment across the full ±24h window around this date
+    // (15-min steps so we catch :00, :15, :30, :45 slots — PMs can have any granularity)
+    for (let offsetMin = -24 * 60; offsetMin < 48 * 60; offsetMin += 15) {
       const slotStartMs = dayUtcMs + offsetMin * 60_000
       const slotEndMs = slotStartMs + slotDurationMin * 60_000
       if (slotStartMs >= windowEnd || slotEndMs <= windowStart) continue
