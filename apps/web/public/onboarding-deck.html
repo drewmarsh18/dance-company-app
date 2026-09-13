@@ -400,7 +400,6 @@ body{background:#08080f;font-family:'Inter',sans-serif;color:var(--text);min-hei
       <div class="step"><div class="badge">3</div><div class="step-text"><strong>LINK GOOGLE</strong> — tap the banner or the Google row; your Gmail must match your CDP email</div></div>
       <div class="step"><div class="badge">4</div><div class="step-text"><strong>APPEARANCE</strong> — choose Light, Dark, or System theme</div></div>
     </div>
-    <div class="tip"><strong>Admin accounts only:</strong> A <strong>Switch View</strong> option appears in your Profile tab — use it to jump between Admin view, PrepMaster view, and Member view without signing out.</div>
   </div>
   <div class="right"><div style="position:relative;width:220px;flex-shrink:0;">
       <div style="border-radius:44px;overflow:hidden;border:2.5px solid #2a2a3a;
@@ -412,62 +411,116 @@ body{background:#08080f;font-family:'Inter',sans-serif;color:var(--text);min-hei
 </div></div>
 
 <!-- 11 GOOGLE LINKING -->
-<div class="slide"><div class="two-col">
-  <div class="left">
-    <div class="sn">11</div>
-    <div class="eyebrow">Profile · Google Account</div>
-    <h2 class="slide-title">Link Google for faster sign-in</h2>
-    <p class="slide-body">After signing in, you can connect your Google account so you never need to type a password again — just tap <strong>"Continue with Google"</strong> on the login screen.</p>
-    <div class="steps">
-      <div class="step"><div class="badge">1</div><div class="step-text">Open the <strong>Profile tab</strong> in the app</div></div>
-      <div class="step"><div class="badge">2</div><div class="step-text">Tap <strong>"Link Google"</strong> in the banner or the connected accounts section</div></div>
-      <div class="step"><div class="badge">3</div><div class="step-text">Sign in with the <strong>Google account that matches your CDP email</strong> — mismatched emails are rejected for security</div></div>
-      <div class="step"><div class="badge">4</div><div class="step-text">Done — future logins can use <strong>Google One Tap</strong>, no password needed</div></div>
+<div class="slide"><div style="display:grid;grid-template-columns:1fr 1fr;height:100%;">
+
+  <!-- LEFT: Google Sign-In -->
+  <div style="display:flex;flex-direction:column;justify-content:center;padding:36px 36px 36px 48px;border-right:1px solid var(--border);position:relative;overflow:hidden;">
+    <div style="position:absolute;top:-20px;left:-10px;font-family:'Sora',sans-serif;font-size:96px;font-weight:800;color:rgba(66,133,244,.07);line-height:1;pointer-events:none;letter-spacing:-.04em;">Sign-In</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;flex-shrink:0;" fill="none">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      <div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#4285F4;font-weight:600;font-family:'Sora',sans-serif;">Connect Google for Sign-In</div>
     </div>
-    <div class="tip"><strong>Important:</strong> Your Google account email must exactly match the email on your CDP account. This is enforced to keep your account secure.</div>
-  </div>
-  <div class="right">
-    <div style="display:flex;flex-direction:column;gap:14px;width:252px;">
-      <!-- nudge banner mock -->
-      <div style="background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.22);border-radius:12px;padding:13px 14px;display:flex;align-items:center;gap:12px;position:relative;">
-        <div style="width:34px;height:34px;border-radius:9px;background:#1c1c2a;border:1px solid rgba(255,255,255,.09);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <svg viewBox="0 0 24 24" style="width:18px;height:18px;" fill="none">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:11px;font-weight:600;margin-bottom:2px;">Sign in faster with Google</div>
-          <div style="font-size:9.5px;color:var(--muted);line-height:1.5;">Link your Google account to skip the password next time.</div>
-        </div>
-        <div style="background:var(--card2);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:9.5px;font-weight:700;white-space:nowrap;cursor:pointer;flex-shrink:0;">Link</div>
+    <h2 style="font-family:'Sora',sans-serif;font-size:22px;font-weight:700;line-height:1.2;letter-spacing:-.02em;text-wrap:balance;margin-bottom:8px;">Skip the password.<br>One tap to log in.</h2>
+    <p style="font-size:12.5px;line-height:1.65;color:var(--muted);margin-bottom:16px;max-width:340px;">Link your Google account so you can sign in with <strong style="color:var(--text)">Continue with Google</strong> instead of typing your password.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="width:20px;height:20px;border-radius:50%;background:rgba(66,133,244,.15);border:1px solid rgba(66,133,244,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:#4285F4;margin-top:1px;">1</div>
+        <div style="font-size:12px;line-height:1.55;color:var(--muted);">Open your <strong style="color:var(--text)">Profile tab</strong> and tap <strong style="color:var(--text)">"Link Google"</strong> in the banner</div>
       </div>
-      <!-- what happens next -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;">
-        <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--pink);font-weight:600;margin-bottom:10px;">After linking</div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <div style="display:flex;align-items:center;gap:9px;">
-            <div style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>
-            <div style="font-size:10.5px;color:var(--muted);">Login screen shows <strong style="color:var(--text)">Continue with Google</strong></div>
-          </div>
-          <div style="display:flex;align-items:center;gap:9px;">
-            <div style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>
-            <div style="font-size:10.5px;color:var(--muted);">One tap — no password ever again</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:9px;">
-            <div style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>
-            <div style="font-size:10.5px;color:var(--muted);">Email must match your <strong style="color:var(--text)">CDP account</strong></div>
-          </div>
-          <div style="display:flex;align-items:center;gap:9px;">
-            <div style="width:7px;height:7px;border-radius:50%;background:rgba(239,68,68,.7);flex-shrink:0;"></div>
-            <div style="font-size:10.5px;color:var(--muted);">Different Gmail address? <strong style="color:#ef4444">Rejected</strong></div>
-          </div>
-        </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="width:20px;height:20px;border-radius:50%;background:rgba(66,133,244,.15);border:1px solid rgba(66,133,244,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:#4285F4;margin-top:1px;">2</div>
+        <div style="font-size:12px;line-height:1.55;color:var(--muted);">Sign in with the Google account whose email <strong style="color:var(--text)">matches your CDP account</strong></div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="width:20px;height:20px;border-radius:50%;background:rgba(66,133,244,.15);border:1px solid rgba(66,133,244,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:#4285F4;margin-top:1px;">3</div>
+        <div style="font-size:12px;line-height:1.55;color:var(--muted);">Done — the login screen will now show <strong style="color:var(--text)">Continue with Google</strong></div>
       </div>
     </div>
+    <!-- email-must-match callout -->
+    <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px 13px;display:flex;align-items:center;gap:10px;max-width:340px;">
+      <svg viewBox="0 0 24 24" style="width:15px;height:15px;flex-shrink:0;" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <div style="font-size:11px;line-height:1.5;color:var(--muted);">Your Gmail address must <strong style="color:#ef4444">exactly match</strong> your CDP account email. Mismatched accounts are rejected for security.</div>
+    </div>
+    <!-- mini mock: link banner -->
+    <div style="margin-top:16px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;max-width:340px;">
+      <div style="width:28px;height:28px;border-radius:7px;background:var(--card2);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;" fill="none">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:10px;font-weight:600;margin-bottom:1px;">Sign in faster with Google</div>
+        <div style="font-size:9px;color:var(--muted);">Link your matching Google account to skip the password.</div>
+      </div>
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:4px 9px;font-size:9px;font-weight:700;white-space:nowrap;flex-shrink:0;">Link</div>
+    </div>
   </div>
+
+  <!-- RIGHT: Google Calendar -->
+  <div style="display:flex;flex-direction:column;justify-content:center;padding:36px 48px 36px 36px;position:relative;overflow:hidden;">
+    <div style="position:absolute;top:-20px;right:-10px;font-family:'Sora',sans-serif;font-size:96px;font-weight:800;color:rgba(233,30,140,.07);line-height:1;pointer-events:none;letter-spacing:-.04em;text-align:right;">Cal</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;flex-shrink:0;" fill="none" stroke="var(--pink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--pink);font-weight:600;font-family:'Sora',sans-serif;">Link Google Calendar</div>
+    </div>
+    <h2 style="font-family:'Sora',sans-serif;font-size:22px;font-weight:700;line-height:1.2;letter-spacing:-.02em;text-wrap:balance;margin-bottom:8px;">Sync any Google Calendar.<br>Any account.</h2>
+    <p style="font-size:12.5px;line-height:1.65;color:var(--muted);margin-bottom:16px;max-width:340px;">Connect a Google Calendar to view your bookings alongside your personal schedule. You can use <strong style="color:var(--text)">any Google account</strong> — it doesn't have to match your CDP email.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="width:20px;height:20px;border-radius:50%;background:var(--pink-dim);border:1px solid rgba(233,30,140,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:var(--pink);margin-top:1px;">1</div>
+        <div style="font-size:12px;line-height:1.55;color:var(--muted);">Open your <strong style="color:var(--text)">Profile tab</strong> and tap the <strong style="color:var(--text)">Google Calendar</strong> row</div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="width:20px;height:20px;border-radius:50%;background:var(--pink-dim);border:1px solid rgba(233,30,140,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:var(--pink);margin-top:1px;">2</div>
+        <div style="font-size:12px;line-height:1.55;color:var(--muted);">Choose whichever Google account holds the calendar you want to connect</div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="width:20px;height:20px;border-radius:50%;background:var(--pink-dim);border:1px solid rgba(233,30,140,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:var(--pink);margin-top:1px;">3</div>
+        <div style="font-size:12px;line-height:1.55;color:var(--muted);">Approve calendar access — your CDP sessions will sync immediately</div>
+      </div>
+    </div>
+    <!-- any-account callout -->
+    <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:10px 13px;display:flex;align-items:center;gap:10px;max-width:340px;margin-bottom:16px;">
+      <svg viewBox="0 0 24 24" style="width:15px;height:15px;flex-shrink:0;" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <div style="font-size:11px;line-height:1.5;color:var(--muted);">Use your <strong style="color:#22c55e">personal, family, or work Google account</strong> — no email matching required for calendar access.</div>
+    </div>
+    <!-- mini mock: profile calendar row -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:340px;">
+      <div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;">Connected Accounts</div>
+      <div style="padding:9px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;flex-shrink:0;" fill="none">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        <div style="font-size:10px;color:var(--text);flex:1;">Google Sign-In</div>
+        <div style="font-size:9px;background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25);border-radius:4px;padding:2px 7px;">Linked</div>
+      </div>
+      <div style="padding:9px 12px;display:flex;align-items:center;gap:10px;background:rgba(233,30,140,.04);">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;flex-shrink:0;" fill="none" stroke="var(--pink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <div style="font-size:10px;color:var(--pink);flex:1;font-weight:500;">Google Calendar</div>
+        <div style="font-size:9px;color:var(--muted);display:flex;align-items:center;gap:3px;">Tap to connect <svg viewBox="0 0 24 24" style="width:9px;height:9px;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </div>
+    </div>
+  </div>
+
 </div></div>
 
 <!-- 12 SUMMARY -->

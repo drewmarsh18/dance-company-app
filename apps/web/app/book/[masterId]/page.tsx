@@ -11,6 +11,7 @@ import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { getOrCreateProfile, getMyPlans } from "@/app/actions/profile"
 import { hasAnyAvailability, buildWeekTemplate } from "@/lib/availability"
 import { planDisplayStatus } from "@/lib/plan-utils"
+import { getCalendarBusyRange } from "@/lib/google-calendar"
 import { BookingFlow } from "@/components/booking-flow"
 import { BrandLogo } from "@/components/brand-logo"
 import { Badge } from "@/components/ui/badge"
@@ -39,12 +40,29 @@ export default async function BookPage({
     getAvailabilityForEmail(coach.email),
     getUpcomingBookedSlots(coach.name),
     getOrCreateProfile(),
-    db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, coach.email)).limit(1),
+    db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, coach.email)).limit(1),
   ])
   const effectiveId = profile.effectiveUserId || session.user.id
   const plans = await getMyPlans(effectiveId, profile.email || session.user.email)
   const week = buildWeekTemplate(savedAvailability)
   const prepMasterTimezone = pmUserRow[0]?.timezone ?? "America/New_York"
+
+  // Fetch the PrepMaster's calendar busy slots for the next 8 weeks in one API call
+  // and merge them into bookedSlots so the booking grid shows them as unavailable.
+  if (pmUserRow[0]?.id) {
+    const today = new Date()
+    const startIso = today.toISOString().slice(0, 10)
+    const end = new Date(today)
+    end.setDate(end.getDate() + 56)
+    const endIso = end.toISOString().slice(0, 10)
+    const calBusy = await getCalendarBusyRange(pmUserRow[0].id, startIso, endIso).catch(() => ({}))
+    for (const [date, slots] of Object.entries(calBusy)) {
+      if (!bookedSlots[date]) bookedSlots[date] = []
+      for (const slot of slots) {
+        if (!bookedSlots[date].includes(slot)) bookedSlots[date].push(slot)
+      }
+    }
+  }
   const credits = profile.creditsRemaining
 
   const initials = coach.name

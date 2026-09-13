@@ -12,6 +12,13 @@ import { toast } from "sonner"
 import { LogOut, Link as LinkIcon, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 10)
+  if (digits.length < 4) return digits
+  if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+}
+
 const UNIVERSITIES = [
   "Alabama","Arizona","ASU","Boise","Cincinnati","Coastal Carolina","CSU","CU Boulder",
   "ECU","Florida","FSU","GCU","Indiana","Iowa State","Kansas State","Kansas University",
@@ -34,7 +41,7 @@ export function PortalProfileForm({
   initialPhone, initialAddress, initialUniversity, calendarConnected, isGoogleLinked,
 }: Props) {
   const router = useRouter()
-  const [phone, setPhone] = useState(initialPhone)
+  const [phone, setPhone] = useState(formatPhone(initialPhone))
   const [address, setAddress] = useState(initialAddress)
   const [university, setUniversity] = useState(initialUniversity)
   const [uniSearch, setUniSearch] = useState(initialUniversity)
@@ -128,7 +135,7 @@ export function PortalProfileForm({
                 type="tel"
                 placeholder="(555) 000-0000"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(formatPhone(e.target.value))}
                 className="flex-1"
               />
               <Button

@@ -3,14 +3,12 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { StaffHeader } from "@/components/staff-header"
 import { PortalNav } from "@/components/portal-nav"
-import { NotificationBell } from "@/components/notification-bell"
 import { Toaster } from "@/components/ui/sonner"
 import {
   getSessionUserWithRole,
   homePathForRole,
   markInviteAccepted,
 } from "@/lib/roles"
-import { getUnreadCount } from "@/app/actions/notifications"
 import { ShieldCheck } from "lucide-react"
 
 export default async function PortalLayout({ children }: { children: ReactNode }) {
@@ -25,8 +23,6 @@ export default async function PortalLayout({ children }: { children: ReactNode }
     await markInviteAccepted(user.email)
   }
 
-  const unreadCount = await getUnreadCount(user.id)
-
   return (
     <div className="min-h-screen">
       <StaffHeader
@@ -34,7 +30,6 @@ export default async function PortalLayout({ children }: { children: ReactNode }
         roleLabel={isAdmin ? "Admin" : "PrepMaster"}
         homeHref="/portal"
         isAdmin={isAdmin}
-        notificationBell={<NotificationBell initialCount={unreadCount} />}
       />
       {isAdmin && (
         <div className="bg-primary/10 border-b border-primary/20 px-5 py-2">

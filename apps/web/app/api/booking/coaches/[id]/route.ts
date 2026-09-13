@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth"
 import { getPrepMaster, appBase, TABLES, type BookingFields } from "@/lib/airtable"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { buildWeekTemplate } from "@/lib/availability"
-import { getCalendarBusySlots } from "@/lib/google-calendar"
+import { getCalendarBusyRange } from "@/lib/google-calendar"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -54,31 +54,20 @@ export async function GET(
       bookedSlots[date].push(time)
     }
 
-    // Merge Google Calendar busy slots so members can't book over the PM's existing events
+    // Merge Google Calendar busy slots so members can't book over the PM's existing events.
+    // Single freebusy API call for the whole window instead of one call per day.
     const [pmUser] = await db
       .select({ id: userTable.id })
       .from(userTable)
       .where(eq(userTable.email, coach.email))
     if (pmUser) {
-      const dates = Object.keys(bookedSlots)
-      // Also include the next 28 days that have availability
-      const allDates = new Set(dates)
-      const cur = new Date(today)
-      while (cur <= end) {
-        allDates.add(toIso(cur))
-        cur.setDate(cur.getDate() + 1)
+      const calBusy = await getCalendarBusyRange(pmUser.id, todayIso, endIso).catch(() => ({}))
+      for (const [date, slots] of Object.entries(calBusy)) {
+        if (!bookedSlots[date]) bookedSlots[date] = []
+        for (const slot of slots) {
+          if (!bookedSlots[date].includes(slot)) bookedSlots[date].push(slot)
+        }
       }
-      await Promise.all(
-        [...allDates].map(async (date) => {
-          const busy = await getCalendarBusySlots(pmUser.id, date)
-          if (busy.length > 0) {
-            if (!bookedSlots[date]) bookedSlots[date] = []
-            for (const slot of busy) {
-              if (!bookedSlots[date].includes(slot)) bookedSlots[date].push(slot)
-            }
-          }
-        }),
-      )
     }
 
     return NextResponse.json({ coach, week, bookedSlots })

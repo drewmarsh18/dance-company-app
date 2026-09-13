@@ -87,47 +87,15 @@ const SESSION_DURATION: Record<string, number> = {
   "pack-hour": 60,
 }
 
-/**
- * Returns time slots (in "H:MM AM/PM" format matching Airtable Time values) that are
- * blocked by existing Google Calendar events for the given user on a specific date.
- * Uses the freebusy API. Returns [] if calendar is not connected or the call fails.
- */
-export async function getCalendarBusySlots(
-  userId: string,
-  dateIso: string, // YYYY-MM-DD in the PM's local date
-  slotDurationMin = 60,
-): Promise<string[]> {
-  const accessToken = await getAccessToken(userId)
-  if (!accessToken) return []
-
-  // Query the full day in UTC (midnight-to-midnight covers all timezone offsets)
-  const timeMin = new Date(`${dateIso}T00:00:00Z`).toISOString()
-  const timeMax = new Date(`${dateIso}T23:59:59Z`).toISOString()
-
-  const res = await fetch(`${GOOGLE_CALENDAR_API}/freeBusy`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      timeMin,
-      timeMax,
-      items: [{ id: "primary" }],
-    }),
-  })
-  if (!res.ok) return []
-
-  const data = await res.json() as { calendars?: { primary?: { busy?: { start: string; end: string }[] } } }
-  const busy = data.calendars?.primary?.busy ?? []
-  if (busy.length === 0) return []
-
-  // Convert busy windows to the time-slot strings used in Airtable ("9:00 AM", "10:30 AM", etc.)
+function busyWindowsToSlots(
+  busy: { start: string; end: string }[],
+  dateIso: string,
+  slotDurationMin: number,
+): string[] {
   const blocked: string[] = []
   for (const window of busy) {
     const windowStart = new Date(window.start).getTime()
     const windowEnd = new Date(window.end).getTime()
-    // Walk every 30-minute slot across the day and mark it blocked if it overlaps the busy window
     for (let minuteOfDay = 0; minuteOfDay < 24 * 60; minuteOfDay += 30) {
       const slotStart = new Date(`${dateIso}T00:00:00Z`).getTime() + minuteOfDay * 60_000
       const slotEnd = slotStart + slotDurationMin * 60_000
@@ -141,6 +109,83 @@ export async function getCalendarBusySlots(
     }
   }
   return [...new Set(blocked)]
+}
+
+/**
+ * Returns time slots (in "H:MM AM/PM" format matching Airtable Time values) that are
+ * blocked by existing Google Calendar events for the given user on a specific date.
+ * Uses the freebusy API. Returns [] if calendar is not connected or the call fails.
+ */
+export async function getCalendarBusySlots(
+  userId: string,
+  dateIso: string,
+  slotDurationMin = 60,
+): Promise<string[]> {
+  const accessToken = await getAccessToken(userId)
+  if (!accessToken) return []
+
+  const timeMin = new Date(`${dateIso}T00:00:00Z`).toISOString()
+  const timeMax = new Date(`${dateIso}T23:59:59Z`).toISOString()
+
+  const res = await fetch(`${GOOGLE_CALENDAR_API}/freeBusy`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ timeMin, timeMax, items: [{ id: "primary" }] }),
+  })
+  if (!res.ok) return []
+
+  const data = await res.json() as { calendars?: { primary?: { busy?: { start: string; end: string }[] } } }
+  return busyWindowsToSlots(data.calendars?.primary?.busy ?? [], dateIso, slotDurationMin)
+}
+
+/**
+ * Fetches busy slots for a date range in a single freebusy API call.
+ * Returns a map of { [dateIso]: string[] } for every date that has blocked slots.
+ * Much more efficient than calling getCalendarBusySlots per day.
+ */
+export async function getCalendarBusyRange(
+  userId: string,
+  startIso: string,
+  endIso: string,
+  slotDurationMin = 60,
+): Promise<Record<string, string[]>> {
+  const accessToken = await getAccessToken(userId)
+  if (!accessToken) return {}
+
+  const timeMin = new Date(`${startIso}T00:00:00Z`).toISOString()
+  const timeMax = new Date(`${endIso}T23:59:59Z`).toISOString()
+
+  const res = await fetch(`${GOOGLE_CALENDAR_API}/freeBusy`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ timeMin, timeMax, items: [{ id: "primary" }] }),
+  })
+  if (!res.ok) return {}
+
+  const data = await res.json() as { calendars?: { primary?: { busy?: { start: string; end: string }[] } } }
+  const busy = data.calendars?.primary?.busy ?? []
+  if (busy.length === 0) return {}
+
+  // Group busy windows by date, then convert each group to slot strings
+  const byDate: Record<string, { start: string; end: string }[]> = {}
+  for (const window of busy) {
+    // A window can span midnight — attribute it to every date it touches
+    const cur = new Date(window.start)
+    cur.setUTCHours(0, 0, 0, 0)
+    const windowEndMs = new Date(window.end).getTime()
+    while (cur.getTime() < windowEndMs) {
+      const dateIso = cur.toISOString().slice(0, 10)
+      if (!byDate[dateIso]) byDate[dateIso] = []
+      byDate[dateIso].push(window)
+      cur.setUTCDate(cur.getUTCDate() + 1)
+    }
+  }
+
+  const result: Record<string, string[]> = {}
+  for (const [dateIso, windows] of Object.entries(byDate)) {
+    result[dateIso] = busyWindowsToSlots(windows, dateIso, slotDurationMin)
+  }
+  return result
 }
 
 export async function createCalendarEvent(
