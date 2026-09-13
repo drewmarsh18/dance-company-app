@@ -10,8 +10,9 @@ import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
 import { etToUtcIso } from "@/lib/utils"
 import { db } from "@/lib/db"
-import { user as userTable } from "@/lib/db/schema"
+import { user as userTable, calendarEventLink } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
+import { createCalendarEvent } from "@/lib/google-calendar"
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -62,11 +63,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "That time slot is already booked." })
   }
 
-  const [dancer] = await db
-    .select({ id: userTable.id, name: userTable.name })
-    .from(userTable)
-    .where(eq(userTable.email, dancerEmail.toLowerCase()))
-    .limit(1)
+  const [[dancer], [pmRow]] = await Promise.all([
+    db.select({ id: userTable.id, name: userTable.name })
+      .from(userTable).where(eq(userTable.email, dancerEmail.toLowerCase())).limit(1),
+    db.select({ id: userTable.id, timezone: userTable.timezone })
+      .from(userTable).where(eq(userTable.email, session.user.email.toLowerCase())).limit(1),
+  ])
+  const pmTimezone = pmRow?.timezone ?? "America/New_York"
 
   // Credit deduction for PM-scheduled sessions
   const CREDIT_COST: Record<string, number> = { "private-30": 0.5, "private-45": 0.75, "private-60": 1, "private-90": 1.5 }
@@ -88,8 +91,8 @@ export async function POST(req: Request) {
     }
   }
 
-  const utcDatetime = etToUtcIso(date, time)
-  await appBase.create<BookingFields>(TABLES.bookings, {
+  const utcDatetime = etToUtcIso(date, time, pmTimezone)
+  const newRecord = await appBase.create<BookingFields>(TABLES.bookings, {
     "Client Email": dancerEmail,
     "User ID": dancer?.id ?? "",
     "Prep Master Name": prepMaster.name,
@@ -109,6 +112,33 @@ export async function POST(req: Request) {
       body: `${prepMaster.name} has booked a session with you on ${date} at ${time}.`,
     }).catch(() => {})
   }
+
+  // Create Google Calendar events for both PM and dancer (booking is auto-confirmed)
+  const bookingId = newRecord.id
+  ;(async () => {
+    const pmUserId = pmRow?.id
+    const eventArgs = {
+      dancerName: dancer?.name ?? dancerEmail,
+      prepMasterName: prepMaster.name,
+      date,
+      time,
+      notes,
+      sessionType,
+      timezone: pmTimezone,
+    }
+    const [pmEventId, dancerEventId] = await Promise.all([
+      pmUserId ? createCalendarEvent(pmUserId, eventArgs) : Promise.resolve(null),
+      dancer?.id ? createCalendarEvent(dancer.id, { ...eventArgs, timezone: pmTimezone }) : Promise.resolve(null),
+    ])
+    const links = []
+    if (pmUserId && pmEventId) links.push({ id: crypto.randomUUID(), bookingId, userId: pmUserId, gcalEventId: pmEventId })
+    if (dancer?.id && dancerEventId) links.push({ id: crypto.randomUUID(), bookingId, userId: dancer.id, gcalEventId: dancerEventId })
+    if (links.length > 0) {
+      await db.insert(calendarEventLink).values(links)
+        .onConflictDoUpdate({ target: [calendarEventLink.bookingId, calendarEventLink.userId], set: { gcalEventId: calendarEventLink.gcalEventId } })
+        .catch(() => {})
+    }
+  })().catch(() => {})
 
   return NextResponse.json({ ok: true })
 }
