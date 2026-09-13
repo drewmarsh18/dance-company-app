@@ -11,7 +11,7 @@ export function getCalendarAuthUrl(state: string, source?: "mobile") {
     client_id: process.env.GOOGLE_CLIENT_ID!,
     redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback/google-calendar`,
     response_type: "code",
-    scope: "https://www.googleapis.com/auth/calendar.events",
+    scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.freebusy",
     access_type: "offline",
     prompt: "consent",
     state: stateParam,
