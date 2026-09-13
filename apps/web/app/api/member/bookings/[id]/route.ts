@@ -8,9 +8,10 @@ import { sendEmail, bookingCancelledEmail, bookingUpdatedEmail } from "@/lib/ema
 import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
 import { getPrepMasters } from "@/lib/airtable"
 import { db } from "@/lib/db"
-import { user as userTable } from "@/lib/db/schema"
+import { user as userTable, calendarEventLink } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { resolveClientProfile } from "@/lib/profile-core"
+import { deleteCalendarEvent } from "@/lib/google-calendar"
 
 async function getSessionUser() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -154,6 +155,12 @@ export async function DELETE(
     })
     sendEmail({ to: pm.email, subject, html }).catch(() => {})
   }).catch(() => {})
+
+  // Delete calendar events for all linked users (fire-and-forget)
+  db.select({ userId: calendarEventLink.userId, gcalEventId: calendarEventLink.gcalEventId })
+    .from(calendarEventLink).where(eq(calendarEventLink.bookingId, id))
+    .then((links) => { for (const { userId, gcalEventId } of links) deleteCalendarEvent(userId, gcalEventId).catch(() => {}) })
+    .catch(() => {})
 
   revalidateTag(`member-${effectiveUserId}`)
   return NextResponse.json({ ok: true, creditRefunded: !within24 })

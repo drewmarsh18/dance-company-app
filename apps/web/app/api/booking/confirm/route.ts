@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { appBase, TABLES, type BookingFields, type ClientFields, getMostRecentInactivePlanForUser, setPlanStatus } from "@/lib/airtable"
+import { appBase, TABLES, type BookingFields, type ClientFields, getMostRecentInactivePlanForUser, setPlanStatus, getPrepMasters } from "@/lib/airtable"
 import { sendEmail, bookingCancelledEmail } from "@/lib/email"
+import { db } from "@/lib/db"
+import { user as userTable, calendarEventLink } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
+import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar"
+import { COMPANY_TZ } from "@/lib/utils"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
 const SECRET = process.env.BOOKING_CONFIRM_SECRET ?? "cdp-confirm-secret"
@@ -53,6 +58,31 @@ export async function GET(req: NextRequest) {
         await sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject: `Booking confirmed — ${date} at ${time}`, html: html.replace("Booking request received", "Booking confirmed").replace("Your booking request has been submitted!", "Great news — your session has been confirmed!").replace("Your booking is pending confirmation from your PrepMaster. You will receive an email notification once they have confirmed your booking request.", "See you there! Need to cancel? Please do so at least 24 hours in advance to get your credit back.") })
       }
 
+      // Create Google Calendar events for PM and dancer (fire-and-forget)
+      ;(async () => {
+        const pms = await getPrepMasters()
+        const pm = pms.find((p) => p.name === (booking.fields["Prep Master Name"] ?? ""))
+        if (!pm?.email) return
+        const [[pmUser], dancerUserId] = await Promise.all([
+          db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pm.email)).limit(1),
+          Promise.resolve(booking.fields["User ID"] ?? null),
+        ])
+        const pmTz = pmUser?.timezone ?? COMPANY_TZ
+        const dancerName = booking.fields.Name ?? booking.fields["Client Email"] ?? "Member"
+        const eventArgs = { dancerName, prepMasterName: pm.name, date: booking.fields.Date ?? "", time: booking.fields.Time ?? "", notes: booking.fields.Notes, sessionType: booking.fields["Session Type"], timezone: pmTz }
+        const dancerUserRow = dancerUserId ? await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1).then((r) => r[0] ?? null) : null
+        const [pmEventId, dancerEventId] = await Promise.all([
+          pmUser ? createCalendarEvent(pmUser.id, eventArgs) : Promise.resolve(null),
+          dancerUserRow ? createCalendarEvent(dancerUserRow.id, { ...eventArgs }) : Promise.resolve(null),
+        ])
+        const links = []
+        if (pmUser && pmEventId) links.push({ id: crypto.randomUUID(), bookingId, userId: pmUser.id, gcalEventId: pmEventId })
+        if (dancerUserRow && dancerEventId) links.push({ id: crypto.randomUUID(), bookingId, userId: dancerUserRow.id, gcalEventId: dancerEventId })
+        if (links.length > 0) {
+          await db.insert(calendarEventLink).values(links).onConflictDoNothing().catch(() => {})
+        }
+      })().catch(() => {})
+
       return new NextResponse(
         `<html><body style="font-family:sans-serif;padding:40px;max-width:480px;margin:0 auto">
           <h2 style="color:#e91e8c">Booking confirmed ✓</h2>
@@ -102,6 +132,12 @@ export async function GET(req: NextRequest) {
         })
         await sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject, html })
       }
+
+      // Delete any calendar events that may exist (fire-and-forget)
+      db.select({ userId: calendarEventLink.userId, gcalEventId: calendarEventLink.gcalEventId })
+        .from(calendarEventLink).where(eq(calendarEventLink.bookingId, bookingId))
+        .then((links) => { for (const { userId, gcalEventId } of links) deleteCalendarEvent(userId, gcalEventId).catch(() => {}) })
+        .catch(() => {})
 
       return new NextResponse(
         `<html><body style="font-family:sans-serif;padding:40px;max-width:480px;margin:0 auto">
