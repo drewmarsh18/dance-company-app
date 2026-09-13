@@ -274,9 +274,7 @@ export async function createCalendarEvent(
   if (!accessToken) return null
 
   const durationMin = SESSION_DURATION[sessionType ?? "pack-hour"] ?? 60
-  const summary = prepMasterName
-    ? `CDP Session w/ ${prepMasterName}`
-    : `CDP Session — ${dancerName}`
+  const summary = `CDP: ${durationMin}min Session - ${dancerName}${prepMasterName ? ` (PM: ${prepMasterName})` : ""}`
 
   const event = {
     summary,
@@ -321,9 +319,7 @@ export async function updateCalendarEvent(
   if (!accessToken) return
 
   const durationMin = SESSION_DURATION[sessionType ?? "pack-hour"] ?? 60
-  const summary = prepMasterName
-    ? `CDP Session w/ ${prepMasterName}`
-    : `CDP Session — ${dancerName}`
+  const summary = `CDP: ${durationMin}min Session - ${dancerName}${prepMasterName ? ` (PM: ${prepMasterName})` : ""}`
 
   const event = {
     summary,
