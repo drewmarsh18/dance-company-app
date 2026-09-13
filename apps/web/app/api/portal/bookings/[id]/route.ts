@@ -33,6 +33,7 @@ async function getPmAndBooking(sessionEmail: string, bookingId: string) {
   const records = await appBase.list<BookingFields>(TABLES.bookings, {
     filterByFormula: `AND({Prep Master Name} = '${safe}', RECORD_ID() = '${bookingId}')`,
     maxRecords: 1,
+    revalidate: 0,
   })
   return { pm, booking: records[0] ?? null }
 }
