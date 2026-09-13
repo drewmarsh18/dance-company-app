@@ -8,6 +8,7 @@ import {
   index,
 } from "drizzle-orm/pg-core"
 
+
 // --- Better Auth required tables -------------------------------------------
 // Column names are camelCase to match Better Auth's defaults. Do not rename.
 
@@ -138,6 +139,24 @@ export const pushToken = pgTable(
   (t) => ({
     userIdx: index("push_token_user_idx").on(t.userId),
     tokenUnique: unique("push_token_unique").on(t.token),
+  }),
+)
+
+// Maps an Airtable booking record ID + user ID to a Google Calendar event ID.
+// One row per (bookingId, userId) — used to update or delete calendar events
+// when a booking is rescheduled or cancelled.
+export const calendarEventLink = pgTable(
+  "calendar_event_link",
+  {
+    id: text("id").primaryKey(),
+    bookingId: text("bookingId").notNull(),  // Airtable record ID
+    userId: text("userId").notNull().references(() => user.id, { onDelete: "cascade" }),
+    gcalEventId: text("gcalEventId").notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (t) => ({
+    bookingUserUnique: unique("cal_event_link_booking_user").on(t.bookingId, t.userId),
+    bookingIdx: index("cal_event_link_booking_idx").on(t.bookingId),
   }),
 )
 

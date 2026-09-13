@@ -84,6 +84,7 @@ const SESSION_DURATION: Record<string, number> = {
   "private-30": 30,
   "private-45": 45,
   "private-60": 60,
+  "private-90": 90,
   "pack-hour": 60,
 }
 
@@ -223,6 +224,40 @@ export async function getCalendarBusyRange(
   return result
 }
 
+// Parses Airtable's "H:MM AM/PM" time format into 24-hour hours/minutes.
+function parseAirtableTime(timeStr: string): { hours: number; minutes: number } {
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+  if (!match) return { hours: 0, minutes: 0 }
+  let hours = parseInt(match[1], 10)
+  const minutes = parseInt(match[2], 10)
+  const period = match[3].toUpperCase()
+  if (period === "AM") {
+    if (hours === 12) hours = 0
+  } else {
+    if (hours !== 12) hours += 12
+  }
+  return { hours, minutes }
+}
+
+// Builds Google Calendar API start/end datetime objects from an Airtable date+time.
+// Uses local datetime strings + timezone so Google handles the UTC conversion correctly.
+function buildEventTimes(date: string, time: string, timezone: string, durationMin: number) {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const { hours, minutes } = parseAirtableTime(time)
+  const startLocalDt = `${date}T${pad(hours)}:${pad(minutes)}:00`
+  const endTotalMin = hours * 60 + minutes + durationMin
+  const endH = Math.floor(endTotalMin / 60) % 24
+  const endM = endTotalMin % 60
+  const endDate = endTotalMin >= 24 * 60
+    ? (() => { const d = new Date(`${date}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10) })()
+    : date
+  const endLocalDt = `${endDate}T${pad(endH)}:${pad(endM)}:00`
+  return {
+    start: { dateTime: startLocalDt, timeZone: timezone },
+    end: { dateTime: endLocalDt, timeZone: timezone },
+  }
+}
+
 export async function createCalendarEvent(
   userId: string,
   {
@@ -232,15 +267,13 @@ export async function createCalendarEvent(
     time,
     notes,
     sessionType,
-  }: { dancerName: string; prepMasterName?: string; date: string; time: string; notes?: string; sessionType?: string },
-): Promise<void> {
+    timezone = "America/New_York",
+  }: { dancerName: string; prepMasterName?: string; date: string; time: string; notes?: string; sessionType?: string; timezone?: string },
+): Promise<string | null> {
   const accessToken = await getAccessToken(userId)
-  if (!accessToken) return // calendar not connected — skip silently
+  if (!accessToken) return null
 
   const durationMin = SESSION_DURATION[sessionType ?? "pack-hour"] ?? 60
-  const start = new Date(`${date}T${time}:00`)
-  const end = new Date(start.getTime() + durationMin * 60 * 1000)
-
   const summary = prepMasterName
     ? `CDP Session w/ ${prepMasterName}`
     : `CDP Session — ${dancerName}`
@@ -248,20 +281,70 @@ export async function createCalendarEvent(
   const event = {
     summary,
     description: notes ? `Notes: ${notes}` : "College Dance Prep private session",
-    start: { dateTime: start.toISOString(), timeZone: "America/New_York" },
-    end: { dateTime: end.toISOString(), timeZone: "America/New_York" },
+    ...buildEventTimes(date, time, timezone, durationMin),
   }
 
   const res = await fetch(`${GOOGLE_CALENDAR_API}/calendars/primary/events`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify(event),
   })
 
   if (!res.ok) {
     console.error("Google Calendar event creation failed:", await res.text())
+    return null
+  }
+  const data = await res.json() as { id?: string }
+  return data.id ?? null
+}
+
+export async function updateCalendarEvent(
+  userId: string,
+  eventId: string,
+  {
+    dancerName,
+    prepMasterName,
+    date,
+    time,
+    notes,
+    sessionType,
+    timezone = "America/New_York",
+  }: { dancerName: string; prepMasterName?: string; date: string; time: string; notes?: string; sessionType?: string; timezone?: string },
+): Promise<void> {
+  const accessToken = await getAccessToken(userId)
+  if (!accessToken) return
+
+  const durationMin = SESSION_DURATION[sessionType ?? "pack-hour"] ?? 60
+  const summary = prepMasterName
+    ? `CDP Session w/ ${prepMasterName}`
+    : `CDP Session — ${dancerName}`
+
+  const event = {
+    summary,
+    description: notes ? `Notes: ${notes}` : "College Dance Prep private session",
+    ...buildEventTimes(date, time, timezone, durationMin),
+  }
+
+  const res = await fetch(`${GOOGLE_CALENDAR_API}/calendars/primary/events/${eventId}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(event),
+  })
+  if (!res.ok) {
+    console.error("Google Calendar event update failed:", await res.text())
+  }
+}
+
+export async function deleteCalendarEvent(userId: string, eventId: string): Promise<void> {
+  const accessToken = await getAccessToken(userId)
+  if (!accessToken) return
+
+  const res = await fetch(`${GOOGLE_CALENDAR_API}/calendars/primary/events/${eventId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok && res.status !== 410) {
+    // 410 Gone = already deleted, that's fine
+    console.error("Google Calendar event deletion failed:", res.status)
   }
 }

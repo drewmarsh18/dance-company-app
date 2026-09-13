@@ -894,6 +894,10 @@ export default function PortalDashboard() {
   const [calConnected, setCalConnected] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<PrepMasterBooking | null>(null)
 
+  // Tracks optimistic status patches so a stale server re-fetch can't downgrade them.
+  // Entries expire after 8 seconds — enough time for Airtable to reflect the change.
+  const optimisticRef = useRef<Map<string, { patch: Partial<PrepMasterBooking>; expiry: number }>>(new Map())
+
   const load = useCallback(async () => {
     try {
       const [dashRes, calRes] = await Promise.all([
@@ -901,7 +905,18 @@ export default function PortalDashboard() {
         authClient.$fetch(`${API_BASE}/api/portal/calendar-events`),
       ])
       if (dashRes.error || !dashRes.data) throw new Error((dashRes.error as any)?.statusText ?? "Failed to load")
-      setData(dashRes.data as DashData); setError(null)
+      const raw = dashRes.data as DashData
+      // Apply any live optimistic patches on top of server data to prevent stale overwrites
+      const now = Date.now()
+      const patches = optimisticRef.current
+      for (const [pid, entry] of patches) { if (entry.expiry < now) patches.delete(pid) }
+      const applyPatches = (list: PrepMasterBooking[]) =>
+        list.map((b) => { const p = patches.get(b.id); return p ? { ...b, ...p.patch } : b })
+      setData(patches.size > 0
+        ? { ...raw, upcoming: applyPatches(raw.upcoming), completed: applyPatches(raw.completed), cancelled: applyPatches(raw.cancelled) }
+        : raw
+      )
+      setError(null)
       if (!calRes.error && calRes.data) {
         const cal = calRes.data as { connected: boolean; events: CalEvent[] }
         setCalConnected(cal.connected)
@@ -947,6 +962,10 @@ export default function PortalDashboard() {
   }, [load])
 
   function handleUpdate(id: string, patch: Partial<PrepMasterBooking>) {
+    // Register optimistic patch so load() can't overwrite it with stale server data
+    const existing = optimisticRef.current.get(id)?.patch ?? {}
+    optimisticRef.current.set(id, { patch: { ...existing, ...patch }, expiry: Date.now() + 8000 })
+
     setData((prev) => {
       if (!prev) return prev
       const newStatus = patch.status?.toLowerCase()

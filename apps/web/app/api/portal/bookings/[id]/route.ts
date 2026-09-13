@@ -6,10 +6,25 @@ import { getPrepMasterByEmail, TABLES, appBase, type BookingFields, type ClientF
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingUpdatedEmail, bookingCancelledEmail } from "@/lib/email"
 import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
-import { createCalendarEvent } from "@/lib/google-calendar"
+import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar"
 import { db } from "@/lib/db"
-import { user as userTable } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
+import { user as userTable, calendarEventLink } from "@/lib/db/schema"
+import { eq, and } from "drizzle-orm"
+
+async function saveCalendarLink(bookingId: string, userId: string, gcalEventId: string) {
+  await db.insert(calendarEventLink)
+    .values({ id: crypto.randomUUID(), bookingId, userId, gcalEventId })
+    .onConflictDoUpdate({
+      target: [calendarEventLink.bookingId, calendarEventLink.userId],
+      set: { gcalEventId },
+    })
+}
+
+async function getCalendarLinks(bookingId: string): Promise<{ userId: string; gcalEventId: string }[]> {
+  return db.select({ userId: calendarEventLink.userId, gcalEventId: calendarEventLink.gcalEventId })
+    .from(calendarEventLink)
+    .where(eq(calendarEventLink.bookingId, bookingId))
+}
 
 async function getPmAndBooking(sessionEmail: string, bookingId: string) {
   const pm = await getPrepMasterByEmail(sessionEmail)
@@ -65,17 +80,53 @@ export async function PATCH(
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }
-    // Create Google Calendar event on the PM's calendar now that the booking is confirmed
-    const [pmUserRow] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
-    if (pmUserRow) {
-      createCalendarEvent(pmUserRow.id, {
-        dancerName: booking.fields.Name ?? "Member",
-        date: booking.fields.Date ?? "",
-        time: booking.fields.Time ?? "",
-        notes: booking.fields.Notes ?? "",
-        sessionType: booking.fields["Session Type"] ?? "private-60",
-      }).catch(() => {})
-    }
+    // Create / update Google Calendar events for both PM and member at confirm time.
+    // Fire in background — don't block the confirm response.
+    ;(async () => {
+      try {
+        const [pmUserRow, dancerUserRow] = await Promise.all([
+          db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1),
+          booking.fields["User ID"]
+            ? db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, booking.fields["User ID"]!)).limit(1)
+            : Promise.resolve([]),
+        ])
+        const pmTz = pmUserRow[0]?.timezone ?? COMPANY_TZ
+        const bDate = booking.fields.Date ?? ""
+        const bTime = booking.fields.Time ?? ""
+        const bNotes = booking.fields.Notes ?? ""
+        const bType = booking.fields["Session Type"] ?? "private-60"
+        const dancerName = booking.fields.Name ?? "Member"
+
+        // PM event
+        if (pmUserRow[0]) {
+          const pmEventId = await createCalendarEvent(pmUserRow[0].id, {
+            dancerName,
+            date: bDate,
+            time: bTime,
+            notes: bNotes,
+            sessionType: bType,
+            timezone: pmTz,
+          })
+          if (pmEventId) await saveCalendarLink(id, pmUserRow[0].id, pmEventId)
+        }
+
+        // Member event (uses PM timezone so it shows the correct session time)
+        if (dancerUserRow[0]) {
+          const memberEventId = await createCalendarEvent(dancerUserRow[0].id, {
+            dancerName,
+            prepMasterName: pm.name,
+            date: bDate,
+            time: bTime,
+            notes: bNotes,
+            sessionType: bType,
+            timezone: pmTz,
+          })
+          if (memberEventId) await saveCalendarLink(id, dancerUserRow[0].id, memberEventId)
+        }
+      } catch (e) {
+        console.error("Calendar event creation at confirm failed:", e)
+      }
+    })()
     return NextResponse.json({ ok: true })
   }
 
@@ -162,6 +213,12 @@ export async function PATCH(
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
     }
+    // Delete calendar events for all linked users
+    getCalendarLinks(id).then((links) => {
+      for (const { userId, gcalEventId } of links) {
+        deleteCalendarEvent(userId, gcalEventId).catch(() => {})
+      }
+    }).catch(() => {})
     return NextResponse.json({ ok: true, creditRefunded: true })
   }
 
@@ -231,6 +288,12 @@ export async function PATCH(
       sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject, html }).catch(() => {})
     }
 
+    // Delete calendar events for all linked users
+    getCalendarLinks(id).then((links) => {
+      for (const { userId, gcalEventId } of links) {
+        deleteCalendarEvent(userId, gcalEventId).catch(() => {})
+      }
+    }).catch(() => {})
     revalidateTag(`portal-${session.user.email}`, "max")
     return NextResponse.json({ ok: true, creditRefunded: true })
   }
@@ -256,6 +319,25 @@ export async function PATCH(
 
   const newDate = body.date ?? booking.fields.Date ?? ""
   const newTime = body.time ?? booking.fields.Time ?? ""
+
+  // Update calendar events if date or time changed
+  if (body.date || body.time) {
+    const [pmTzForCal] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
+    const pmTzCal = pmTzForCal?.timezone ?? COMPANY_TZ
+    getCalendarLinks(id).then(async (links) => {
+      for (const { userId, gcalEventId } of links) {
+        await updateCalendarEvent(userId, gcalEventId, {
+          dancerName: booking.fields.Name ?? "Member",
+          prepMasterName: pm.name,
+          date: newDate,
+          time: newTime,
+          notes: booking.fields.Notes,
+          sessionType: booking.fields["Session Type"] ?? "private-60",
+          timezone: pmTzCal,
+        }).catch(() => {})
+      }
+    }).catch(() => {})
+  }
   const newNotes = body.prepMasterNotes !== undefined ? body.prepMasterNotes : (booking.fields["Prep Master Notes"] || undefined)
   const dancerEmail = booking.fields["Client Email"]
   const dancerUserId = booking.fields["User ID"]
