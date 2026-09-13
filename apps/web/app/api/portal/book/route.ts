@@ -135,7 +135,7 @@ export async function POST(req: Request) {
     if (dancer?.id && dancerEventId) links.push({ id: crypto.randomUUID(), bookingId, userId: dancer.id, gcalEventId: dancerEventId })
     if (links.length > 0) {
       await db.insert(calendarEventLink).values(links)
-        .onConflictDoUpdate({ target: [calendarEventLink.bookingId, calendarEventLink.userId], set: { gcalEventId: calendarEventLink.gcalEventId } })
+        .onConflictDoNothing()
         .catch(() => {})
     }
   })().catch(() => {})
