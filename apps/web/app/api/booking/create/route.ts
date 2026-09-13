@@ -104,9 +104,10 @@ export async function POST(req: Request) {
   }
 
   // Block if PM's Google Calendar shows a conflict
-  const [pmUserRow] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, prepMaster.email))
+  const [pmUserRow] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, prepMaster.email))
   if (pmUserRow) {
-    const busySlots = await getCalendarBusySlots(pmUserRow.id, date)
+    const pmTimezone = pmUserRow.timezone ?? COMPANY_TZ
+    const busySlots = await getCalendarBusySlots(pmUserRow.id, date, 60, pmTimezone)
     if (busySlots.includes(time)) {
       return NextResponse.json({ ok: false, error: "That time is no longer available. Please choose another slot." })
     }
@@ -213,6 +214,7 @@ export async function POST(req: Request) {
         date,
         time,
         notes,
+        sessionType,
       }).catch(() => {})
     }
   }).catch(() => {})
