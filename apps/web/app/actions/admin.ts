@@ -60,13 +60,18 @@ export async function getAdminData(): Promise<{
     adminGetAllPlans(),
   ])
 
+  // Exclude PrepMasters — they're in the Workers table and have their own portal
+  const workerEmails = new Set(workers.map((w) => w.email.trim().toLowerCase()).filter(Boolean))
+
   // Exclude members whose auth account is still pending (they appear in the Approvals tab instead)
   const pendingUsers = await db
     .select({ email: userTable.email })
     .from(userTable)
     .where(eq(userTable.status, "pending"))
   const pendingEmails = new Set(pendingUsers.map((u) => u.email.toLowerCase()))
-  const approvedMembers = members.filter((m) => !pendingEmails.has(m.email.toLowerCase()))
+  const approvedMembers = members.filter(
+    (m) => !pendingEmails.has(m.email.toLowerCase()) && !workerEmails.has(m.email.toLowerCase()),
+  )
 
   // Join invite status from DB onto each worker by email
   const emails = workers.map((w) => w.email.trim().toLowerCase()).filter(Boolean)
