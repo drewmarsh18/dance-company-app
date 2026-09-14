@@ -105,19 +105,26 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-1">
-          {(["all", "joined", "pending"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                statusFilter === f
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              {f === "all" ? "All" : f === "joined" ? "Joined" : "Pending"}
-            </button>
-          ))}
+          {(["all", "joined", "pending"] as const).map((f) => {
+            const count = f === "all"
+              ? localWorkers.length
+              : f === "joined"
+                ? localWorkers.filter((w) => w.inviteStatus === "accepted").length
+                : localWorkers.filter((w) => w.inviteStatus !== "accepted").length
+            return (
+              <button
+                key={f}
+                onClick={() => setStatusFilter(f)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  statusFilter === f
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {f === "all" ? "All" : f === "joined" ? "Joined" : "Pending"} ({count})
+              </button>
+            )
+          })}
         </div>
         <div className="flex gap-2">
           {uninvited.length > 0 && (
