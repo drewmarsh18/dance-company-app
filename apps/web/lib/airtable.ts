@@ -572,16 +572,18 @@ export async function adminGetAllMembers(): Promise<AdminMember[]> {
     sort: [{ field: "Name", direction: "asc" }],
     revalidate: 0,
   })
-  return records.map((r) => ({
-    id: r.id,
-    name: r.fields.Name ?? "",
-    email: r.fields.Email ?? "",
-    userId: r.fields["User ID"] ?? "",
-    phone: r.fields.Phone ?? "",
-    goals: r.fields.Goals ?? "",
-    creditsRemaining: r.fields["Credits Remaining"] ?? 0,
-    parentEmail: r.fields["Parent Email"] ?? "",
-  }))
+  return records
+    .filter((r) => !!r.fields["User ID"])
+    .map((r) => ({
+      id: r.id,
+      name: r.fields.Name ?? "",
+      email: r.fields.Email ?? "",
+      userId: r.fields["User ID"] ?? "",
+      phone: r.fields.Phone ?? "",
+      goals: r.fields.Goals ?? "",
+      creditsRemaining: r.fields["Credits Remaining"] ?? 0,
+      parentEmail: r.fields["Parent Email"] ?? "",
+    }))
 }
 
 export async function adminUpdateMemberParentEmail(recordId: string, parentEmail: string) {
