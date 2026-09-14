@@ -67,3 +67,27 @@ export async function updateProfile(input: {
     return { ok: false, error: message }
   }
 }
+
+/** Returns all children linked to the current parent account (by Parent Email in Airtable). */
+export async function getLinkedChildren(): Promise<{ userId: string; name: string }[]> {
+  "use server"
+  const { getSessionUserWithRole } = await import("@/lib/roles")
+  const { appBase, TABLES, isAirtableConfigured } = await import("@/lib/airtable")
+  const user = await getSessionUserWithRole()
+  if (!user || !isAirtableConfigured()) return []
+  try {
+    const safe = user.email.trim().toLowerCase().replace(/'/g, "\\'")
+    const records = await appBase.list(TABLES.clients, {
+      filterByFormula: `LOWER({Parent Email}) = '${safe}'`,
+      revalidate: 0,
+    })
+    return records
+      .filter((r: { fields: Record<string, unknown> }) => r.fields["User ID"])
+      .map((r: { fields: Record<string, unknown> }) => ({
+        userId: r.fields["User ID"] as string,
+        name: (r.fields["Name"] as string) ?? "Child",
+      }))
+  } catch {
+    return []
+  }
+}

@@ -3,9 +3,11 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { NotificationBell } from "@/components/notification-bell"
+import { ChildSwitcher } from "@/components/child-switcher"
 import { Toaster } from "@/components/ui/sonner"
 import { getSessionUserWithRole, homePathForRole } from "@/lib/roles"
 import { getUnreadCount } from "@/app/actions/notifications"
+import { getLinkedChildren, getOrCreateProfile } from "@/app/actions/profile"
 import { ShieldCheck } from "lucide-react"
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
@@ -19,9 +21,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   if (!isAdmin && user.role !== "dancer") redirect(homePathForRole(user.role))
 
-  const unreadCount = await getUnreadCount(user.id)
+  const [unreadCount, linkedChildren, profile] = await Promise.all([
+    getUnreadCount(user.id),
+    isAdmin ? Promise.resolve([]) : getLinkedChildren(),
+    isAdmin ? Promise.resolve(null) : getOrCreateProfile({ noCreate: true }),
+  ])
   console.log("[layout] got unreadCount", Date.now() - t0 + "ms")
   const bell = <NotificationBell initialCount={unreadCount} />
+  const activeChildUserId = profile?.effectiveUserId ?? ""
 
   if (isAdmin) {
     return (
@@ -47,6 +54,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <div className="min-h-screen">
       <DashboardNav user={{ name: user.name, email: user.email, image: user.image }} notificationBell={bell} />
+      {linkedChildren.length >= 2 && (
+        <ChildSwitcher children={linkedChildren} activeChildUserId={activeChildUserId} />
+      )}
       <main className="mx-auto max-w-6xl px-5 py-8">{children}</main>
       <Toaster position="top-center" />
     </div>
