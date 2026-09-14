@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Loader2, Eye, EyeOff } from "lucide-react"
 import { GoogleSignInButton } from "@/components/google-sign-in-button"
 
-export function AuthForm() {
+export function AuthForm({ initialError }: { initialError?: string }) {
   const router = useRouter()
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-up")
   const [name, setName] = useState("")
@@ -20,7 +20,7 @@ export function AuthForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(initialError ?? null)
 
   const isSignUp = mode === "sign-up"
 

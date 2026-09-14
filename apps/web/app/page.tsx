@@ -5,9 +5,15 @@ import { AuthForm } from "@/components/auth-form"
 import { CalendarCheck, Sparkles, Trophy } from "lucide-react"
 import { getSessionUserWithRole, homePathForRole } from "@/lib/roles"
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
   const user = await getSessionUserWithRole()
   if (user) redirect(homePathForRole(user.role))
+
+  const { error } = await searchParams
 
   return (
     <main className="min-h-screen">
@@ -32,7 +38,13 @@ export default async function HomePage() {
           </p>
 
           <div className="rounded-2xl border bg-card p-5 shadow-sm">
-            <AuthForm />
+            <AuthForm initialError={
+              error === "account_not_linked"
+                ? "This Google account is already linked to an email/password account. Please sign in with your email and password instead."
+                : error === "auth_error"
+                  ? "Something went wrong during sign-in. Please try again."
+                  : undefined
+            } />
           </div>
 
           <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-3 text-sm">

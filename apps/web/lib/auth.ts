@@ -94,6 +94,11 @@ export const auth = betterAuth({
         }
     : {}),
   },
+  onAPIError: {
+    // Redirect all OAuth errors back to the homepage with ?error= so we can
+    // show a human-readable message instead of a raw /api/auth/error page.
+    errorURL: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"}/?error=auth_error`,
+  },
   trustedOrigins: [
     ...(process.env.V0_RUNTIME_URL ? [process.env.V0_RUNTIME_URL] : []),
     ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),

@@ -7,9 +7,11 @@ import { Loader2 } from "lucide-react"
 
 export function GoogleSignInButton({
   callbackURL = "/dashboard",
+  errorCallbackURL = "/?error=account_not_linked",
   className,
 }: {
   callbackURL?: string
+  errorCallbackURL?: string
   className?: string
 }) {
   const [loading, setLoading] = useState(false)
@@ -20,6 +22,7 @@ export function GoogleSignInButton({
       await authClient.signIn.social({
         provider: "google",
         callbackURL,
+        errorCallbackURL,
       })
     } catch {
       setLoading(false)
