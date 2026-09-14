@@ -23,13 +23,14 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme()
-  const [theme, setThemeState] = useState<ThemePreference>("system")
+  const [theme, setThemeState] = useState<ThemePreference>("dark")
 
   useEffect(() => {
     SecureStore.getItemAsync(STORE_KEY).then((val) => {
       if (val === "light" || val === "dark" || val === "system") {
         setThemeState(val)
       }
+      // No stored preference → keep dark default (already set above)
     })
   }, [])
 
