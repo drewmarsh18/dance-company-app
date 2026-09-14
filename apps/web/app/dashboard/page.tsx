@@ -41,7 +41,12 @@ export default async function DashboardPage() {
   if (user?.role === "prep_master") redirect("/portal")
 
   const profileCheck = await getOrCreateProfile()
+  // New users fill in their details first, then hit the pending wall
   if (profileCheck.isNewProfile) redirect("/onboarding")
+
+  // Block pending/denied accounts after onboarding so their info is collected first
+  if (user?.status === "pending") redirect("/pending")
+  if (user?.status === "denied") redirect("/denied")
 
   let credits = 0
   let bookings: Booking[] = []
