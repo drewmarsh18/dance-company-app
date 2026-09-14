@@ -66,6 +66,23 @@ export function formatTime(timeStr: string, utcDatetime?: string | null) {
 // --- Availability helpers (mirrors apps/web/lib/availability.ts) ---
 type DayAvailability = { dayOfWeek: number; enabled: boolean; startTime: string; endTime: string }
 
+function pmSlotToLocal(dateIso: string, pmSlot: string, pmTimezone: string): string {
+  try {
+    const match = pmSlot.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i)
+    if (!match) return pmSlot
+    let h = parseInt(match[1]); const m = match[2] ? parseInt(match[2]) : 0
+    if (match[3].toUpperCase() === "PM" && h !== 12) h += 12
+    if (match[3].toUpperCase() === "AM" && h === 12) h = 0
+    const [year, mo, day] = dateIso.split("-").map(Number)
+    const seed = new Date(Date.UTC(year, mo - 1, day, h, m))
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: pmTimezone, hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(seed)
+    const pmH = parseInt(parts.find((p) => p.type === "hour")!.value)
+    const pmM = parseInt(parts.find((p) => p.type === "minute")!.value)
+    const utcDate = new Date(seed.getTime() + ((h - pmH) * 60 + (m - pmM)) * 60_000)
+    return utcDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+  } catch { return pmSlot }
+}
+
 function slotsForDate(dateIso: string, week: DayAvailability[]): string[] {
   const day = new Date(`${dateIso}T00:00:00`).getDay()
   const config = week.find((w) => w.dayOfWeek === day)
@@ -165,6 +182,7 @@ export function BookingDetailModal({
   const [calMonth, setCalMonth] = useState(new Date().getMonth())
   const [availWeek, setAvailWeek] = useState<DayAvailability[]>([])
   const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({})
+  const [pmTimezone, setPmTimezone] = useState<string>("America/New_York")
   const [availLoading, setAvailLoading] = useState(false)
 
   useEffect(() => {
@@ -197,6 +215,7 @@ export function BookingDetailModal({
       if (detail) {
         setAvailWeek((detail as any).week ?? [])
         setBookedSlots((detail as any).bookedSlots ?? {})
+        setPmTimezone((detail as any).pmTimezone ?? "America/New_York")
       }
     } catch { /* availability unavailable — dropdown will show generic message */ }
     finally { setAvailLoading(false) }
@@ -207,14 +226,19 @@ export function BookingDetailModal({
     loadAvailability()
   }
 
-  // Compute available time slots for the selected date
-  const availableSlots: string[] = editDate && availWeek.length > 0
-    ? slotsForDate(editDate, availWeek).filter((s) => {
-        const taken = bookedSlots[editDate] ?? []
-        // Exclude currently-booked slot only if it's a different booking (allow keeping same time)
-        return !taken.includes(s) || (booking?.date === editDate && booking?.time === s)
-      })
-    : []
+  // Compute available time slots for the selected date, converted to dancer's local timezone
+  const { availableLocalLabels, localToPmSlotReschedule } = (() => {
+    if (!editDate || availWeek.length === 0) return { availableLocalLabels: [], localToPmSlotReschedule: new Map<string, string>() }
+    const pmSlots = slotsForDate(editDate, availWeek).filter((s) => {
+      const taken = bookedSlots[editDate] ?? []
+      return !taken.includes(s) || (booking?.date === editDate && booking?.time === s)
+    })
+    const localLabels = pmSlots.map((s) => pmSlotToLocal(editDate, s, pmTimezone))
+    return {
+      availableLocalLabels: localLabels,
+      localToPmSlotReschedule: new Map(localLabels.map((l, i) => [l, pmSlots[i]])),
+    }
+  })()
 
   if (!booking) return null
 
@@ -422,14 +446,27 @@ export function BookingDetailModal({
                   <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 24 }} />
                 ) : !editDate ? (
                   <Text style={styles.noSlotsNote}>Select a date first.</Text>
-                ) : availableSlots.length === 0 ? (
+                ) : availableLocalLabels.length === 0 ? (
                   <Text style={styles.noSlotsNote}>{booking.prepMasterName} has no availability on this day. Please pick a different date.</Text>
                 ) : (
-                  <TimeWheelPicker
-                    slots={availableSlots}
-                    value={editTime}
-                    onChange={setEditTime}
-                  />
+                  <>
+                    <Text style={styles.tzNote}>
+                      {(() => {
+                        const abbr = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value
+                        return `Times shown in your local timezone${abbr ? ` (${abbr})` : ""}. Your PrepMaster may be in a different timezone.`
+                      })()}
+                    </Text>
+                    <TimeWheelPicker
+                      slots={availableLocalLabels}
+                      value={editTime
+                        ? (Array.from(localToPmSlotReschedule.entries()).find(([, pm]) => pm === editTime)?.[0] ?? editTime)
+                        : ""}
+                      onChange={(localLabel) => {
+                        const pmSlot = localToPmSlotReschedule.get(localLabel) ?? localLabel
+                        setEditTime(pmSlot)
+                      }}
+                    />
+                  </>
                 )}
               </View>
 
@@ -489,6 +526,7 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     ghostBtnText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
     rescheduleNote: { fontSize: 13, color: COLORS.textMuted, lineHeight: 18 },
     noSlotsNote: { fontSize: 12, color: COLORS.amber, lineHeight: 17 },
+    tzNote: { fontSize: 11, color: COLORS.textMuted, fontStyle: "italic", marginBottom: 4, textAlign: "center" },
     formGroup: { gap: 8 },
     formLabel: { fontSize: 13, fontWeight: "600", color: COLORS.text },
     formInput: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.sm, padding: SPACING.sm, fontSize: 14, color: COLORS.text },

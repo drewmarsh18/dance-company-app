@@ -17,7 +17,7 @@ const API_BASE = "https://app.collegedanceprep.com"
 type Coach = { id: string; name: string; email: string; university: string; region: string; hasAvailability: boolean }
 type DayAvailability = { dayOfWeek: number; enabled: boolean; startTime: string; endTime: string }
 type MemberPlan = { id: string; planName: string; sessions: number; status: string; expiresAt: string }
-type CoachDetail = { coach: Coach; week: DayAvailability[]; bookedSlots: Record<string, string[]> }
+type CoachDetail = { coach: Coach; week: DayAvailability[]; bookedSlots: Record<string, string[]>; pmTimezone: string }
 
 function toIso(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` }
 function weekStart(date: Date): Date { const d = new Date(date); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - d.getDay()); return d }
@@ -53,6 +53,35 @@ function slotsForDate(dateIso: string, week: DayAvailability[]): string[] {
   const config = week.find((w) => w.dayOfWeek === day)
   if (!config || !config.enabled) return []
   return generate15MinSlots(config.startTime, config.endTime)
+}
+
+/**
+ * Convert a PM-timezone slot string (e.g. "9:00 AM") to the device's local
+ * time string for display. Returns the raw slot string as a fallback.
+ */
+function pmSlotToLocal(dateIso: string, pmSlot: string, pmTimezone: string): string {
+  try {
+    const match = pmSlot.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i)
+    if (!match) return pmSlot
+    let h = parseInt(match[1])
+    const m = match[2] ? parseInt(match[2]) : 0
+    if (match[3].toUpperCase() === "PM" && h !== 12) h += 12
+    if (match[3].toUpperCase() === "AM" && h === 12) h = 0
+    const [year, mo, day] = dateIso.split("-").map(Number)
+    // Seed: treat h:m as UTC, then check what pmTimezone reads it as
+    const seed = new Date(Date.UTC(year, mo - 1, day, h, m))
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: pmTimezone,
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    }).formatToParts(seed)
+    const pmH = parseInt(parts.find((p) => p.type === "hour")!.value)
+    const pmM = parseInt(parts.find((p) => p.type === "minute")!.value)
+    // Shift seed so that pmTimezone reads the target h:m, giving us the correct UTC
+    const utcDate = new Date(seed.getTime() + ((h - pmH) * 60 + (m - pmM)) * 60_000)
+    return utcDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+  } catch {
+    return pmSlot
+  }
 }
 function planDisplayStatus(plan: MemberPlan): string {
   if (plan.status === "Active" && plan.expiresAt && new Date(plan.expiresAt) < new Date()) return "Inactive"
@@ -153,24 +182,40 @@ function BookingStep({
 
   const weekSlots = useMemo(() => {
     const now = new Date()
+    const nowMs = now.getTime()
     const todayIso = toIso(now)
-    const currentHour = now.getHours()
+    const pmTimezone = detail.pmTimezone ?? "America/New_York"
     return weekDays.map((d) => {
       const iso = toIso(d); const isPast = d < today
-      let slots = isPast ? [] : slotsForDate(iso, detail.week)
+      let pmSlots = isPast ? [] : slotsForDate(iso, detail.week)
       if (!isPast && iso === todayIso) {
-        slots = slots.filter((slot) => {
-          const [timePart, period] = slot.split(" ")
-          let h = Number(timePart.split(":")[0])
-          if (period === "PM" && h !== 12) h += 12
-          else if (period === "AM" && h === 12) h = 0
-          return h > currentHour
+        // Filter past slots using UTC comparison — correct regardless of dancer timezone
+        pmSlots = pmSlots.filter((slot) => {
+          const local = pmSlotToLocal(iso, slot, pmTimezone)
+          // Reconstruct the UTC ms for this slot so we can compare to now
+          try {
+            const match = slot.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i)
+            if (!match) return false
+            let h = parseInt(match[1]); const m = match[2] ? parseInt(match[2]) : 0
+            if (match[3].toUpperCase() === "PM" && h !== 12) h += 12
+            if (match[3].toUpperCase() === "AM" && h === 12) h = 0
+            const [year, mo, day] = iso.split("-").map(Number)
+            const seed = new Date(Date.UTC(year, mo - 1, day, h, m))
+            const parts = new Intl.DateTimeFormat("en-US", { timeZone: pmTimezone, hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(seed)
+            const pmH = parseInt(parts.find((p) => p.type === "hour")!.value)
+            const pmM = parseInt(parts.find((p) => p.type === "minute")!.value)
+            const slotUtcMs = seed.getTime() + ((h - pmH) * 60 + (m - pmM)) * 60_000
+            return slotUtcMs > nowMs
+          } catch { return true }
         })
       }
       const taken = new Set(detail.bookedSlots[iso] ?? [])
-      return { date: d, iso, slots, taken, isPast }
+      // Build local-display labels and a reverse map back to PM-timezone slot strings
+      const localLabels = pmSlots.map((s) => pmSlotToLocal(iso, s, pmTimezone))
+      const localToPmSlot = new Map(localLabels.map((l, i) => [l, pmSlots[i]]))
+      return { date: d, iso, pmSlots, localLabels, localToPmSlot, taken, isPast }
     })
-  }, [weekDays, detail.week, detail.bookedSlots, today])
+  }, [weekDays, detail.week, detail.bookedSlots, detail.pmTimezone, today])
 
   const effectivePlan = activePlans.find((p) => p.id === selectedPlanId) ?? (activePlans.length === 1 ? activePlans[0] : null)
   const noStructuredCredits = activePlans.length === 0 && credits > 0
@@ -230,9 +275,9 @@ function BookingStep({
           </View>
           {/* Date strip */}
           <View style={styles.dateStrip}>
-            {weekSlots.map(({ date, iso, slots, isPast }) => {
+            {weekSlots.map(({ date, iso, localLabels, isPast }) => {
               const isSelected = selectedDate === iso
-              const hasSlots = slots.length > 0 && !isPast
+              const hasSlots = localLabels.length > 0 && !isPast
               return (
                 <TouchableOpacity
                   key={iso}
@@ -255,14 +300,28 @@ function BookingStep({
                 {new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                 {tzAbbr ? <Text style={styles.tzLabel}> · {tzAbbr}</Text> : null}
               </Text>
-              {selectedDaySlots.slots.length === 0 ? (
+              {selectedDaySlots.localLabels.length === 0 ? (
                 <Text style={[styles.noDateText, { marginTop: SPACING.sm }]}>No available times this day.</Text>
               ) : (
-                <TimeWheelPicker
-                  slots={selectedDaySlots.slots.filter((s) => !selectedDaySlots.taken.has(s))}
-                  value={selectedTime}
-                  onChange={setSelectedTime}
-                />
+                <>
+                  <Text style={styles.tzNote}>
+                    Times shown in your local timezone{tzAbbr ? ` (${tzAbbr})` : ""}.
+                    {detail.pmTimezone ? " Your PrepMaster may be in a different timezone." : ""}
+                  </Text>
+                  <TimeWheelPicker
+                    slots={selectedDaySlots.localLabels.filter((label) => {
+                      const pmSlot = selectedDaySlots.localToPmSlot.get(label) ?? label
+                      return !selectedDaySlots.taken.has(pmSlot)
+                    })}
+                    value={selectedTime
+                      ? (Array.from(selectedDaySlots.localToPmSlot.entries()).find(([, pm]) => pm === selectedTime)?.[0] ?? selectedTime)
+                      : null}
+                    onChange={(localLabel) => {
+                      const pmSlot = selectedDaySlots.localToPmSlot.get(localLabel) ?? localLabel
+                      setSelectedTime(pmSlot)
+                    }}
+                  />
+                </>
               )}
             </View>
           ) : (
@@ -293,7 +352,7 @@ function BookingStep({
         <View style={styles.confirmBar}>
           {selectedDate && selectedTime ? (
             <View style={{ flex: 1 }}>
-              <Text style={styles.confirmDate}>{new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} · {selectedTime}{selectedDuration ? ` · ${DURATIONS.find((d) => d.value === selectedDuration)?.label}` : ""}</Text>
+              <Text style={styles.confirmDate}>{new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} · {selectedDaySlots ? (Array.from(selectedDaySlots.localToPmSlot.entries()).find(([, pm]) => pm === selectedTime)?.[0] ?? selectedTime) : selectedTime}{selectedDuration ? ` · ${DURATIONS.find((d) => d.value === selectedDuration)?.label}` : ""}</Text>
               <Text style={styles.confirmWith}>with {detail.coach.name}</Text>
             </View>
           ) : <Text style={[styles.confirmWith, { flex: 1 }]}>Select a date, time, and length to continue.</Text>}
@@ -481,6 +540,7 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     timeSection: { gap: SPACING.sm, marginTop: SPACING.xs },
     timeSectionLabel: { fontSize: 13, fontWeight: "600", color: COLORS.textSecondary },
     tzLabel: { fontSize: 12, fontWeight: "400", color: COLORS.textMuted },
+    tzNote: { fontSize: 11, color: COLORS.textMuted, fontStyle: "italic", marginTop: 4, marginBottom: 2, textAlign: "center" },
     timeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     timeBtn: { width: "30%", alignItems: "center", paddingVertical: 11, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
     timeBtnSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },

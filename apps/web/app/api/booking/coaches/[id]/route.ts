@@ -73,7 +73,8 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ coach, week, bookedSlots })
+    const pmTimezone = pmUser?.timezone ?? "America/New_York"
+    return NextResponse.json({ coach, week, bookedSlots, pmTimezone })
   } catch (err) {
     console.error("[coaches/[id]] error:", err)
     return NextResponse.json(
