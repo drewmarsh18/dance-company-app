@@ -44,6 +44,7 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [localWorkers, setLocalWorkers] = useState<AdminWorker[]>(workers)
   const [isBulkInviting, setIsBulkInviting] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<"all" | "joined" | "pending">("all")
 
   const uninvited = localWorkers.filter((w) => w.inviteStatus !== "accepted" && w.email)
 
@@ -66,9 +67,13 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
     if (failed > 0) toast.error(`${failed} invite${failed === 1 ? "" : "s"} failed to send.`)
   }
 
-  const filtered = query.trim()
-    ? localWorkers.filter((w) => w.name.toLowerCase().includes(query.toLowerCase()))
-    : localWorkers
+  const filtered = localWorkers
+    .filter((w) => !query.trim() || w.name.toLowerCase().includes(query.toLowerCase()))
+    .filter((w) => {
+      if (statusFilter === "joined") return w.inviteStatus === "accepted"
+      if (statusFilter === "pending") return w.inviteStatus !== "accepted"
+      return true
+    })
 
   if (localWorkers.length === 0 && !showAddForm) {
     return (
@@ -98,16 +103,33 @@ export function AdminPrepMastersPanel({ workers, bookings, query }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-end gap-2">
-        {uninvited.length > 0 && (
-          <Button size="sm" variant="outline" onClick={handleBulkInvite} disabled={isBulkInviting}>
-            <Send className="mr-1.5 size-3.5" />
-            {isBulkInviting ? "Sending…" : `Send ${uninvited.length} pending invite${uninvited.length === 1 ? "" : "s"}`}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex gap-1">
+          {(["all", "joined", "pending"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                statusFilter === f
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              {f === "all" ? "All" : f === "joined" ? "Joined" : "Pending"}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          {uninvited.length > 0 && (
+            <Button size="sm" variant="outline" onClick={handleBulkInvite} disabled={isBulkInviting}>
+              <Send className="mr-1.5 size-3.5" />
+              {isBulkInviting ? "Sending…" : `Send ${uninvited.length} pending invite${uninvited.length === 1 ? "" : "s"}`}
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setShowAddForm((v) => !v)} variant={showAddForm ? "outline" : "default"}>
+            {showAddForm ? <><X className="mr-1.5 size-3.5" />Cancel</> : <><PlusCircle className="mr-1.5 size-3.5" />Add PrepMaster</>}
           </Button>
-        )}
-        <Button size="sm" onClick={() => setShowAddForm((v) => !v)} variant={showAddForm ? "outline" : "default"}>
-          {showAddForm ? <><X className="mr-1.5 size-3.5" />Cancel</> : <><PlusCircle className="mr-1.5 size-3.5" />Add PrepMaster</>}
-        </Button>
+        </div>
       </div>
 
       {showAddForm && (
