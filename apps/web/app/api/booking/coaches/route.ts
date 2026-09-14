@@ -4,10 +4,13 @@ import { auth } from "@/lib/auth"
 import { getPrepMasters } from "@/lib/airtable"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { buildWeekTemplate, hasAnyAvailability } from "@/lib/availability"
+import { resolveRole } from "@/lib/roles"
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const role = await resolveRole(session.user.email)
+  if (role === "prep_master") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const coaches = await getPrepMasters()
 

@@ -63,6 +63,15 @@ export async function getAdminData(): Promise<{
   // Exclude PrepMasters — they're in the Workers table and have their own portal
   const workerEmails = new Set(workers.map((w) => w.email.trim().toLowerCase()).filter(Boolean))
 
+  // Also exclude anyone with a prepMasterInvite record — catches invitees not yet in Airtable Workers
+  const invitedPrepMasters = await db
+    .select({ email: prepMasterInvite.email })
+    .from(prepMasterInvite)
+  const prepMasterEmails = new Set([
+    ...workerEmails,
+    ...invitedPrepMasters.map((i) => i.email.toLowerCase()),
+  ])
+
   // Exclude members whose auth account is still pending (they appear in the Approvals tab instead)
   const pendingUsers = await db
     .select({ email: userTable.email })
@@ -70,7 +79,7 @@ export async function getAdminData(): Promise<{
     .where(eq(userTable.status, "pending"))
   const pendingEmails = new Set(pendingUsers.map((u) => u.email.toLowerCase()))
   const approvedMembers = members.filter(
-    (m) => !pendingEmails.has(m.email.toLowerCase()) && !workerEmails.has(m.email.toLowerCase()),
+    (m) => !pendingEmails.has(m.email.toLowerCase()) && !prepMasterEmails.has(m.email.toLowerCase()),
   )
 
   // Join invite status from DB onto each worker by email

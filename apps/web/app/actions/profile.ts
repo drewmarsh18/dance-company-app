@@ -54,11 +54,17 @@ export async function updateProfile(input: {
     })
     revalidatePath("/dashboard/profile")
 
-    // Send parent invite email when a parent email is provided
+    // Send parent invite email only if no account already exists for that email
     if (input.parentEmail?.trim()) {
-      const childName = input.memberName ?? input.name ?? user.name ?? "your child"
-      const { subject, html } = parentInviteEmail({ childName, parentEmail: input.parentEmail.trim() })
-      sendEmail({ to: input.parentEmail.trim(), subject, html }).catch(() => {})
+      const { db: dbInstance } = await import("@/lib/db")
+      const { user: userTable } = await import("@/lib/db/schema")
+      const { eq } = await import("drizzle-orm")
+      const existing = await dbInstance.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, input.parentEmail.trim().toLowerCase())).limit(1)
+      if (existing.length === 0) {
+        const childName = input.memberName ?? input.name ?? user.name ?? "your child"
+        const { subject, html } = parentInviteEmail({ childName, parentEmail: input.parentEmail.trim() })
+        sendEmail({ to: input.parentEmail.trim(), subject, html }).catch(() => {})
+      }
     }
 
     return { ok: true }

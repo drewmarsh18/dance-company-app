@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
+import { resolveRole } from "@/lib/roles"
 import {
   TABLES, appBase,
   getPrepMaster,
@@ -50,6 +51,8 @@ async function findClientRecord(userId: string, parentEmail?: string | null) {
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const role = await resolveRole(session.user.email)
+  if (role === "prep_master") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const user = session.user
   const body = await req.json() as {

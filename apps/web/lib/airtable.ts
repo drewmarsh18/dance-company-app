@@ -160,19 +160,32 @@ async function airtableFetch(
 }
 
 async function list<T>(table: string, options: ListOptions = {}): Promise<AirtableRecord<T>[]> {
-  const params = new URLSearchParams()
-  if (options.filterByFormula) params.set("filterByFormula", options.filterByFormula)
-  if (options.maxRecords) params.set("maxRecords", String(options.maxRecords))
+  const baseParams = new URLSearchParams()
+  if (options.filterByFormula) baseParams.set("filterByFormula", options.filterByFormula)
+  if (options.maxRecords) baseParams.set("maxRecords", String(options.maxRecords))
   options.sort?.forEach((s, i) => {
-    params.set(`sort[${i}][field]`, s.field)
-    if (s.direction) params.set(`sort[${i}][direction]`, s.direction)
+    baseParams.set(`sort[${i}][field]`, s.field)
+    if (s.direction) baseParams.set(`sort[${i}][direction]`, s.direction)
   })
-  const query = params.toString()
-  const data = await airtableFetch(
-    `${encodeURIComponent(table)}${query ? `?${query}` : ""}`,
-    { method: "GET", revalidate: options.revalidate ?? 15, ...(options.tags ? { tags: options.tags } : {}) },
-  )
-  return data.records ?? []
+
+  const all: AirtableRecord<T>[] = []
+  let offset: string | undefined
+
+  do {
+    const params = new URLSearchParams(baseParams)
+    if (offset) params.set("offset", offset)
+    const query = params.toString()
+    const data = await airtableFetch(
+      `${encodeURIComponent(table)}${query ? `?${query}` : ""}`,
+      { method: "GET", revalidate: options.revalidate ?? 15, ...(options.tags ? { tags: options.tags } : {}) },
+    )
+    all.push(...(data.records ?? []))
+    offset = data.offset
+    // Respect maxRecords cap across pages
+    if (options.maxRecords && all.length >= options.maxRecords) break
+  } while (offset)
+
+  return options.maxRecords ? all.slice(0, options.maxRecords) : all
 }
 
 async function create<T>(table: string, fields: Partial<T>): Promise<AirtableRecord<T>> {

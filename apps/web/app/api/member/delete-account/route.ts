@@ -9,6 +9,7 @@ import { appBase, TABLES, type ClientFields } from "@/lib/airtable"
 export async function DELETE(_req: Request) {
   const me = await getSessionUserWithRole()
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (me.role === "prep_master") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   // Clear User ID from any linked Airtable record so it's not orphaned
   try {

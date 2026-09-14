@@ -87,7 +87,10 @@ export async function PATCH(
         revalidate: 0,
       })
       if (records[0]) await appBase.destroy(TABLES.clients, records[0].id)
-    } catch { /* non-fatal */ }
+      else console.warn("[deny] no Airtable member record found for", safeEmail)
+    } catch (e) {
+      console.error("[deny] failed to delete Airtable member record for", safeEmail, e)
+    }
   }
 
   // Notify the user

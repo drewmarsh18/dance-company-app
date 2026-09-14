@@ -7,6 +7,8 @@ import { getCalendarAuthUrl, disconnectCalendar } from "@/lib/google-calendar"
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { resolveRole } = await import("@/lib/roles")
+  if ((await resolveRole(session.user.email)) === "prep_master") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   // state = userId so the callback knows who to save tokens for
   const url = getCalendarAuthUrl(session.user.id)

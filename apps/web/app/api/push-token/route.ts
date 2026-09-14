@@ -9,6 +9,8 @@ import { eq, and } from "drizzle-orm"
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { resolveRole } = await import("@/lib/roles")
+  if ((await resolveRole(session.user.email)) === "prep_master") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { token } = await req.json()
   if (!token || typeof token !== "string") {

@@ -8,6 +8,7 @@ import { TABLES, appBase, type ClientFields } from "@/lib/airtable"
 export async function PATCH(req: Request) {
   const user = await getSessionUserWithRole()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (user.role === "prep_master") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const { timezone } = await req.json() as { timezone?: string }
   if (!timezone || typeof timezone !== "string") return NextResponse.json({ error: "Invalid timezone" }, { status: 400 })
   await db.update(userTable).set({ timezone }).where(eq(userTable.id, user.id))
@@ -17,6 +18,7 @@ export async function PATCH(req: Request) {
 export async function GET() {
   const user = await getSessionUserWithRole()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (user.role === "prep_master") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const [row] = await db.select({ status: userTable.status }).from(userTable).where(eq(userTable.id, user.id))
   // Default to "pending" when no row found — never let an unknown user through as active

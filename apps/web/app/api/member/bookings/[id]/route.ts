@@ -16,6 +16,8 @@ import { deleteCalendarEvent } from "@/lib/google-calendar"
 async function getSessionUser() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return null
+  const { resolveRole } = await import("@/lib/roles")
+  if ((await resolveRole(session.user.email)) === "prep_master") return null
   return session.user
 }
 
