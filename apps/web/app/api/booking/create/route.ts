@@ -24,7 +24,7 @@ import { eq } from "drizzle-orm"
 import { createCalendarEvent, getCalendarBusySlots } from "@/lib/google-calendar"
 import type { SessionType } from "@/lib/session-types"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
 const CONFIRM_SECRET = process.env.BOOKING_CONFIRM_SECRET ?? "cdp-confirm-secret"
 
 async function findClientRecord(userId: string, parentEmail?: string | null) {

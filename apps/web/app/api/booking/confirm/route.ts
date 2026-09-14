@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm"
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar"
 import { COMPANY_TZ } from "@/lib/utils"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
 const SECRET = process.env.BOOKING_CONFIRM_SECRET ?? "cdp-confirm-secret"
 
 export async function GET(req: NextRequest) {

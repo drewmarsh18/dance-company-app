@@ -2,7 +2,7 @@ import nodemailer from "nodemailer"
 
 const REPLY_TO = "collegedanceprep@gmail.com"
 const YEAR = new Date().getFullYear()
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
 
 function getTransporter() {
   return nodemailer.createTransport({

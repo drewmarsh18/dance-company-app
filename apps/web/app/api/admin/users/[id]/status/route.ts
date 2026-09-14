@@ -9,7 +9,7 @@ import { appBase, TABLES } from "@/lib/airtable"
 import type { ClientFields } from "@/lib/airtable"
 import { sendEmail, accountApprovedEmail, parentAccountApprovedEmail, accountDeniedEmail } from "@/lib/email"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
 
 export async function PATCH(
   req: Request,

@@ -288,7 +288,7 @@ export function BookingDetailModal({
         method: "PATCH",
         body: { date: editDate, time: editTime, notes: editNotes },
       })
-      if ((data as any)?.ok) { Alert.alert("Request sent", "Your reschedule request is awaiting approval from your PrepMaster."); onRescheduled(booking.id, editDate, editTime, etToUtcIso(editDate, editTime)); onClose(); onRefresh?.() }
+      if ((data as any)?.ok) { Alert.alert("Request sent", "Your reschedule request is awaiting approval from your PrepMaster."); onRescheduled(booking.id, editDate, editTime, null); onClose(); onRefresh?.() }
       else Alert.alert("Error", (data as any)?.error ?? (error as any)?.message ?? "Failed to reschedule.")
     } catch { Alert.alert("Error", "Failed to reschedule.") }
     finally { setLoading(false) }

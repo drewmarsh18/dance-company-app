@@ -252,7 +252,7 @@ export const auth = betterAuth({
           const appUrl = process.env.BETTER_AUTH_URL
             ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL
               ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-              : "https://dance-company-app.vercel.app")
+              : "https://app.collegedanceprep.com")
           const reviewUrl = `${appUrl}/admin`
 
           const { subject, html } = newMemberPendingEmail({
