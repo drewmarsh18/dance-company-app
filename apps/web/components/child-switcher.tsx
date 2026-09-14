@@ -39,6 +39,7 @@ export function ChildSwitcher({
           {children.map((child) => {
             const active = child.userId === activeChildUserId
             const pending = child.status === "pending"
+            const denied = child.status === "denied"
             return (
               <button
                 key={child.userId}
@@ -46,15 +47,18 @@ export function ChildSwitcher({
                 disabled={loading}
                 className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   active
-                    ? pending
-                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700"
-                      : "bg-primary text-primary-foreground"
+                    ? denied
+                      ? "bg-destructive/10 text-destructive border border-destructive/30"
+                      : pending
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700"
+                        : "bg-primary text-primary-foreground"
                     : "bg-background border text-foreground hover:bg-muted"
                 }`}
               >
-                {pending && <Clock className="size-3" />}
+                {(pending || denied) && <Clock className="size-3" />}
                 {child.name.split(" ")[0]}
                 {pending && <span className="opacity-70">·&nbsp;Pending</span>}
+                {denied && <span className="opacity-70">·&nbsp;Denied</span>}
               </button>
             )
           })}
