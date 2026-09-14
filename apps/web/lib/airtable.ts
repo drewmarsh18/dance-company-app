@@ -394,7 +394,7 @@ export async function getBookedSlots(
       const s = (r.fields.Status ?? "").toLowerCase()
       return !s.startsWith("cancelled") && s !== "declined"
     })
-    .map((r) => r.fields.Time ?? "")
+    .map((r) => (r.fields.Time ?? "").trim())
     .filter(Boolean)
 }
 
