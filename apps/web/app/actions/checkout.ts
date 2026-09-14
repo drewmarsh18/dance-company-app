@@ -49,7 +49,7 @@ export async function createCheckoutSession(itemId: string) {
       userId: effectiveUserId,
       userEmail: effectiveEmail,
       itemId,
-      itemType: pkg ? "pack" : "per-private",
+      itemType: pkg ? "pack" : "single",
       sessions: pkg ? String(pkg.sessions) : "1",
       sessionType: pkg ? "pack-hour" : perPrivate!.id,
     },

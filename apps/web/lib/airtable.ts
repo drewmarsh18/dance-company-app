@@ -91,6 +91,7 @@ export type PlanFields = {
   "Expires At"?: string
   Status?: string
   Source?: string
+  "Stripe Session ID"?: string
 }
 
 export type MemberPlan = {
@@ -515,6 +516,7 @@ export async function createMemberPlan(fields: {
   pricePaid: number
   expiryDays?: number
   source?: "stripe" | "admin"
+  stripeSessionId?: string
 }): Promise<MemberPlan> {
   const purchasedAt = new Date()
   const expiresAt = fields.expiryDays != null ? new Date(purchasedAt) : null
@@ -531,6 +533,7 @@ export async function createMemberPlan(fields: {
     ...(expiresAt ? { "Expires At": expiresAt.toISOString() } : {}),
     Status: "Active",
     ...(fields.source ? { Source: fields.source } : {}),
+    ...(fields.stripeSessionId ? { "Stripe Session ID": fields.stripeSessionId } : {}),
   })
   return {
     id: record.id,

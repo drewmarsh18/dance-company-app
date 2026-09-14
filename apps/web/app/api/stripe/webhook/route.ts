@@ -36,6 +36,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing metadata" }, { status: 400 })
     }
 
+    // Idempotency — Stripe may retry delivery; skip if this checkout was already processed
+    const stripeSessionId = session.id
+    const existing = await appBase.list<PlanFields>(TABLES.plans, {
+      filterByFormula: `{Stripe Session ID} = '${stripeSessionId}'`,
+      maxRecords: 1,
+    })
+    if (existing.length > 0) {
+      return NextResponse.json({ received: true })
+    }
+
     // For packs, metadata `sessions` is the credit count directly.
     // For single sessions, duration determines fractional credits (30min=0.5, 45min=0.75, 60min=1).
     const SINGLE_SESSION_CREDITS: Record<string, number> = {
@@ -93,19 +103,21 @@ export async function POST(req: NextRequest) {
       sessions: creditAmount,
       pricePaid,
       source: "stripe",
+      stripeSessionId,
       ...(matchedPackage?.expiryDays != null ? { expiryDays: matchedPackage.expiryDays } : {}),
     })
 
     // Bust the member's cached dashboard/profile data so the new credits show immediately
     revalidateTag(`member-${userId}`)
 
-    // In-app notification — use current (pre-update value) + creditAmount, not the stale client snapshot
+    // In-app + push notification
     const newBalance = Math.round(((client ? (client.fields["Credits Remaining"] ?? 0) : 0) + creditAmount) * 100) / 100
     createNotification({
       userId,
-      type: "booking_confirmed",
+      type: "purchase_complete",
       title: "Purchase complete!",
       body: `Your ${planName} is ready. You have ${newBalance} credit${newBalance !== 1 ? "s" : ""} available.`,
+      pushData: { route: "/member/plans" },
     }).catch(() => {})
 
     // Purchase receipt email — dancer is `to:`, parent CC'd if one exists
