@@ -8,7 +8,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { getSessionUserWithRole, homePathForRole } from "@/lib/roles"
 import { getUnreadCount } from "@/app/actions/notifications"
 import { getLinkedChildren, getOrCreateProfile } from "@/app/actions/profile"
-import { ShieldCheck } from "lucide-react"
+import { ShieldCheck, Clock } from "lucide-react"
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const t0 = Date.now()
@@ -29,6 +29,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   console.log("[layout] got unreadCount", Date.now() - t0 + "ms")
   const bell = <NotificationBell initialCount={unreadCount} />
   const activeChildUserId = profile?.effectiveUserId ?? ""
+  const activeChild = linkedChildren.find((c) => c.userId === activeChildUserId)
 
   if (isAdmin) {
     return (
@@ -57,7 +58,19 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       {linkedChildren.length >= 2 && (
         <ChildSwitcher children={linkedChildren} activeChildUserId={activeChildUserId} />
       )}
-      <main className="mx-auto max-w-6xl px-5 py-8">{children}</main>
+      {activeChild?.status === "pending" ? (
+        <main className="mx-auto max-w-6xl px-5 py-16 flex flex-col items-center text-center gap-4">
+          <div className="rounded-full bg-amber-100 dark:bg-amber-900/30 p-4">
+            <Clock className="size-8 text-amber-500" />
+          </div>
+          <h2 className="text-xl font-semibold">{activeChild.name.split(" ")[0]}'s account is pending approval</h2>
+          <p className="max-w-sm text-muted-foreground">
+            An admin will review and approve this account shortly. You'll receive an email at your parent address once it's approved.
+          </p>
+        </main>
+      ) : (
+        <main className="mx-auto max-w-6xl px-5 py-8">{children}</main>
+      )}
       <Toaster position="top-center" />
     </div>
   )

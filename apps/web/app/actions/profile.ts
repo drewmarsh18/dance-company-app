@@ -69,10 +69,13 @@ export async function updateProfile(input: {
 }
 
 /** Returns all children linked to the current parent account (by Parent Email in Airtable). */
-export async function getLinkedChildren(): Promise<{ userId: string; name: string }[]> {
+export async function getLinkedChildren(): Promise<{ userId: string; name: string; status: string }[]> {
   "use server"
   const { getSessionUserWithRole } = await import("@/lib/roles")
   const { appBase, TABLES, isAirtableConfigured } = await import("@/lib/airtable")
+  const { db: dbInstance } = await import("@/lib/db")
+  const { user: userTable } = await import("@/lib/db/schema")
+  const { inArray } = await import("drizzle-orm")
   const user = await getSessionUserWithRole()
   if (!user || !isAirtableConfigured()) return []
   try {
@@ -81,12 +84,16 @@ export async function getLinkedChildren(): Promise<{ userId: string; name: strin
       filterByFormula: `LOWER({Parent Email}) = '${safe}'`,
       revalidate: 0,
     })
-    return records
-      .filter((r: { fields: Record<string, unknown> }) => r.fields["User ID"])
-      .map((r: { fields: Record<string, unknown> }) => ({
-        userId: r.fields["User ID"] as string,
-        name: (r.fields["Name"] as string) ?? "Child",
-      }))
+    const withIds = records.filter((r: { fields: Record<string, unknown> }) => r.fields["User ID"])
+    if (withIds.length === 0) return []
+    const userIds = withIds.map((r: { fields: Record<string, unknown> }) => r.fields["User ID"] as string)
+    const dbUsers = await dbInstance.select({ id: userTable.id, status: userTable.status }).from(userTable).where(inArray(userTable.id, userIds))
+    const statusMap = Object.fromEntries(dbUsers.map((u) => [u.id, u.status ?? "active"]))
+    return withIds.map((r: { fields: Record<string, unknown> }) => ({
+      userId: r.fields["User ID"] as string,
+      name: (r.fields["Name"] as string) ?? "Child",
+      status: statusMap[r.fields["User ID"] as string] ?? "pending",
+    }))
   } catch {
     return []
   }
