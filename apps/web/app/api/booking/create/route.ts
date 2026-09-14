@@ -116,6 +116,12 @@ export async function POST(req: Request) {
     }
   }
 
+  // Always compute UTC from the PM's server-side timezone so the stored value is correct
+  // regardless of what timezone the client device is in. Fall back to client-supplied value
+  // only when the PM has no user row yet (shouldn't happen in practice).
+  const pmTimezone = pmUserRow?.timezone ?? COMPANY_TZ
+  const serverUtcDatetime = pmUserRow ? (etToUtcIso(date, time, pmTimezone) ?? utcDatetime) : (utcDatetime ?? null)
+
   // Create booking
   const record = await appBase.create<BookingFields>(TABLES.bookings, {
     "User ID": effectiveUserId,
@@ -123,7 +129,7 @@ export async function POST(req: Request) {
     "Prep Master Name": prepMasterName,
     Date: date,
     Time: time,
-    ...(utcDatetime ? { "UTC Datetime": utcDatetime } : {}),
+    ...(serverUtcDatetime ? { "UTC Datetime": serverUtcDatetime } : {}),
     Status: "Pending",
     Notes: notes ?? "",
     "Session Type": sessionType ?? "pack-hour",

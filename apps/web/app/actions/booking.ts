@@ -18,7 +18,7 @@ import {
 } from "@/lib/airtable"
 import { sendSms } from "@/lib/sms"
 import { createNotification } from "@/app/actions/notifications"
-import { createCalendarEvent } from "@/lib/google-calendar"
+import { createCalendarEvent, getCalendarBusySlots } from "@/lib/google-calendar"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -265,6 +265,10 @@ export async function rescheduleBooking(
       Time: newTime,
       Status: "Pending",
       "Is Reschedule": true,
+      // Preserve originals so PM can revert if they decline the reschedule
+      "Original Date": existing.fields.Date ?? "",
+      "Original Time": existing.fields.Time ?? "",
+      "Original UTC Datetime": existing.fields["UTC Datetime"] ?? "",
       // Keep UTC Datetime in sync — mobile app uses this field for display
       ...(utcForReschedule ? { "UTC Datetime": utcForReschedule } : {}),
     })
@@ -378,7 +382,7 @@ export async function createBooking(input: {
     if (!prepMaster) {
       return { ok: false, error: "This PrepMaster is no longer available." }
     }
-    const [pmTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, prepMaster.email)).limit(1)
+    const [pmTzRow] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, prepMaster.email)).limit(1)
     const pmTz = pmTzRow?.timezone ?? COMPANY_TZ
     const week = await getAvailabilityForEmail(prepMaster.email)
     const openSlots = slotsForDate(input.date, week)
@@ -395,6 +399,14 @@ export async function createBooking(input: {
       return {
         ok: false,
         error: "That time was just booked. Please choose another slot.",
+      }
+    }
+
+    // 4) Block if PM's Google Calendar shows a conflict (matches the REST create route check).
+    if (pmTzRow) {
+      const busySlots = await getCalendarBusySlots(pmTzRow.id, input.date, 60, pmTz).catch(() => [] as string[])
+      if (busySlots.includes(input.time)) {
+        return { ok: false, error: "That time is no longer available. Please choose another slot." }
       }
     }
 
@@ -433,9 +445,9 @@ export async function createBooking(input: {
     const memberCreateLabel = utcForCreate ? fmtTimeForNotif(utcForCreate, pmTz, memberCreateRow?.timezone ?? null) : fmtTime(input.time)
     createNotification({
       userId: effectiveUserId,
-      type: "booking_confirmed",
-      title: "Booking confirmed",
-      body: `Your session with ${input.prepMasterName} on ${fmtDate(input.date)} at ${memberCreateLabel} is confirmed.`,
+      type: "booking_pending",
+      title: "Booking requested",
+      body: `Your session with ${input.prepMasterName} on ${fmtDate(input.date)} at ${memberCreateLabel} is pending confirmation.`,
       bookingId: record.id,
       pushData: { route: "/member/bookings" },
     }).catch(() => {})

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { revalidateTag } from "next/cache"
 import { auth } from "@/lib/auth"
-import { TABLES, appBase, type BookingFields, type ClientFields } from "@/lib/airtable"
+import { TABLES, appBase, type BookingFields, type ClientFields, getBookedSlots } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingCancelledEmail, bookingUpdatedEmail } from "@/lib/email"
 import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
@@ -228,6 +228,17 @@ export async function PATCH(
     )
     if (utc) update["UTC Datetime"] = utc
   }
+  // Prevent double-booking on the new slot (mirrors the create route validation)
+  if (body.date && body.time) {
+    const keepingSameSlot = booking.fields.Date === body.date && booking.fields.Time === body.time
+    if (!keepingSameSlot) {
+      const takenSlots = await getBookedSlots(pmName, body.date)
+      if (takenSlots.includes(body.time)) {
+        return NextResponse.json({ ok: false, error: "That time was just booked. Please choose another slot." })
+      }
+    }
+  }
+
   await appBase.update<BookingFields>(TABLES.bookings, id, update)
 
   const newDate = body.date ?? booking.fields.Date ?? ""

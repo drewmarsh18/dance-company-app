@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { appBase, TABLES, type BookingFields, type ClientFields, getMostRecentInactivePlanForUser, setPlanStatus, getPrepMasters } from "@/lib/airtable"
+import { appBase, TABLES, type BookingFields, type ClientFields, type AirtableRecord, getMostRecentInactivePlanForUser, setPlanStatus, getPrepMasters } from "@/lib/airtable"
 import { sendEmail, bookingCancelledEmail } from "@/lib/email"
 import { db } from "@/lib/db"
 import { user as userTable, calendarEventLink } from "@/lib/db/schema"
@@ -93,13 +93,16 @@ export async function GET(req: NextRequest) {
     }
 
     if (action === "deny") {
-      await appBase.update<BookingFields>(TABLES.bookings, bookingId, { Status: "Cancelled" })
+      // "Declined" = PM-initiated denial; "Cancelled" is reserved for member-initiated cancellations
+      await appBase.update<BookingFields>(TABLES.bookings, bookingId, { Status: "Declined" })
 
       // Refund credit
       const userId = booking.fields["User ID"]
       const dancerEmail = booking.fields["Client Email"]
+      // Hoisted so it's accessible in the notification block below
+      let clients: AirtableRecord<ClientFields>[] = []
       if (userId) {
-        const clients = await appBase.list<ClientFields>(TABLES.clients, {
+        clients = await appBase.list<ClientFields>(TABLES.clients, {
           filterByFormula: `{User ID} = '${userId.replace(/'/g, "\\'")}'`,
           maxRecords: 1,
         })
@@ -107,7 +110,7 @@ export async function GET(req: NextRequest) {
         if (client) {
           const SESSION_CREDIT_COST: Record<string, number> = { "pack-hour": 1, "private-60": 1, "private-45": 0.75, "private-30": 0.5, "private-90": 1.5 }
           const sessionType = booking.fields["Session Type"] as string | undefined
-          const creditRefund = SESSION_CREDIT_COST[sessionType ?? "private-60"] ?? 1
+          const creditRefund = SESSION_CREDIT_COST[sessionType ?? "pack-hour"] ?? 1
           const current = client.fields["Credits Remaining"] ?? 0
           await appBase.update<ClientFields>(TABLES.clients, client.id, { "Credits Remaining": Math.round((current + creditRefund) * 100) / 100 })
           if (current === 0) {

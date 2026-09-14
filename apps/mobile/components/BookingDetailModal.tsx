@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 
-const API_BASE = "https://dance-company-app.vercel.app"
+const API_BASE = "https://app.collegedanceprep.com"
 
 export type Booking = {
   id: string
@@ -229,7 +229,18 @@ export function BookingDetailModal({
 
   function isWithin24Hours() {
     if (!booking.date) return false
-    const sessionDate = new Date(`${booking.date}T${booking.time && !/am|pm/i.test(booking.time) ? booking.time : "12:00"}`)
+    // Prefer the stored UTC datetime — it is always accurate regardless of timezone
+    if (booking.utcDatetime) {
+      return (new Date(booking.utcDatetime).getTime() - Date.now()) < 24 * 60 * 60 * 1000
+    }
+    // Fallback: parse the 12-hour time string manually
+    const match = booking.time?.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i)
+    if (!match) return false
+    let h = parseInt(match[1])
+    const m = match[2] ? parseInt(match[2]) : 0
+    if (match[3].toUpperCase() === "PM" && h !== 12) h += 12
+    if (match[3].toUpperCase() === "AM" && h === 12) h = 0
+    const sessionDate = new Date(`${booking.date}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`)
     return (sessionDate.getTime() - Date.now()) < 24 * 60 * 60 * 1000
   }
 

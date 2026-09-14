@@ -390,7 +390,10 @@ export async function getBookedSlots(
     revalidate: 5,
   })
   return records
-    .filter((r) => (r.fields.Status ?? "").toLowerCase() !== "cancelled")
+    .filter((r) => {
+      const s = (r.fields.Status ?? "").toLowerCase()
+      return !s.startsWith("cancelled") && s !== "declined"
+    })
     .map((r) => r.fields.Time ?? "")
     .filter(Boolean)
 }
@@ -409,7 +412,8 @@ export async function getUpcomingBookedSlots(
   })
   const map: Record<string, string[]> = {}
   for (const r of records) {
-    if ((r.fields.Status ?? "").toLowerCase().startsWith("cancelled")) continue
+    const s = (r.fields.Status ?? "").toLowerCase()
+    if (s.startsWith("cancelled") || s === "declined") continue
     const date = r.fields.Date
     const time = r.fields.Time
     if (!date || !time) continue
