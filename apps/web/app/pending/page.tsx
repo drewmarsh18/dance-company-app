@@ -18,8 +18,8 @@ export default function PendingPage() {
         </div>
         <p className="text-sm text-muted-foreground">
           Questions? Email us at{" "}
-          <a href="mailto:support@collegedanceprep.com" className="text-primary underline">
-            support@collegedanceprep.com
+          <a href="mailto:collegedanceprep@gmail.com" className="text-primary underline">
+            collegedanceprep@gmail.com
           </a>
         </p>
         <form action="/api/auth/sign-out" method="POST">

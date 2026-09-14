@@ -20,6 +20,20 @@ export default async function PortalPage() {
   const user = await getSessionUserWithRole()
   const firstName = user?.name?.split(" ")[0] ?? "there"
 
+  // Silently remove any stale Airtable Members record for this PrepMaster
+  // so it never gets a User ID stamped on it and spills into the Members panel.
+  if (user && isAirtableConfigured()) {
+    const { appBase, TABLES } = await import("@/lib/airtable")
+    const safe = user.email.replace(/'/g, "\\'")
+    appBase.list(TABLES.clients, {
+      filterByFormula: `LOWER({Email}) = '${safe}'`,
+      maxRecords: 1,
+      revalidate: 0,
+    }).then((records) => {
+      if (records[0]) appBase.destroy(TABLES.clients, records[0].id).catch(() => {})
+    }).catch(() => {})
+  }
+
   if (!isAirtableConfigured()) {
     return (
       <div className="flex flex-col gap-6">
