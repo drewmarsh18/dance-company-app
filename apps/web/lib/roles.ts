@@ -5,7 +5,7 @@ import { headers } from "next/headers"
 import { and, eq } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { prepMasterInvite } from "@/lib/db/schema"
+import { prepMasterInvite, user } from "@/lib/db/schema"
 import { getPrepMasterByEmail, adminUpdateWorker, isAirtableConfigured } from "@/lib/airtable"
 
 export type Role = "admin" | "prep_master" | "dancer"
@@ -72,6 +72,7 @@ export type SessionUserWithRole = {
   email: string
   image?: string | null
   role: Role
+  status: string
 }
 
 /**
@@ -84,7 +85,10 @@ export const getSessionUserWithRole = cache(async (): Promise<SessionUserWithRol
   const session = await auth.api.getSession({ headers: await headers() })
   console.log("[roles] getSession done", Date.now() - t0 + "ms", session?.user?.email ?? "no user")
   if (!session?.user) return null
-  const role = await resolveRole(session.user.email)
+  const [role, dbUser] = await Promise.all([
+    resolveRole(session.user.email),
+    db.select({ status: user.status }).from(user).where(eq(user.id, session.user.id)).limit(1),
+  ])
   console.log("[roles] resolveRole done", Date.now() - t0 + "ms", "role=" + role)
   return {
     id: session.user.id,
@@ -92,6 +96,7 @@ export const getSessionUserWithRole = cache(async (): Promise<SessionUserWithRol
     email: session.user.email,
     image: session.user.image,
     role,
+    status: dbUser[0]?.status ?? "active",
   }
 })
 

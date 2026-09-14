@@ -15,6 +15,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   console.log("[layout] got user role=" + user?.role, Date.now() - t0 + "ms")
   if (!user) redirect("/")
 
+  // Block pending/denied accounts regardless of how they signed in (email or Google)
+  if (user.status === "pending") redirect("/pending")
+  if (user.status === "denied") redirect("/denied")
+
   const isAdmin = user.role === "admin"
 
   if (!isAdmin && user.role !== "dancer") redirect(homePathForRole(user.role))
