@@ -69,20 +69,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             An admin will review and approve this account shortly. You&apos;ll receive an email at your parent address once it&apos;s approved.
           </p>
         </main>
-      ) : activeChild?.status === "denied" ? (
-        <main className="mx-auto max-w-6xl px-5 py-16 flex flex-col items-center text-center gap-4">
-          <div className="rounded-full bg-destructive/10 p-4">
-            <Clock className="size-8 text-destructive" />
-          </div>
-          <h2 className="text-xl font-semibold">{activeChild.name.split(" ")[0]}&apos;s account was not approved</h2>
-          <p className="max-w-sm text-muted-foreground">
-            This account request was not approved. If you think this is a mistake, please reach out to us at{" "}
-            <a href="mailto:collegedanceprep@gmail.com" className="text-primary underline-offset-2 hover:underline">
-              collegedanceprep@gmail.com
-            </a>
-            .
-          </p>
-        </main>
       ) : (
         <main className="mx-auto max-w-6xl px-5 py-8">{children}</main>
       )}
