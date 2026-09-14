@@ -14,9 +14,19 @@ import { user as userTable, calendarEventLink } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { createCalendarEvent } from "@/lib/google-calendar"
 
-export async function GET() {
+async function requirePrepMaster() {
   const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!session?.user) return null
+  const { resolveRole } = await import("@/lib/roles")
+  const role = await resolveRole(session.user.email)
+  if (role !== "prep_master" && role !== "admin") return null
+  return session.user
+}
+
+export async function GET() {
+  const user = await requirePrepMaster()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = { user }
 
   const prepMaster = await getPrepMasterByEmail(session.user.email)
   if (!prepMaster) return NextResponse.json({ error: "NO_RECORD" }, { status: 404 })
@@ -36,8 +46,9 @@ export async function GET() {
 
 
 export async function POST(req: Request) {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const user = await requirePrepMaster()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = { user }
 
   const { dancerEmail, date, time, notes, sessionType } = await req.json() as {
     dancerEmail: string; date: string; time: string; notes?: string; sessionType?: string
@@ -45,6 +56,10 @@ export async function POST(req: Request) {
 
   const prepMaster = await getPrepMasterByEmail(session.user.email)
   if (!prepMaster) return NextResponse.json({ ok: false, error: "No PrepMaster record found." })
+
+  // Verify dancer email belongs to a real member account in the DB (prevents spoofed emails)
+  const [dancerDbRow] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, dancerEmail.toLowerCase())).limit(1)
+  if (!dancerDbRow) return NextResponse.json({ ok: false, error: "Member not found." })
 
   const history = await getBookingsForPrepMaster(prepMaster.name)
   const knownEmails = new Set(history.map((b) => b.dancerEmail.toLowerCase()))

@@ -8,7 +8,8 @@ import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar"
 import { COMPANY_TZ } from "@/lib/utils"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
-const SECRET = process.env.BOOKING_CONFIRM_SECRET ?? "cdp-confirm-secret"
+const SECRET = process.env.BOOKING_CONFIRM_SECRET
+if (!SECRET) throw new Error("BOOKING_CONFIRM_SECRET env var is not set")
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)

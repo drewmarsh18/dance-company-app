@@ -9,7 +9,8 @@ import {
 } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
 
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? ""
+const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
+if (!WEBHOOK_SECRET) throw new Error("STRIPE_WEBHOOK_SECRET env var is not set")
 
 export async function POST(req: NextRequest) {
   const body = await req.text()

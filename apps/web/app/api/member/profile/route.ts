@@ -11,11 +11,14 @@ export async function PATCH(req: NextRequest) {
   if (role === "prep_master") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
-  const { recordId, name, phone, goals, parentEmail } = body
+  const { name, phone, goals, parentEmail } = body
 
-  if (!recordId) return NextResponse.json({ error: "recordId required" }, { status: 400 })
+  // Derive recordId server-side — never trust a caller-supplied Airtable record ID
+  const { resolveClientProfile } = await import("@/lib/profile-core")
+  const profile = await resolveClientProfile({ id: session.user.id, email: session.user.email, name: session.user.name ?? "" }, true)
+  if (!profile?.recordId) return NextResponse.json({ error: "Profile not found" }, { status: 404 })
 
-  const result = await updateProfile({ recordId, name: name ?? "", phone: phone ?? "", goals: goals ?? "", parentEmail: parentEmail ?? undefined, memberName: session.user.name ?? undefined })
+  const result = await updateProfile({ recordId: profile.recordId, name: name ?? "", phone: phone ?? "", goals: goals ?? "", parentEmail: parentEmail ?? undefined, memberName: session.user.name ?? undefined })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 })
 
   return NextResponse.json({ ok: true })

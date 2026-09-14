@@ -15,6 +15,9 @@ function normalizeEmail(email: string) {
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { resolveRole } = await import("@/lib/roles")
+  const role = await resolveRole(session.user.email)
+  if (role !== "prep_master" && role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const email = normalizeEmail(session.user.email)
   const rows = await db
@@ -46,6 +49,9 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { resolveRole } = await import("@/lib/roles")
+  const role = await resolveRole(session.user.email)
+  if (role !== "prep_master" && role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { week } = await req.json() as { week: DayAvailability[] }
   const email = normalizeEmail(session.user.email)

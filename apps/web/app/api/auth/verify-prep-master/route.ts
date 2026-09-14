@@ -20,25 +20,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ verified: false, error: "Name and university are required." })
   }
 
+  const email = session.user.email.trim().toLowerCase()
+
+  // If the caller already has an accepted invite, they're already a PM — no re-grant needed
+  const existing = await db
+    .select({ id: prepMasterInvite.id, status: prepMasterInvite.status })
+    .from(prepMasterInvite)
+    .where(eq(prepMasterInvite.email, email))
+    .limit(1)
+  if (existing[0]?.status === "accepted") {
+    return NextResponse.json({ verified: true, prepMasterName: existing[0] ? name.trim() : "" })
+  }
+
   const prepMasters = await getPrepMasters()
+  // Match on name + university AND require the Airtable record's email matches the caller's email
+  // This prevents someone from stealing another PM's identity via self-verification
   const match = prepMasters.find(
     (pm) =>
       normalize(pm.name) === normalize(name) &&
-      normalize(pm.university) === normalize(university),
+      normalize(pm.university) === normalize(university) &&
+      pm.email.trim().toLowerCase() === email,
   )
 
   if (!match) {
     return NextResponse.json({ verified: false })
   }
 
-  // Grant prep master access by upserting into the invite table
-  const email = session.user.email.trim().toLowerCase()
-  const existing = await db
-    .select({ id: prepMasterInvite.id })
-    .from(prepMasterInvite)
-    .where(eq(prepMasterInvite.email, email))
-    .limit(1)
-
+  // Grant prep master access
   if (!existing[0]) {
     await db.insert(prepMasterInvite).values({
       id: randomUUID(),

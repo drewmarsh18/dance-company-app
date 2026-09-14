@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react"
-import { Tabs, useFocusEffect, usePathname } from "expo-router"
+import React, { useCallback, useEffect, useRef, useState } from "react"
+import { Tabs, useFocusEffect, usePathname, useRouter } from "expo-router"
 import { Home, Clock, User, Inbox } from "lucide-react-native"
 import { View, Text, StyleSheet } from "react-native"
 import { useColors } from "@/lib/theme-context"
@@ -37,8 +37,19 @@ const styles = StyleSheet.create({
 
 export default function PortalLayout() {
   const COLORS = useColors()
+  const router = useRouter()
   const [unread, setUnread] = useState(0)
   const pathname = usePathname()
+  const roleChecked = useRef(false)
+
+  // Server-side role guard — redirect if session user is not a prep_master
+  useEffect(() => {
+    if (roleChecked.current) return
+    roleChecked.current = true
+    authClient.$fetch(`${API_BASE}/api/me`).then(({ data }: any) => {
+      if (!data || data.role !== "prep_master") router.replace("/")
+    }).catch(() => router.replace("/"))
+  }, [])
 
   useEffect(() => {
     authClient.$fetch(`${API_BASE}/api/notifications`).then(({ data }: any) => {

@@ -8,6 +8,9 @@ import { slotsForDate } from "@/lib/availability"
 export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { resolveRole } = await import("@/lib/roles")
+  const role = await resolveRole(session.user.email)
+  if (role !== "prep_master" && role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { searchParams } = new URL(req.url)
   const date = searchParams.get("date")

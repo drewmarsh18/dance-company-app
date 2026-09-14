@@ -29,7 +29,7 @@ import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY
 import { sendEmail, bookingConfirmationEmail, bookingCancelledEmail, prepMasterBookingRequestEmail, bookingUpdatedEmail } from "@/lib/email"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
-const CONFIRM_SECRET = process.env.BOOKING_CONFIRM_SECRET ?? "cdp-confirm-secret"
+const CONFIRM_SECRET = process.env.BOOKING_CONFIRM_SECRET ?? ""
 
 async function getSessionUser() {
   const session = await auth.api.getSession({ headers: await headers() })

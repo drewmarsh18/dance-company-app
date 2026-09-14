@@ -24,7 +24,15 @@ export async function POST(req: Request) {
   if (!isAdminEmail(session.user.email)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
-  const { memberId, userId, email, currentCredits, packageId, label } = body
+  const { memberId, userId, email, packageId, label } = body
+
+  if (typeof memberId !== "string" || !memberId) return NextResponse.json({ error: "Invalid memberId." }, { status: 400 })
+
+  // Verify the memberId points to a real Clients record before any write
+  const memberRecords = await appBase.list(TABLES.clients, { filterByFormula: `RECORD_ID() = '${memberId}'`, maxRecords: 1, revalidate: 0 })
+  if (!memberRecords[0]) return NextResponse.json({ error: "Member not found." }, { status: 404 })
+  // currentCredits must come from the verified record, never from the client
+  const currentCredits = (memberRecords[0].fields as any)["Credits Remaining"] ?? 0
 
   if (label) {
     // Add single session
@@ -67,9 +75,21 @@ export async function DELETE(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!isAdminEmail(session.user.email)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  const { planId, memberId, planSessions, currentCredits } = await req.json()
+  const { planId, memberId, planSessions } = await req.json()
+  if (typeof planId !== "string" || !planId) return NextResponse.json({ error: "Invalid planId." }, { status: 400 })
+  if (typeof memberId !== "string" || !memberId) return NextResponse.json({ error: "Invalid memberId." }, { status: 400 })
+
+  // Verify both records exist before writing
+  const [planRecords, clientRecords] = await Promise.all([
+    appBase.list(TABLES.plans, { filterByFormula: `RECORD_ID() = '${planId}'`, maxRecords: 1, revalidate: 0 }),
+    appBase.list(TABLES.clients, { filterByFormula: `RECORD_ID() = '${memberId}'`, maxRecords: 1, revalidate: 0 }),
+  ])
+  if (!planRecords[0]) return NextResponse.json({ error: "Plan not found." }, { status: 404 })
+  if (!clientRecords[0]) return NextResponse.json({ error: "Member not found." }, { status: 404 })
+
   await appBase.destroy(TABLES.plans, planId)
-  const newCredits = Math.max(0, currentCredits - planSessions)
+  const currentCredits = (clientRecords[0].fields as any)["Credits Remaining"] ?? 0
+  const newCredits = Math.max(0, currentCredits - (planSessions ?? 0))
   await appBase.update(TABLES.clients, memberId, { "Credits Remaining": newCredits })
   return NextResponse.json({ ok: true, newCredits })
 }

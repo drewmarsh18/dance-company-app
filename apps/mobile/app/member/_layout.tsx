@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { Tabs, usePathname, useRouter } from "expo-router"
 import { Home, Calendar, Package, User, Inbox } from "lucide-react-native"
 import { useTheme } from "@/lib/theme-context"
@@ -119,8 +119,24 @@ const styles = StyleSheet.create({
   },
 })
 
+function RoleGuard() {
+  const router = useRouter()
+  const checked = useRef(false)
+  useEffect(() => {
+    if (checked.current) return
+    checked.current = true
+    authClient.$fetch(`${API_BASE}/api/me`).then(({ data }: any) => {
+      const role = data?.role
+      if (!role || role === "prep_master" || role === "admin") router.replace("/")
+    }).catch(() => router.replace("/"))
+  }, [])
+  return null
+}
+
 export default function MemberLayout() {
   return (
+    <>
+    <RoleGuard />
     <Tabs
       tabBar={() => <GlassTabBar />}
       screenOptions={{ headerShown: false }}
@@ -132,5 +148,6 @@ export default function MemberLayout() {
       <Tabs.Screen name="profile" />
       <Tabs.Screen name="book" options={{ href: null }} />
     </Tabs>
+    </>
   )
 }

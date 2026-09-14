@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Tabs, usePathname } from "expo-router"
+import { Tabs, usePathname, useRouter } from "expo-router"
 import { LayoutDashboard, Users, Star, CircleUserRound, ClipboardCheck } from "lucide-react-native"
 import { useColors } from "@/lib/theme-context"
 import { AdminProvider } from "@/lib/admin-context"
@@ -10,7 +10,15 @@ const API_BASE = "https://app.collegedanceprep.com"
 export default function AdminLayout() {
   const COLORS = useColors()
   const pathname = usePathname()
+  const router = useRouter()
   const [pendingCount, setPendingCount] = useState(0)
+
+  // Server-side role guard — redirect if the session user is not an admin
+  useEffect(() => {
+    authClient.$fetch(`${API_BASE}/api/me`).then(({ data }: any) => {
+      if (!data || data.role !== "admin") router.replace("/")
+    }).catch(() => router.replace("/"))
+  }, [])
 
   useEffect(() => {
     authClient.$fetch(`${API_BASE}/api/admin/pending-users`).then(({ data }: any) => {

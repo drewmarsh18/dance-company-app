@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { headers } from "next/headers"
+import { auth } from "@/lib/auth"
 import { saveCalendarTokens } from "@/lib/google-calendar"
 
 export async function GET(req: NextRequest) {
@@ -10,6 +12,13 @@ export async function GET(req: NextRequest) {
   const mobileRole = role ?? "portal"
 
   if (!code || !userId) {
+    if (isMobile) return NextResponse.redirect(`cdp://${mobileRole}/profile?calendar=error`)
+    return NextResponse.redirect(new URL("/portal?calendar=error", req.url))
+  }
+
+  // Verify the authenticated session owns the userId in state — prevents IDOR token hijacking
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user || session.user.id !== userId) {
     if (isMobile) return NextResponse.redirect(`cdp://${mobileRole}/profile?calendar=error`)
     return NextResponse.redirect(new URL("/portal?calendar=error", req.url))
   }
