@@ -303,6 +303,60 @@ export function parentInviteEmail({ childName, parentEmail }: { childName: strin
   }
 }
 
+export function accountApprovedEmail({
+  memberName,
+  dashboardUrl,
+}: {
+  memberName: string
+  dashboardUrl: string
+}) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(memberName)},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">
+      Great news — your College Dance Prep account has been approved! You can now log in and book private sessions with our PrepMasters.
+    </p>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${dashboardUrl}" style="display:inline-block;background:#e91e8c;color:#ffffff;text-decoration:none;padding:13px 32px;border-radius:6px;font-weight:600;font-size:15px">
+        Go to your dashboard
+      </a>
+    </div>
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0">
+      Questions? Reply to this email and we'll be happy to help.
+    </p>`
+  return {
+    subject: "Your College Dance Prep account has been approved!",
+    html: emailBase("Account approved", body),
+  }
+}
+
+export function parentAccountApprovedEmail({
+  childName,
+  parentEmail,
+  dashboardUrl,
+}: {
+  childName: string
+  parentEmail: string
+  dashboardUrl: string
+}) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi there,</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">
+      <strong>${childName}</strong>'s College Dance Prep account has been approved. As their parent or guardian, you can log in with your email (<strong>${parentEmail}</strong>) to view bookings and session history.
+    </p>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${dashboardUrl}" style="display:inline-block;background:#e91e8c;color:#ffffff;text-decoration:none;padding:13px 32px;border-radius:6px;font-weight:600;font-size:15px">
+        View ${childName}'s account
+      </a>
+    </div>
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0">
+      Questions? Reply to this email and we'll be happy to help.
+    </p>`
+  return {
+    subject: `${childName}'s College Dance Prep account has been approved`,
+    html: emailBase("Account approved", body),
+  }
+}
+
 export function prepMasterInviteEmail({ name, email }: { name: string; email: string }) {
   const joinUrl = `${APP_URL}/prep?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`
   const body = `

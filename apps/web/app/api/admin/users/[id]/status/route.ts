@@ -7,6 +7,9 @@ import { createNotification } from "@/app/actions/notifications"
 import { sendPushToUser } from "@/lib/push"
 import { appBase, TABLES } from "@/lib/airtable"
 import type { ClientFields } from "@/lib/airtable"
+import { sendEmail, accountApprovedEmail, parentAccountApprovedEmail } from "@/lib/email"
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
 
 export async function PATCH(
   req: Request,
@@ -37,12 +40,14 @@ export async function PATCH(
     isPrepMaster = Boolean(invite)
   } catch { /* non-fatal */ }
 
+  const safeEmail = target.email.toLowerCase().replace(/'/g, "\\'")
+
   // When approving a member (not a PrepMaster), ensure an Airtable client record exists.
   // Skip if this email is already a Parent Email on someone else's record — they're a parent
   // account and should see their child's profile, not get their own member record.
+  let parentEmail: string | null = null
   if (status === "active" && !isPrepMaster) {
     try {
-      const safeEmail = target.email.toLowerCase().replace(/'/g, "\\'")
       const [existing, asParent] = await Promise.all([
         appBase.list<ClientFields>(TABLES.clients, {
           filterByFormula: `{User ID} = '${id.replace(/'/g, "\\'")}'`,
@@ -57,16 +62,32 @@ export async function PATCH(
       ])
       const isParent = asParent.length > 0
       if (existing.length === 0 && !isParent) {
-        await appBase.create<ClientFields>(TABLES.clients, {
+        const created = await appBase.create<ClientFields>(TABLES.clients, {
           Name: target.name,
           Email: target.email,
           "User ID": id,
           "Credits Remaining": 0,
         })
+        // Grab parent email from the newly created record if present
+        parentEmail = (created as { fields?: ClientFields })?.fields?.["Parent Email"] ?? null
+      } else if (existing.length > 0) {
+        parentEmail = (existing[0] as { fields?: ClientFields })?.fields?.["Parent Email"] ?? null
       }
     } catch {
       // Non-fatal — member will be created on first dashboard load
     }
+  }
+
+  // On deny, delete the Airtable Members record so it doesn't linger in the tab
+  if (status === "denied") {
+    try {
+      const records = await appBase.list<ClientFields>(TABLES.clients, {
+        filterByFormula: `LOWER({Email}) = '${safeEmail}'`,
+        maxRecords: 1,
+        revalidate: 0,
+      })
+      if (records[0]) await appBase.destroy(TABLES.clients, records[0].id)
+    } catch { /* non-fatal */ }
   }
 
   // Notify the user
@@ -79,6 +100,17 @@ export async function PATCH(
 
   createNotification({ userId: id, type: `account_${status}`, title, body }).catch(() => {})
   sendPushToUser(id, { title, body, data: { type: `account_${status}` } }).catch(() => {})
+
+  // Send approval email to the member and parent (if any)
+  if (status === "active") {
+    const dashboardUrl = `${APP_URL}/dashboard`
+    const { subject, html } = accountApprovedEmail({ memberName: target.name, dashboardUrl })
+    sendEmail({ to: target.email, subject, html }).catch(() => {})
+    if (parentEmail) {
+      const parentMsg = parentAccountApprovedEmail({ childName: target.name, parentEmail, dashboardUrl })
+      sendEmail({ to: parentEmail, subject: parentMsg.subject, html: parentMsg.html }).catch(() => {})
+    }
+  }
 
   return NextResponse.json({ ok: true })
 }
