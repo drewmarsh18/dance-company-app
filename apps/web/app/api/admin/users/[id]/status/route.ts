@@ -7,7 +7,7 @@ import { createNotification } from "@/app/actions/notifications"
 import { sendPushToUser } from "@/lib/push"
 import { appBase, TABLES } from "@/lib/airtable"
 import type { ClientFields } from "@/lib/airtable"
-import { sendEmail, accountApprovedEmail, parentAccountApprovedEmail } from "@/lib/email"
+import { sendEmail, accountApprovedEmail, parentAccountApprovedEmail, accountDeniedEmail } from "@/lib/email"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dance-company-app.vercel.app"
 
@@ -101,7 +101,7 @@ export async function PATCH(
   createNotification({ userId: id, type: `account_${status}`, title, body }).catch(() => {})
   sendPushToUser(id, { title, body, data: { type: `account_${status}` } }).catch(() => {})
 
-  // Send approval email to the member and parent (if any)
+  // Send status email to the member (and parent if approving)
   if (status === "active") {
     const dashboardUrl = `${APP_URL}/dashboard`
     const { subject, html } = accountApprovedEmail({ memberName: target.name, dashboardUrl })
@@ -110,6 +110,9 @@ export async function PATCH(
       const parentMsg = parentAccountApprovedEmail({ childName: target.name, parentEmail, dashboardUrl })
       sendEmail({ to: parentEmail, subject: parentMsg.subject, html: parentMsg.html }).catch(() => {})
     }
+  } else {
+    const { subject, html } = accountDeniedEmail({ memberName: target.name })
+    sendEmail({ to: target.email, subject, html }).catch(() => {})
   }
 
   return NextResponse.json({ ok: true })

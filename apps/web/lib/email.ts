@@ -357,6 +357,21 @@ export function parentAccountApprovedEmail({
   }
 }
 
+export function accountDeniedEmail({ memberName }: { memberName: string }) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(memberName)},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">
+      Thank you for your interest in College Dance Prep. Unfortunately, we were unable to approve your account request at this time.
+    </p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0">
+      If you believe this is a mistake or have questions, please reach out to us at <a href="mailto:collegedanceprep@gmail.com" style="color:#e91e8c;text-decoration:none">collegedanceprep@gmail.com</a> and we'll be happy to help.
+    </p>`
+  return {
+    subject: "Update on your College Dance Prep account request",
+    html: emailBase("Account request update", body),
+  }
+}
+
 export function prepMasterInviteEmail({ name, email }: { name: string; email: string }) {
   const joinUrl = `${APP_URL}/prep?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`
   const body = `
