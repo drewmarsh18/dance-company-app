@@ -21,7 +21,7 @@ export const user = pgTable("user", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
   // "active" | "pending" | "denied" — new dancer signups start as "pending"
-  status: text("status").notNull().default("active"),
+  status: text("status").notNull().default("pending"),
   // IANA timezone string e.g. "America/Denver". Updated on each app launch.
   timezone: text("timezone"),
 })
