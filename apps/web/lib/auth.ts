@@ -186,6 +186,23 @@ export const auth = betterAuth({
                 status: "pending",
               }).onConflictDoNothing()
             }
+            // Clean up any stale Airtable Members record for this PrepMaster so it
+            // can never get a User ID stamped on it and spill into the Members panel.
+            // Admin accounts (cdprepadmin1, collegedanceprep) are exempt — they need
+            // access across all portals.
+            const adminOnlyEmails = ["cdprepadmin1@gmail.com", "collegedanceprep@gmail.com"]
+            if (isPrepMaster && !adminOnlyEmails.includes(email) && isAirtableConfigured()) {
+              try {
+                const { appBase, TABLES } = await import("@/lib/airtable")
+                const safe = email.replace(/'/g, "\\'")
+                const existing = await appBase.list(TABLES.clients, {
+                  filterByFormula: `LOWER({Email}) = '${safe}'`,
+                  maxRecords: 1,
+                  revalidate: 0,
+                })
+                if (existing[0]) await appBase.destroy(TABLES.clients, existing[0].id)
+              } catch { /* non-fatal */ }
+            }
           } catch { /* non-fatal */ }
 
           // Check if this email is a parent/guardian for an existing member —
