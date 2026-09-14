@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native"
+import { API_BASE } from "@/lib/config"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
 import { Bell } from "lucide-react-native"
@@ -7,7 +8,6 @@ import { useColors } from "@/lib/theme-context"
 import { registerForPushNotifications } from "@/lib/push-notifications"
 import { authClient } from "@/lib/auth-client"
 
-const API_BASE = "https://app.collegedanceprep.com"
 const PRIMER_KEY = "notify_primer_seen"
 
 async function getDestination(): Promise<"/(auth)/sign-in" | "/admin" | "/portal" | "/member"> {

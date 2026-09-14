@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from "react"
+import { API_BASE } from "@/lib/config"
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl, Animated, PanResponder,
@@ -10,7 +11,6 @@ import { authClient } from "@/lib/auth-client"
 import { useTheme } from "@/lib/theme-context"
 import { SPACING, RADIUS } from "@/constants/theme"
 
-const API_BASE = "https://app.collegedanceprep.com"
 const SWIPE_THRESHOLD = 72
 
 type Filter = "all" | "unread"
@@ -58,8 +58,8 @@ function SwipeableRow({
   item: Notif
   onToggleRead: (item: Notif) => void
   onNavigate: (item: Notif) => void
-  COLORS: any
-  styles: any
+  COLORS: ReturnType<typeof import("@/lib/theme-context").useTheme>["colors"]
+  styles: ReturnType<typeof makeStyles>
 }) {
   const translateX = useRef(new Animated.Value(0)).current
   const isOpen = useRef(false)
@@ -123,7 +123,7 @@ function SwipeableRow({
         >
           {(() => {
             const { icon, bg } = typeIcon(item.type)
-            const iconBg = item.read ? COLORS.surface : (bg ?? ((COLORS as any).primaryLight ?? COLORS.surface))
+            const iconBg = item.read ? COLORS.surface : (bg ?? (("primaryLight" in COLORS ? (COLORS as Record<string, string>).primaryLight : undefined) ?? COLORS.surface))
             return <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>{icon}</View>
           })()}
           <View style={styles.rowBody}>
@@ -148,12 +148,15 @@ export default function InboxScreen() {
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
   const [filter, setFilter] = useState<Filter>("unread")
   const styles = makeStyles(COLORS)
 
   const load = useCallback(async () => {
+    setFetchError(false)
     const { data, error } = await authClient.$fetch(`${API_BASE}/api/notifications`)
-    if (!error && data) setNotifs((data as any).notifications ?? [])
+    if (error || !data) { setFetchError(true); return }
+    setNotifs((data as { notifications?: Notif[] }).notifications ?? [])
   }, [])
 
   useFocusEffect(useCallback(() => {
@@ -206,6 +209,24 @@ export default function InboxScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.center}><ActivityIndicator color={COLORS.primary} /></View>
+      </SafeAreaView>
+    )
+  }
+
+  if (fetchError) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.center}>
+          <Text style={styles.emptyTitle}>Couldn't load notifications</Text>
+          <Text style={[styles.emptySub, { marginTop: 8 }]}>Check your connection and try again.</Text>
+          <TouchableOpacity
+            style={[styles.retryBtn]}
+            onPress={() => { setLoading(true); load().finally(() => setLoading(false)) }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.retryBtnText}>Try again</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     )
   }
@@ -271,7 +292,7 @@ export default function InboxScreen() {
   )
 }
 
-function makeStyles(COLORS: any) {
+function makeStyles(COLORS: ReturnType<typeof import("@/lib/theme-context").useTheme>["colors"]) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: COLORS.background },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
@@ -307,6 +328,8 @@ function makeStyles(COLORS: any) {
     emptyBox: { alignItems: "center", gap: SPACING.sm, paddingHorizontal: SPACING.lg },
     emptyTitle: { fontSize: 16, fontWeight: "600", color: COLORS.text, textAlign: "center" },
     emptySub: { fontSize: 14, color: COLORS.textMuted, textAlign: "center", lineHeight: 20 },
+    retryBtn: { marginTop: 16, backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
+    retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: COLORS.border },
     swipeAction: {
       position: "absolute",

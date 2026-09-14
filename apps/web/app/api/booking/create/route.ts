@@ -17,11 +17,12 @@ import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingConfirmationEmail, prepMasterBookingRequestEmail } from "@/lib/email"
 import { sendSms } from "@/lib/sms"
-import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
+import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ, makeConfirmToken } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { createCalendarEvent, getCalendarBusySlots } from "@/lib/google-calendar"
+import { resolveClientProfile } from "@/lib/profile-core"
 import type { SessionType } from "@/lib/session-types"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
@@ -79,15 +80,17 @@ export async function POST(req: Request) {
   }
   const creditCost = CREDIT_COST[sessionType ?? "pack-hour"] ?? 1
 
-  // Credit gate
-  const client = await findClientRecord(user.id, user.email)
-  const credits = client?.fields["Credits Remaining"] ?? 0
-  if (!client || credits < creditCost) {
+  // Resolve parent → active child (respects parentActiveChild selection for multi-child families)
+  const profile = await resolveClientProfile({ id: user.id, email: user.email, name: user.name ?? "" }, true)
+  if (!profile.recordId) {
     return NextResponse.json({ ok: false, error: "NO_CREDITS" })
   }
-  // For parent-view bookings, use the child's stored user ID and email
-  const effectiveUserId = client.fields["User ID"] || user.id
-  const effectiveEmail = client.fields.Email || user.email
+  const credits = profile.creditsRemaining
+  if (credits < creditCost) {
+    return NextResponse.json({ ok: false, error: "NO_CREDITS" })
+  }
+  const effectiveUserId = profile.effectiveUserId || user.id
+  const effectiveEmail = profile.email || user.email
 
   // Validate slot is within availability
   const prepMaster = await getPrepMaster(prepMasterId)
@@ -137,7 +140,7 @@ export async function POST(req: Request) {
 
   // Deduct credit
   const newCredits = Math.round((credits - creditCost) * 100) / 100
-  await appBase.update<ClientFields>(TABLES.clients, client.id, {
+  await appBase.update<ClientFields>(TABLES.clients, profile.recordId, {
     "Credits Remaining": newCredits,
   })
 
@@ -167,10 +170,10 @@ export async function POST(req: Request) {
     pushData: { route: "/member/bookings" },
   }).catch(() => {})
 
-  const dancerDisplayName = client.fields.Name ?? user.name ?? "Dancer"
+  const dancerDisplayName = profile.name || user.name || "Dancer"
 
   // Emails — fire and forget
-  const parentEmailCC = client.fields["Parent Email"] || null
+  const parentEmailCC = profile.parentEmail || null
   if (effectiveEmail) {
     const { subject, html } = bookingConfirmationEmail({
       dancerName: dancerDisplayName,
@@ -183,8 +186,8 @@ export async function POST(req: Request) {
 
   getPrepMaster(prepMasterId).then(async (pm) => {
     if (!pm?.email) return
-    const approveUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=approve&token=${CONFIRM_SECRET}`
-    const denyUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=deny&token=${CONFIRM_SECRET}`
+    const approveUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=approve&token=${makeConfirmToken(CONFIRM_SECRET, record.id, "approve")}`
+    const denyUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=deny&token=${makeConfirmToken(CONFIRM_SECRET, record.id, "deny")}`
     const { subject, html } = prepMasterBookingRequestEmail({
       prepMasterName: pm.name,
       dancerName: dancerDisplayName,
@@ -219,7 +222,7 @@ export async function POST(req: Request) {
     const dateLabel = new Date(`${date} ${time}`).toLocaleDateString("en-US", {
       weekday: "short", month: "short", day: "numeric",
     })
-    sendSms(phone, `New booking! ${user.name} has booked a session with you on ${dateLabel} at ${time}. Log in to College Dance Prep to view details.`).catch(() => {})
+    sendSms(phone, `New booking! ${dancerDisplayName} has booked a session with you on ${dateLabel} at ${time}. Log in to College Dance Prep to view details.`).catch(() => {})
   }).catch(() => {})
 
   return NextResponse.json({ ok: true, id: record.id, creditCost, newCredits })

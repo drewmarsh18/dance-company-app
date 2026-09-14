@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
+import { API_BASE } from "@/lib/config"
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl, Modal,
   TouchableOpacity, ActivityIndicator, TextInput, Alert, KeyboardAvoidingView, Platform,
@@ -15,7 +16,6 @@ import { formatTime } from "@/components/BookingDetailModal"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 
-const API_BASE = "https://app.collegedanceprep.com"
 const SCREEN_WIDTH = Dimensions.get("window").width
 const HOUR_HEIGHT = 56
 const START_HOUR = 6

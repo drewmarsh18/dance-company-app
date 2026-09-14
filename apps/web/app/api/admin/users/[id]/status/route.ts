@@ -7,7 +7,7 @@ import { createNotification } from "@/app/actions/notifications"
 import { sendPushToUser } from "@/lib/push"
 import { appBase, TABLES } from "@/lib/airtable"
 import type { ClientFields } from "@/lib/airtable"
-import { sendEmail, accountApprovedEmail, parentAccountApprovedEmail, accountDeniedEmail } from "@/lib/email"
+import { sendEmail, accountApprovedEmail, accountDeniedEmail, prepMasterApprovedEmail } from "@/lib/email"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
 
@@ -101,21 +101,39 @@ export async function PATCH(
       : "Your College Dance Prep account has been approved. You can now book sessions."
     : "Your account request was not approved. Contact us if you think this is a mistake."
 
+  const route = status === "active" ? (isPrepMaster ? "/portal" : "/member") : "/"
   createNotification({ userId: id, type: `account_${status}`, title, body }).catch(() => {})
-  sendPushToUser(id, { title, body, data: { type: `account_${status}` } }).catch(() => {})
+  sendPushToUser(id, { title, body, data: { type: `account_${status}`, route } }).catch(() => {})
 
-  // Send status email to the member (and parent if approving)
+  // Send status email — dancer is primary `to:`, parent CC'd if one exists
   if (status === "active") {
     const dashboardUrl = `${APP_URL}/dashboard`
-    const { subject, html } = accountApprovedEmail({ memberName: target.name, dashboardUrl })
-    sendEmail({ to: target.email, subject, html }).catch(() => {})
-    if (parentEmail) {
-      const parentMsg = parentAccountApprovedEmail({ childName: target.name, parentEmail, dashboardUrl })
-      sendEmail({ to: parentEmail, subject: parentMsg.subject, html: parentMsg.html }).catch(() => {})
-    }
+    const portalUrl = `${APP_URL}/portal`
+    const approvalEmail = isPrepMaster
+      ? prepMasterApprovedEmail({ prepMasterName: target.name, portalUrl })
+      : accountApprovedEmail({ memberName: target.name, dashboardUrl })
+    sendEmail({ to: target.email, cc: parentEmail ?? undefined, subject: approvalEmail.subject, html: approvalEmail.html }).catch(() => {})
   } else {
+    // Look up parent email for denied accounts too
+    let deniedParentEmail: string | null = null
+    try {
+      const safeEmail = target.email.toLowerCase().replace(/'/g, "\\'")
+      const asParent = await appBase.list<ClientFields>(TABLES.clients, {
+        filterByFormula: `LOWER({Parent Email}) = '${safeEmail}'`,
+        maxRecords: 1,
+        revalidate: 0,
+      })
+      if (!asParent.length) {
+        const byEmail = await appBase.list<ClientFields>(TABLES.clients, {
+          filterByFormula: `LOWER({Email}) = '${safeEmail}'`,
+          maxRecords: 1,
+          revalidate: 0,
+        })
+        deniedParentEmail = byEmail[0]?.fields?.["Parent Email"] ?? null
+      }
+    } catch { /* non-fatal */ }
     const { subject, html } = accountDeniedEmail({ memberName: target.name })
-    sendEmail({ to: target.email, subject, html }).catch(() => {})
+    sendEmail({ to: target.email, cc: deniedParentEmail ?? undefined, subject, html }).catch(() => {})
   }
 
   return NextResponse.json({ ok: true })

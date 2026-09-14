@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { API_BASE } from "@/lib/config"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Linking, Alert } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Check, Clock } from "lucide-react-native"
@@ -7,7 +8,6 @@ import { authClient } from "@/lib/auth-client"
 import { PACKAGES, PER_PRIVATE } from "@cdp/core"
 import { useColors } from "@/lib/theme-context"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 async function startCheckout(itemId: string, setLoading: (id: string | null) => void) {
   setLoading(itemId)

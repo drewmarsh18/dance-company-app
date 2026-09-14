@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
+import { API_BASE } from "@/lib/config"
 import {
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
   ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
@@ -14,7 +15,6 @@ import { SPACING, RADIUS, initials } from "@/constants/theme"
 import { useTheme } from "@/lib/theme-context"
 import type { ThemePreference } from "@/lib/theme-context"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 type Profile = { recordId: string; name: string; email: string; phone: string; goals: string; creditsRemaining: number; parentEmail?: string; isParentView?: boolean }
 

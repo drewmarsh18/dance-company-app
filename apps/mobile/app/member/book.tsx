@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react"
+import { API_BASE } from "@/lib/config"
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput, Alert, KeyboardAvoidingView, Platform,
@@ -12,7 +13,6 @@ import { useColors } from "@/lib/theme-context"
 import { getUniversityColor } from "@/lib/university-colors"
 import { TimeWheelPicker, generate15MinSlots } from "@/components/TimeWheelPicker"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 type Coach = { id: string; name: string; email: string; university: string; region: string; hasAvailability: boolean }
 type DayAvailability = { dayOfWeek: number; enabled: boolean; startTime: string; endTime: string }

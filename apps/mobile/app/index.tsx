@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { API_BASE } from "@/lib/config"
 import { View, ActivityIndicator } from "react-native"
 import { useRouter } from "expo-router"
 import { authClient, useSession } from "@/lib/auth-client"

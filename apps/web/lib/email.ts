@@ -244,9 +244,9 @@ export function bookingUpdatedEmail({
   time: string
   notes?: string
 }) {
-  const counterpart = updatedByRole === "member" ? updatedByName : updatedByName
+  const counterpartLabel = updatedByRole === "PrepMaster" ? "PrepMaster" : "Member"
   const rows = [
-    { label: updatedByRole === "PrepMaster" ? "PrepMaster" : "Member", value: counterpart },
+    { label: counterpartLabel, value: updatedByName },
     { label: "Date", value: date },
     { label: "Time", value: time },
     ...(notes ? [{ label: "Notes", value: notes }] : []),
@@ -369,6 +369,169 @@ export function accountDeniedEmail({ memberName }: { memberName: string }) {
   return {
     subject: "Update on your College Dance Prep account request",
     html: emailBase("Account request update", body),
+  }
+}
+
+export function signupReceivedEmail({ memberName }: { memberName: string }) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(memberName)},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">
+      Thanks for signing up for College Dance Prep! We've received your account request and our team will review it shortly.
+    </p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">
+      You'll receive another email as soon as your account is approved — usually within 24 hours.
+    </p>
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0">
+      Questions in the meantime? Reply to this email and we'll be happy to help.
+    </p>`
+  return {
+    subject: "We received your College Dance Prep sign-up",
+    html: emailBase("Sign-up received", body),
+  }
+}
+
+export function prepMasterApprovedEmail({
+  prepMasterName,
+  portalUrl,
+}: {
+  prepMasterName: string
+  portalUrl: string
+}) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(prepMasterName)},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">
+      Your College Dance Prep PrepMaster account has been approved! You can now access the PrepMaster portal to manage your availability and sessions.
+    </p>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${portalUrl}" style="display:inline-block;background:#e91e8c;color:#ffffff;text-decoration:none;padding:13px 32px;border-radius:6px;font-weight:600;font-size:15px">
+        Go to your portal
+      </a>
+    </div>
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0">
+      Questions? Reply to this email and we'll be happy to help.
+    </p>`
+  return {
+    subject: "Your College Dance Prep PrepMaster account is approved!",
+    html: emailBase("PrepMaster account approved", body),
+  }
+}
+
+export function purchaseReceiptEmail({
+  memberName,
+  planName,
+  creditAmount,
+  pricePaid,
+  newBalance,
+}: {
+  memberName: string
+  planName: string
+  creditAmount: number
+  pricePaid: number
+  newBalance: number
+}) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(memberName)},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">Thank you for your purchase! Here's your receipt:</p>
+    ${sessionTable([
+      { label: "Plan", value: planName },
+      { label: "Credits added", value: String(creditAmount) },
+      { label: "Amount paid", value: `$${pricePaid.toFixed(2)}` },
+      { label: "New credit balance", value: String(newBalance) },
+    ])}
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0">
+      Your credits are now available — head to the app to book your sessions. Reply to this email if you have any questions about your purchase.
+    </p>`
+  return {
+    subject: `Purchase confirmed — ${planName}`,
+    html: emailBase("Purchase confirmed", body),
+  }
+}
+
+export function bookingConfirmedByPmEmail({
+  dancerName,
+  prepMasterName,
+  date,
+  time,
+}: {
+  dancerName: string
+  prepMasterName: string
+  date: string
+  time: string
+}) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(dancerName)},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">Great news — <strong>${prepMasterName}</strong> has confirmed your session!</p>
+    ${sessionTable([
+      { label: "PrepMaster", value: prepMasterName },
+      { label: "Date", value: date },
+      { label: "Time", value: time },
+    ])}
+    <div style="font-size:13px;color:#6b7280;background:#f9fafb;border-left:3px solid #e91e8c;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.5">
+      See you there! Need to cancel? Please do so at least 24 hours in advance to get your credit back.
+    </div>`
+  return {
+    subject: `Session confirmed — ${date} at ${time}`,
+    html: emailBase("Session confirmed", body),
+  }
+}
+
+export function bookingDeclinedByPmEmail({
+  dancerName,
+  prepMasterName,
+  date,
+  time,
+}: {
+  dancerName: string
+  prepMasterName: string
+  date: string
+  time: string
+}) {
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(dancerName)},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px"><strong>${prepMasterName}</strong> was unable to accommodate your booking request. Your credit has been refunded.</p>
+    ${sessionTable([
+      { label: "PrepMaster", value: prepMasterName },
+      { label: "Date", value: date },
+      { label: "Time", value: time },
+    ])}
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0">
+      You can book another session at any time through the app. Reply to this email if you have questions.
+    </p>`
+  return {
+    subject: `Booking declined — ${date} at ${time}`,
+    html: emailBase("Booking declined", body),
+  }
+}
+
+export function portalBookedEmail({
+  dancerName,
+  prepMasterName,
+  date,
+  time,
+  sessionType,
+}: {
+  dancerName: string
+  prepMasterName: string
+  date: string
+  time: string
+  sessionType?: string
+}) {
+  const rows = [
+    { label: "PrepMaster", value: prepMasterName },
+    { label: "Date", value: date },
+    { label: "Time", value: time },
+    ...(sessionType ? [{ label: "Session type", value: sessionType }] : []),
+  ]
+  const body = `
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(dancerName)},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px"><strong>${prepMasterName}</strong> has scheduled a session for you. Here are the details:</p>
+    ${sessionTable(rows)}
+    <div style="font-size:13px;color:#6b7280;background:#f9fafb;border-left:3px solid #e91e8c;border-radius:0 6px 6px 0;padding:10px 14px;line-height:1.5">
+      This session is already confirmed. Need to cancel? Please do so at least 24 hours in advance to get your credit back.
+    </div>`
+  return {
+    subject: `Session scheduled — ${date} at ${time}`,
+    html: emailBase("Session scheduled", body),
   }
 }
 

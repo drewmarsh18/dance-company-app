@@ -1,5 +1,19 @@
+import { createHmac, timingSafeEqual } from "crypto"
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+
+export function makeConfirmToken(secret: string, bookingId: string, action: string): string {
+  return createHmac("sha256", secret).update(`${bookingId}:${action}`).digest("hex")
+}
+
+export function verifyConfirmToken(secret: string, bookingId: string, action: string, token: string): boolean {
+  const expected = makeConfirmToken(secret, bookingId, action)
+  try {
+    return timingSafeEqual(Buffer.from(token, "hex"), Buffer.from(expected, "hex"))
+  } catch {
+    return false
+  }
+}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

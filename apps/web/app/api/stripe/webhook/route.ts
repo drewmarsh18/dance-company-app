@@ -4,10 +4,12 @@ import { stripe } from "@/lib/stripe"
 import {
   TABLES,
   appBase,
+  createMemberPlan,
   type ClientFields,
-  type PlanFields,
 } from "@/lib/airtable"
+import { PACKAGES } from "@cdp/core"
 import { createNotification } from "@/app/actions/notifications"
+import { sendEmail, purchaseReceiptEmail } from "@/lib/email"
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
 if (!WEBHOOK_SECRET) throw new Error("STRIPE_WEBHOOK_SECRET env var is not set")
@@ -74,33 +76,45 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Create a Plan record in Airtable
+    // Create a Plan record in Airtable with the correct expiry
     const planName =
       itemType === "pack"
         ? `${rawCount}-Pack`
         : `Single ${sessionType?.replace("private-", "")}min`
 
-    await appBase.create<PlanFields>(TABLES.plans, {
-      "User ID": userId,
-      "Member Email": userEmail ?? "",
-      "Plan Name": planName,
-      Sessions: creditAmount,
-      Status: "Active",
-      "Price Paid": pricePaid,
-      Source: "stripe",
+    const matchedPackage = itemType === "pack"
+      ? PACKAGES.find((p) => p.id === itemId) ?? PACKAGES.find((p) => p.sessions === rawCount)
+      : undefined
+
+    await createMemberPlan({
+      userId,
+      memberEmail: userEmail ?? "",
+      planName,
+      sessions: creditAmount,
+      pricePaid,
+      source: "stripe",
+      ...(matchedPackage?.expiryDays != null ? { expiryDays: matchedPackage.expiryDays } : {}),
     })
 
     // Bust the member's cached dashboard/profile data so the new credits show immediately
     revalidateTag(`member-${userId}`)
 
-    // In-app notification
-    const newBalance = Math.round(((client?.fields["Credits Remaining"] ?? 0) + creditAmount) * 100) / 100
+    // In-app notification — use current (pre-update value) + creditAmount, not the stale client snapshot
+    const newBalance = Math.round(((client ? (client.fields["Credits Remaining"] ?? 0) : 0) + creditAmount) * 100) / 100
     createNotification({
       userId,
       type: "booking_confirmed",
       title: "Purchase complete!",
       body: `Your ${planName} is ready. You have ${newBalance} credit${newBalance !== 1 ? "s" : ""} available.`,
     }).catch(() => {})
+
+    // Purchase receipt email — dancer is `to:`, parent CC'd if one exists
+    if (userEmail) {
+      const memberName = (client?.fields?.Name as string | undefined) ?? userEmail
+      const parentCC = (client?.fields?.["Parent Email"] as string | undefined) ?? undefined
+      const { subject, html } = purchaseReceiptEmail({ memberName, planName, creditAmount, pricePaid, newBalance })
+      sendEmail({ to: userEmail, cc: parentCC, subject, html }).catch(() => {})
+    }
   }
 
   return NextResponse.json({ received: true })

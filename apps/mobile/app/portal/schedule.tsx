@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
+import { API_BASE } from "@/lib/config"
 import {
   View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity,
   ActivityIndicator, Alert, RefreshControl,
@@ -16,7 +17,6 @@ function toIso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 const WEEKDAYS = [
   { value: 0, label: "Sunday" }, { value: 1, label: "Monday" }, { value: 2, label: "Tuesday" },

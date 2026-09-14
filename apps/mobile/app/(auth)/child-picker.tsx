@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { API_BASE } from "@/lib/config"
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
@@ -7,7 +8,6 @@ import { authClient, signOut } from "@/lib/auth-client"
 import { useColors } from "@/lib/theme-context"
 import { SPACING, RADIUS } from "@/constants/theme"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 type Child = {
   userId: string

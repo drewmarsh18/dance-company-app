@@ -2,6 +2,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
 } from "react-native"
+import { API_BASE } from "@/lib/config"
 import { useState } from "react"
 import { useRouter } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
@@ -9,7 +10,6 @@ import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 export default function ForgotPasswordScreen() {
   const router = useRouter()

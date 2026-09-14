@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from "react"
+import { API_BASE } from "@/lib/config"
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl, Animated, PanResponder,
@@ -10,7 +11,6 @@ import { authClient } from "@/lib/auth-client"
 import { useTheme } from "@/lib/theme-context"
 import { SPACING, RADIUS } from "@/constants/theme"
 
-const API_BASE = "https://app.collegedanceprep.com"
 const SWIPE_THRESHOLD = 72
 
 type Filter = "all" | "unread"
@@ -147,12 +147,18 @@ export default function InboxScreen() {
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
   const [filter, setFilter] = useState<Filter>("unread")
   const styles = makeStyles(COLORS)
 
   const load = useCallback(async () => {
     const { data, error } = await authClient.$fetch(`${API_BASE}/api/notifications`)
-    if (!error && data) setNotifs((data as any).notifications ?? [])
+    if (error || !data) {
+      setFetchError(true)
+      return
+    }
+    setFetchError(false)
+    setNotifs((data as any).notifications ?? [])
   }, [])
 
   useFocusEffect(useCallback(() => {
@@ -204,6 +210,20 @@ export default function InboxScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.center}><ActivityIndicator color={COLORS.primary} /></View>
+      </SafeAreaView>
+    )
+  }
+
+  if (fetchError) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.center}>
+          <InboxIcon2 size={40} color={COLORS.textMuted} />
+          <Text style={{ color: COLORS.textMuted, fontSize: 15, marginTop: 12 }}>Couldn't load notifications.</Text>
+          <TouchableOpacity onPress={() => { setFetchError(false); setLoading(true); load().finally(() => setLoading(false)) }} style={{ marginTop: 12 }}>
+            <Text style={{ color: COLORS.primary, fontWeight: "600" }}>Try again</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     )
   }

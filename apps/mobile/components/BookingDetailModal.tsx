@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { API_BASE } from "@/lib/config"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { X, CalendarClock, Calendar, Clock, Package, StickyNote, ChevronLeft, ChevronRight } from "lucide-react-native"
@@ -7,7 +8,6 @@ import { authClient } from "@/lib/auth-client"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 export type Booking = {
   id: string

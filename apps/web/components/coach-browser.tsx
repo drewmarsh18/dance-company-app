@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { PrepMaster } from "@/lib/airtable"
 import { CoachCard } from "@/components/coach-card"
 import { getUniversityColor } from "@/lib/university-colors"
@@ -12,6 +12,18 @@ export function CoachBrowser({ coaches }: { coaches: PrepMaster[] }) {
   const [selected, setSelected] = useState(ALL)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [open])
 
   const universities = useMemo(() => {
     const set = new Set<string>()
@@ -48,7 +60,7 @@ export function CoachBrowser({ coaches }: { coaches: PrepMaster[] }) {
         </div>
 
       {universities.length > 0 && (
-        <div className="relative w-fit">
+        <div className="relative w-fit" ref={dropdownRef}>
           <button
             onClick={() => setOpen((v) => !v)}
             className="flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
@@ -102,7 +114,8 @@ export function CoachBrowser({ coaches }: { coaches: PrepMaster[] }) {
 
       {filtered.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
-          No PrepMasters for {selected}.
+          No PrepMasters found{selected !== ALL ? ` for ${selected}` : ""}
+          {query.trim() ? ` matching "${query.trim()}"` : ""}.
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

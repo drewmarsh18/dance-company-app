@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { API_BASE } from "@/lib/config"
 import { AppState } from "react-native"
 import { Stack } from "expo-router"
 import { StatusBar } from "expo-status-bar"
@@ -25,7 +26,6 @@ import {
 } from "@/lib/push-notifications"
 import { useRouter } from "expo-router"
 import { useSession, authClient } from "@/lib/auth-client"
-const API_BASE = "https://app.collegedanceprep.com"
 import { ThemeProvider, useTheme } from "@/lib/theme-context"
 
 WebBrowser.maybeCompleteAuthSession()

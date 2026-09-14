@@ -135,11 +135,15 @@ export function ProfileForm({ profile, isGoogleLinked = false, isParentView = fa
           id="parentEmail"
           type="email"
           value={parentEmail}
-          onChange={(e) => setParentEmail(e.target.value)}
+          onChange={isParentView ? undefined : (e) => setParentEmail(e.target.value)}
+          readOnly={isParentView}
           placeholder="parent@example.com"
+          className={isParentView ? "opacity-60 cursor-not-allowed" : ""}
         />
         <p className="text-xs text-muted-foreground">
-          If a parent manages your account, add their email here. They can sign in and view your bookings and credits.
+          {isParentView
+            ? "This is the parent email associated with this account. Contact support to change it."
+            : "If a parent manages your account, add their email here. They can sign in and view your bookings and credits."}
         </p>
       </div>
 

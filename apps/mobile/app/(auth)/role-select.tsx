@@ -31,7 +31,7 @@ export default function RoleSelectScreen() {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.card} onPress={() => router.push("/(auth)/verify-prep-master" as any)} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.card} onPress={() => router.replace("/(auth)/verify-prep-master" as any)} activeOpacity={0.8}>
           <View style={[styles.iconWrap, { backgroundColor: COLORS.primaryLight }]}>
             <ShieldCheck size={28} color={COLORS.primary} />
           </View>

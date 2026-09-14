@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react"
+import { API_BASE } from "@/lib/config"
 import { Tabs, usePathname, useRouter } from "expo-router"
 import { LayoutDashboard, Users, Star, CircleUserRound, ClipboardCheck } from "lucide-react-native"
 import { useColors } from "@/lib/theme-context"
 import { AdminProvider } from "@/lib/admin-context"
 import { authClient } from "@/lib/auth-client"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 export default function AdminLayout() {
   const COLORS = useColors()

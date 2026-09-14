@@ -67,6 +67,7 @@ export function AuthForm({ initialError }: { initialError?: string }) {
               placeholder="Jordan Dancer"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              required
             />
           </div>
         )}

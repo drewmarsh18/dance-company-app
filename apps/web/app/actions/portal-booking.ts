@@ -116,6 +116,10 @@ export async function createBookingAsPrepMaster(input: {
 
     revalidatePath("/portal")
     revalidatePath("/portal/book")
+    if (dancer?.id) {
+      const { revalidateTag } = await import("next/cache")
+      revalidateTag(`member-${dancer.id}`)
+    }
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to create booking." }

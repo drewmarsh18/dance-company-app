@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native"
+import { API_BASE } from "@/lib/config"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter, useFocusEffect } from "expo-router"
 import { LayoutDashboard, Users, LogOut, Sun, Moon, Smartphone, Link, CalendarCheck, CalendarX } from "lucide-react-native"
@@ -10,7 +11,6 @@ import { useTheme } from "@/lib/theme-context"
 import type { ThemePreference } from "@/lib/theme-context"
 import { useState, useCallback } from "react"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 export default function AdminProfileScreen() {
   const { data: session } = useSession()

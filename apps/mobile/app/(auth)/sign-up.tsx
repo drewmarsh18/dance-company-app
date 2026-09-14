@@ -2,6 +2,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
 } from "react-native"
+import { API_BASE } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { useRouter, Link } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
@@ -19,7 +20,6 @@ WebBrowser.maybeCompleteAuthSession()
 
 const GOOGLE_IOS_CLIENT_ID = "31400941000-8g9ud8c2pfgkb1590hb0606jg70jq152.apps.googleusercontent.com"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 export default function SignUpScreen() {
   const router = useRouter()
@@ -30,8 +30,6 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [goals, setGoals] = useState("")
-  const [parentEmail, setParentEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [appleLoading, setAppleLoading] = useState(false)
@@ -71,12 +69,12 @@ export default function SignUpScreen() {
           if (payload.name && !sessionUser?.name) updates.name = payload.name
           if (payload.picture && !sessionUser?.image) updates.image = payload.picture
           if (Object.keys(updates).length > 0) {
-            await authClient.$fetch("https://app.collegedanceprep.com/api/auth/update-user", {
+            await authClient.$fetch(`${API_BASE}/api/auth/update-user`, {
               method: "POST",
               body: JSON.stringify(updates),
               headers: { "Content-Type": "application/json" },
             })
-            await authClient.$fetch("https://app.collegedanceprep.com/api/auth/get-session")
+            await authClient.$fetch(`${API_BASE}/api/auth/get-session`)
           }
         }
       } catch {}
@@ -87,7 +85,7 @@ export default function SignUpScreen() {
   }
 
   async function routeAfterSocialAuth() {
-    const { data: me } = await authClient.$fetch("https://app.collegedanceprep.com/api/me")
+    const { data: me } = await authClient.$fetch(`${API_BASE}/api/me`)
     const role = (me as any)?.role ?? "dancer"
     const status = (me as any)?.status ?? "pending"
     const userId = (me as any)?.id
@@ -126,7 +124,7 @@ export default function SignUpScreen() {
       })
       if (result?.error) { setError(result.error.message ?? "Apple sign-up failed."); return }
       if (fullName) {
-        await authClient.$fetch("https://app.collegedanceprep.com/api/auth/update-user", {
+        await authClient.$fetch(`${API_BASE}/api/auth/update-user`, {
           method: "POST",
           body: JSON.stringify({ name: fullName }),
           headers: { "Content-Type": "application/json" },
@@ -152,23 +150,6 @@ export default function SignUpScreen() {
     try {
       const result = await signUp.email({ name: name.trim(), email: email.trim(), password })
       if (result.error) { setError(result.error.message ?? "Could not create account."); return }
-
-      // Create Airtable profile and save extra fields if provided
-      if (goals.trim() || parentEmail.trim()) {
-        try {
-          const { data: dash } = await authClient.$fetch(`${API_BASE}/api/member/dashboard`)
-          const recordId = (dash as any)?.profile?.recordId
-          if (recordId) {
-            await authClient.$fetch(`${API_BASE}/api/member/profile`, {
-              method: "PATCH",
-              body: JSON.stringify({ recordId, goals: goals.trim(), parentEmail: parentEmail.trim() || null }),
-              headers: { "Content-Type": "application/json" },
-            })
-          }
-        } catch {
-          // Non-fatal — profile can be completed later
-        }
-      }
 
       router.replace("/(auth)/pending")
     } catch { setError("Something went wrong. Please try again.") }
@@ -236,35 +217,6 @@ export default function SignUpScreen() {
                 <Text style={styles.showHideText}>{showConfirmPassword ? "Hide" : "Show"}</Text>
               </TouchableOpacity>
             </View>
-          </View>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>optional</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Training goals</Text>
-            <TextInput
-              style={[styles.input, styles.inputMulti]}
-              placeholder="e.g. Improve turns, prepare for college auditions…"
-              placeholderTextColor={COLORS.textMuted}
-              multiline numberOfLines={3}
-              value={goals} onChangeText={setGoals} editable={!loading}
-            />
-          </View>
-          <View style={styles.field}>
-            <Text style={styles.label}>Parent email <Text style={styles.labelOptional}>(optional)</Text></Text>
-            <TextInput
-              style={styles.input}
-              placeholder="parent@example.com"
-              placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="none" keyboardType="email-address"
-              value={parentEmail} onChangeText={setParentEmail} editable={!loading}
-              onSubmitEditing={handleSignUp} returnKeyType="go"
-            />
-            <Text style={styles.hint}>A parent can sign in to view and manage this account.</Text>
           </View>
 
           <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleSignUp} disabled={loading} activeOpacity={0.8}>

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { googleCalendarToken } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
+import { resolveClientProfile } from "@/lib/profile-core"
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 const GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3"
@@ -36,7 +37,14 @@ export async function GET() {
   const { resolveRole } = await import("@/lib/roles")
   if ((await resolveRole(session.user.email)) === "prep_master") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  const accessToken = await getValidAccessToken(session.user.id)
+  // For parents, attempt to show the active child's calendar; fall back to parent's own calendar
+  const profile = await resolveClientProfile({ id: session.user.id, email: session.user.email, name: session.user.name ?? "" }, true)
+  const calendarUserId = profile.isParentView && profile.effectiveUserId
+    ? profile.effectiveUserId
+    : session.user.id
+
+  const accessToken = await getValidAccessToken(calendarUserId)
+    ?? (calendarUserId !== session.user.id ? await getValidAccessToken(session.user.id) : null)
   if (!accessToken) return NextResponse.json({ connected: false, events: [] })
 
   const timeMin = new Date().toISOString()

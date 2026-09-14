@@ -24,9 +24,7 @@ import { eq, inArray } from "drizzle-orm"
 
 export default async function DashboardPage() {
   const t0 = Date.now()
-  console.log("[page] start")
   const user = await getSessionUserWithRole()
-  console.log("[page] got user", Date.now() - t0 + "ms")
 
   if (!isAirtableConfigured()) {
     return (
@@ -59,7 +57,6 @@ export default async function DashboardPage() {
   const resolvedUser = user ? { id: user.id, email: user.email, name: user.name ?? "" } : undefined
   const noCreate = user?.role === "admin" || user?.role === "prep_master"
   try {
-    console.log("[page] fetching profile/bookings/plans")
     const profile = await getOrCreateProfile({ noCreate, resolvedUser })
     const effectiveId = profile.effectiveUserId || user!.id
     const [myBookings, myPlans, calConn] = await Promise.all([
@@ -73,9 +70,7 @@ export default async function DashboardPage() {
     calendarConnected = calConn
     isParent = profile.isParentView
     displayName = (profile.name ?? "").split(" ")[0] || displayName
-    console.log("[page] got profile/bookings/plans", Date.now() - t0 + "ms")
   } catch (err) {
-    console.log("[page] error in data fetch", Date.now() - t0 + "ms", err)
     error = err instanceof Error ? err.message : "Something went wrong."
   }
 

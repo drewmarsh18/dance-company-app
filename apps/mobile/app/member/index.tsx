@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react"
+import { API_BASE } from "@/lib/config"
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
   TouchableOpacity, ActivityIndicator,
@@ -11,7 +12,6 @@ import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 import { BookingDetailModal, formatDate, formatTime, type Booking } from "@/components/BookingDetailModal"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 type MemberPlan = {
   id: string; userId: string; planName: string; sessions: number

@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react"
+import { API_BASE } from "@/lib/config"
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl, Alert,
@@ -10,7 +11,6 @@ import { authClient } from "@/lib/auth-client"
 import { useColors } from "@/lib/theme-context"
 import { SPACING, RADIUS } from "@/constants/theme"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 type PendingUser = {
   id: string

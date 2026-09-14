@@ -4,7 +4,7 @@ import { revalidateTag } from "next/cache"
 import { auth } from "@/lib/auth"
 import { getPrepMasterByEmail, TABLES, appBase, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
-import { sendEmail, bookingUpdatedEmail, bookingCancelledEmail } from "@/lib/email"
+import { sendEmail, bookingUpdatedEmail, bookingCancelledEmail, bookingConfirmedByPmEmail, bookingDeclinedByPmEmail } from "@/lib/email"
 import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar"
 import { db } from "@/lib/db"
@@ -48,7 +48,7 @@ export async function PATCH(
 
   const { id } = await params
   const { pm, booking } = await getPmAndBooking(session.user.email, id)
-  if (!pm || !booking) return NextResponse.json({ ok: false, error: "Booking not found." })
+  if (!pm || !booking) return NextResponse.json({ ok: false, error: "Booking not found." }, { status: 404 })
 
   const body = await req.json() as { date?: string; time?: string; prepMasterNotes?: string; action?: "confirm" | "decline" | "cancel"; declineReason?: string; cancellationReason?: string; rescheduleAction?: "revert" | "cancel" }
 
@@ -80,6 +80,22 @@ export async function PATCH(
         bookingId: id,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
+
+      // Send confirmation email to member (+ parent CC)
+      const dancerEmailConfirm = booking.fields["Client Email"]
+      if (dancerEmailConfirm) {
+        const safeId = dancerUserId.replace(/'/g, "\\'")
+        const memberRecs = await appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeId}'`, maxRecords: 1 })
+        const dancerName = memberRecs[0]?.fields.Name ?? dancerEmailConfirm
+        const parentCC = memberRecs[0]?.fields?.["Parent Email"] ?? undefined
+        const { subject, html } = bookingConfirmedByPmEmail({
+          dancerName,
+          prepMasterName: pm.name,
+          date: booking.fields.Date ?? "",
+          time: booking.fields.Time ?? "",
+        })
+        sendEmail({ to: dancerEmailConfirm, cc: parentCC, subject, html }).catch(() => {})
+      }
     }
     // Create or update Google Calendar events for both PM and member at confirm time.
     // If events already exist (reschedule flow), update them — don't create duplicates.
@@ -211,6 +227,22 @@ export async function PATCH(
         bookingId: id,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
+
+      // Send decline email to member (+ parent CC)
+      const dancerEmailDecline = booking.fields["Client Email"]
+      if (dancerEmailDecline) {
+        const safeIdDecline = dancerUserId.replace(/'/g, "\\'")
+        const memberRecs = await appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeIdDecline}'`, maxRecords: 1 })
+        const dancerNameDecline = memberRecs[0]?.fields.Name ?? dancerEmailDecline
+        const parentCCDecline = memberRecs[0]?.fields?.["Parent Email"] ?? undefined
+        const { subject, html } = bookingDeclinedByPmEmail({
+          dancerName: dancerNameDecline,
+          prepMasterName: pm.name,
+          date: booking.fields.Date ?? "",
+          time: booking.fields.Time ?? "",
+        })
+        sendEmail({ to: dancerEmailDecline, cc: parentCCDecline, subject, html }).catch(() => {})
+      }
     }
     // Delete calendar events for all linked users
     getCalendarLinks(id).then((links) => {

@@ -12,9 +12,7 @@ import { ShieldCheck, Clock } from "lucide-react"
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const t0 = Date.now()
-  console.log("[layout] start")
   const user = await getSessionUserWithRole()
-  console.log("[layout] got user role=" + user?.role, Date.now() - t0 + "ms")
   if (!user) redirect("/")
 
   const isAdmin = user.role === "admin"
@@ -26,7 +24,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     isAdmin ? Promise.resolve([]) : getLinkedChildren(),
     isAdmin ? Promise.resolve(null) : getOrCreateProfile({ noCreate: true }),
   ])
-  console.log("[layout] got unreadCount", Date.now() - t0 + "ms")
   // Bell only shown to admins — members use the Inbox nav tab instead
   const bell = isAdmin ? <NotificationBell initialCount={unreadCount} /> : undefined
   const activeChildUserId = profile?.effectiveUserId ?? ""

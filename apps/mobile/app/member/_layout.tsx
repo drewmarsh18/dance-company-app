@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react"
+import { API_BASE } from "@/lib/config"
 import { Tabs, usePathname, useRouter } from "expo-router"
 import { Home, Calendar, Package, User, Inbox } from "lucide-react-native"
 import { useTheme } from "@/lib/theme-context"
@@ -7,7 +8,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { BlurView } from "expo-blur"
 import { authClient } from "@/lib/auth-client"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 const TABS = [
   { name: "index",    href: "/member",          label: "Home",     Icon: Home },

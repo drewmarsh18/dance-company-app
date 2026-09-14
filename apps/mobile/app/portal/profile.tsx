@@ -1,6 +1,7 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal, FlatList, Keyboard,
 } from "react-native"
+import { API_BASE } from "@/lib/config"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter, useFocusEffect } from "expo-router"
 import { Users, LogOut, ShieldCheck, Sun, Moon, Smartphone, CalendarCheck, CalendarX, Link, LayoutDashboard, X } from "lucide-react-native"
@@ -14,7 +15,6 @@ import { useState, useCallback, useEffect } from "react"
 import * as SecureStore from "expo-secure-store"
 import { getUniversityColor } from "@/lib/university-colors"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 const UNIVERSITIES = [
   "Alabama","Arizona","ASU","Boise","Cincinnati","Coastal Carolina","CSU","CU Boulder",

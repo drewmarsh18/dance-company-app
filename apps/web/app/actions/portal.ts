@@ -128,8 +128,9 @@ export async function adjustBooking(
     const dancerEmail = records[0].fields["Client Email"]
     const dancerUserId = records[0].fields["User ID"]
 
-    // Look up the dancer's proper name from their Member record
+    // Look up the dancer's proper name and parent email from their Member record
     let dancerName: string = dancerEmail ?? "Your member"
+    let adjustParentCC: string | undefined
     if (dancerUserId) {
       const safeId = dancerUserId.replace(/'/g, "\\'")
       const memberRecords = await appBase.list<ClientFields>(TABLES.clients, {
@@ -137,6 +138,7 @@ export async function adjustBooking(
         maxRecords: 1,
       })
       if (memberRecords[0]?.fields.Name) dancerName = memberRecords[0].fields.Name
+      adjustParentCC = memberRecords[0]?.fields?.["Parent Email"] ?? undefined
     }
 
     // In-app notification → member
@@ -176,7 +178,7 @@ export async function adjustBooking(
         time: newTime,
         notes: newNotes,
       })
-      sendEmail({ to: dancerEmail, subject, html }).catch((e) => console.error("Update email to dancer failed:", e))
+      sendEmail({ to: dancerEmail, cc: adjustParentCC, subject, html }).catch((e) => console.error("Update email to dancer failed:", e))
     }
     const { subject, html } = bookingUpdatedEmail({
       recipientName: pm.name,
@@ -378,15 +380,17 @@ export async function cancelBookingAsPrepMaster(
       pushData: { route: "/portal" },
     }).catch(() => {})
 
-    // Email member
+    // Email member (+ parent CC)
     if (dancerEmail) {
       let dancerName = dancerEmail
+      let cancelParentCC: string | undefined
       if (dancerUserId) {
         const memberRecords = await appBase.list<ClientFields>(TABLES.clients, {
           filterByFormula: `{User ID} = '${dancerUserId.replace(/'/g, "\\'")}'`,
           maxRecords: 1,
         })
         if (memberRecords[0]?.fields.Name) dancerName = memberRecords[0].fields.Name
+        cancelParentCC = memberRecords[0]?.fields?.["Parent Email"] ?? undefined
       }
       const { subject, html } = bookingCancelledEmail({
         dancerName,
@@ -395,7 +399,7 @@ export async function cancelBookingAsPrepMaster(
         time: timeStr,
         creditRefunded: true,
       })
-      sendEmail({ to: dancerEmail, subject, html }).catch(() => {})
+      sendEmail({ to: dancerEmail, cc: cancelParentCC, subject, html }).catch(() => {})
     }
 
     revalidatePath("/portal")

@@ -6,7 +6,7 @@ import {
   CalendarDays, CalendarX, CalendarClock, Package, ShieldCheck, Info,
   CheckCheck, Mail, MailOpen,
 } from "lucide-react"
-import { markNotificationRead, markAllRead, type AppNotification } from "@/app/actions/notifications"
+import { markNotificationRead, markNotificationUnread, markAllRead, type AppNotification } from "@/app/actions/notifications"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -70,7 +70,11 @@ export function NotificationsInbox({ initialNotifications }: { initialNotificati
   function handleToggleRead(n: AppNotification, e: React.MouseEvent) {
     e.stopPropagation()
     startTransition(async () => {
-      await markNotificationRead(n.id)
+      if (n.read) {
+        await markNotificationUnread(n.id)
+      } else {
+        await markNotificationRead(n.id)
+      }
       setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: !x.read } : x))
       notify()
     })

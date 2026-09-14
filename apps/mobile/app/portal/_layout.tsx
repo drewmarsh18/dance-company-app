@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
+import { API_BASE } from "@/lib/config"
 import { Tabs, useFocusEffect, usePathname, useRouter } from "expo-router"
 import { Home, Clock, User, Inbox } from "lucide-react-native"
 import { View, Text, StyleSheet } from "react-native"
 import { useColors } from "@/lib/theme-context"
 import { authClient } from "@/lib/auth-client"
 
-const API_BASE = "https://app.collegedanceprep.com"
 
 function InboxIcon({ color, size, unread, badgeColor }: { color: string; size: number; unread: number; badgeColor: string }) {
   return (

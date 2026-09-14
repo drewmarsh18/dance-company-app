@@ -3,7 +3,7 @@ import { expo } from "@better-auth/expo"
 import { pool, db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
-import { sendEmail, sendPasswordResetEmail, newMemberPendingEmail } from "@/lib/email"
+import { sendEmail, sendPasswordResetEmail, newMemberPendingEmail, signupReceivedEmail } from "@/lib/email"
 import { sendPushToUser } from "@/lib/push"
 
 export const auth = betterAuth({
@@ -261,7 +261,9 @@ export const auth = betterAuth({
             reviewUrl,
           })
 
+          const signupEmail = signupReceivedEmail({ memberName: newUser.name })
           await Promise.allSettled([
+            sendEmail({ to: newUser.email, subject: signupEmail.subject, html: signupEmail.html }),
             ...admins.map((admin) => sendEmail({ to: admin.email, subject, html })),
             ...admins.map((admin) =>
               sendPushToUser(admin.id, {

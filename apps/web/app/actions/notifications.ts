@@ -60,6 +60,16 @@ export async function markNotificationRead(id: string): Promise<void> {
     .where(and(eq(notification.id, id), eq(notification.userId, user.id)))
 }
 
+/** Mark a single notification as unread. */
+export async function markNotificationUnread(id: string): Promise<void> {
+  const user = await getSessionUserWithRole()
+  if (!user) return
+  await db
+    .update(notification)
+    .set({ read: false })
+    .where(and(eq(notification.id, id), eq(notification.userId, user.id)))
+}
+
 /** Mark all notifications as read for the current user. */
 export async function markAllRead(): Promise<void> {
   const user = await getSessionUserWithRole()

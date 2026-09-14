@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react"
+import { API_BASE } from "@/lib/config"
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   Modal, ScrollView, RefreshControl, ActivityIndicator, Alert, Switch, FlatList,

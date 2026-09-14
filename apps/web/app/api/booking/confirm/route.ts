@@ -5,7 +5,7 @@ import { db } from "@/lib/db"
 import { user as userTable, calendarEventLink } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar"
-import { COMPANY_TZ } from "@/lib/utils"
+import { COMPANY_TZ, verifyConfirmToken } from "@/lib/utils"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
 const SECRET = process.env.BOOKING_CONFIRM_SECRET
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const action = searchParams.get("action") // "approve" | "deny"
   const token = searchParams.get("token")
 
-  if (!bookingId || !action || token !== SECRET) {
+  if (!bookingId || !action || !token || !verifyConfirmToken(SECRET!, bookingId, action, token)) {
     return NextResponse.redirect(`${APP_URL}/dashboard`)
   }
 
@@ -44,7 +44,21 @@ export async function GET(req: NextRequest) {
     if (action === "approve") {
       await appBase.update<BookingFields>(TABLES.bookings, bookingId, { Status: "Confirmed" })
 
-      // Notify dancer
+      // In-app notification for dancer
+      const dancerUserId = booking.fields["User ID"]
+      if (dancerUserId) {
+        const { createNotification } = await import("@/app/actions/notifications")
+        createNotification({
+          userId: dancerUserId,
+          type: "booking_confirmed",
+          title: "Booking confirmed",
+          body: `${booking.fields["Prep Master Name"] ?? "Your PrepMaster"} confirmed your session on ${booking.fields.Date ?? ""}.`,
+          bookingId,
+          pushData: { route: "/member/bookings" },
+        }).catch(() => {})
+      }
+
+      // Notify dancer via email
       const dancerEmail = booking.fields["Client Email"]
       const dancerName = dancerEmail ?? "Member"
       const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
@@ -121,7 +135,21 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Notify dancer
+      // In-app notification for dancer
+      const deniedDancerUserId = booking.fields["User ID"]
+      if (deniedDancerUserId) {
+        const { createNotification } = await import("@/app/actions/notifications")
+        createNotification({
+          userId: deniedDancerUserId,
+          type: "booking_cancelled",
+          title: "Booking declined",
+          body: `${booking.fields["Prep Master Name"] ?? "Your PrepMaster"} declined your session on ${booking.fields.Date ?? ""}. Your credit has been refunded.`,
+          bookingId,
+          pushData: { route: "/member/bookings" },
+        }).catch(() => {})
+      }
+
+      // Notify dancer via email
       if (dancerEmail) {
         const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
         const date = booking.fields.Date ?? ""

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { authClient } from "@/lib/auth-client"
 import type { AdminDashboard } from "@/lib/admin-types"
 
-const API_BASE = "https://app.collegedanceprep.com"
+import { API_BASE } from "@/lib/config"
 
 type AdminContextValue = {
   data: AdminDashboard | null

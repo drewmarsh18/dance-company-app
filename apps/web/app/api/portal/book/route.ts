@@ -3,11 +3,12 @@ import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import {
   getPrepMasterByEmail, getBookingsForPrepMaster, getBookedSlots,
-  TABLES, appBase, type BookingFields,
+  TABLES, appBase, type BookingFields, type ClientFields,
 } from "@/lib/airtable"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
+import { sendEmail, portalBookedEmail } from "@/lib/email"
 import { etToUtcIso } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable, calendarEventLink } from "@/lib/db/schema"
@@ -55,27 +56,27 @@ export async function POST(req: Request) {
   }
 
   const prepMaster = await getPrepMasterByEmail(session.user.email)
-  if (!prepMaster) return NextResponse.json({ ok: false, error: "No PrepMaster record found." })
+  if (!prepMaster) return NextResponse.json({ ok: false, error: "No PrepMaster record found." }, { status: 404 })
 
   // Verify dancer email belongs to a real member account in the DB (prevents spoofed emails)
   const [dancerDbRow] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, dancerEmail.toLowerCase())).limit(1)
-  if (!dancerDbRow) return NextResponse.json({ ok: false, error: "Member not found." })
+  if (!dancerDbRow) return NextResponse.json({ ok: false, error: "Member not found." }, { status: 404 })
 
   const history = await getBookingsForPrepMaster(prepMaster.name)
   const knownEmails = new Set(history.map((b) => b.dancerEmail.toLowerCase()))
   if (!knownEmails.has(dancerEmail.toLowerCase())) {
-    return NextResponse.json({ ok: false, error: "You can only book sessions for members you have previously worked with." })
+    return NextResponse.json({ ok: false, error: "You can only book sessions for members you have previously worked with." }, { status: 403 })
   }
 
   const week = await getAvailabilityForEmail(prepMaster.email)
   const openSlots = slotsForDate(date, week)
   if (openSlots.length > 0 && !openSlots.includes(time)) {
-    return NextResponse.json({ ok: false, error: "That time is outside your availability for that day." })
+    return NextResponse.json({ ok: false, error: "That time is outside your availability for that day." }, { status: 422 })
   }
 
   const booked = await getBookedSlots(prepMaster.name, date)
   if (booked.includes(time)) {
-    return NextResponse.json({ ok: false, error: "That time slot is already booked." })
+    return NextResponse.json({ ok: false, error: "That time slot is already booked." }, { status: 409 })
   }
 
   const [[dancer], [pmRow]] = await Promise.all([
@@ -100,7 +101,7 @@ export async function POST(req: Request) {
       if (clientRecord.fields.Name) dancerDisplayName = clientRecord.fields.Name
       const current = (clientRecord.fields["Credits Remaining"] ?? 0) as number
       if (current < creditCost) {
-        return NextResponse.json({ ok: false, error: "NO_CREDITS" })
+        return NextResponse.json({ ok: false, error: "NO_CREDITS" }, { status: 422 })
       }
       await appBase.update(TABLES.clients, clientRecord.id, {
         "Credits Remaining": Math.round((current - creditCost) * 100) / 100,
@@ -127,7 +128,26 @@ export async function POST(req: Request) {
       type: "booking_confirmed",
       title: "Session booked",
       body: `${prepMaster.name} has booked a session with you on ${date} at ${time}.`,
+      pushData: { route: "/member/bookings" },
     }).catch(() => {})
+  }
+
+  // Email member about the PM-scheduled session
+  {
+    const safeId = (dancer?.id ?? "").replace(/'/g, "\\'")
+    const memberRecs = dancer?.id
+      ? await appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeId}'`, maxRecords: 1 })
+      : []
+    const memberName = memberRecs[0]?.fields?.Name ?? dancerDisplayName
+    const parentCC = memberRecs[0]?.fields?.["Parent Email"] ?? undefined
+    const { subject, html } = portalBookedEmail({
+      dancerName: memberName,
+      prepMasterName: prepMaster.name,
+      date,
+      time,
+      sessionType: sessionType ?? undefined,
+    })
+    sendEmail({ to: dancerEmail, cc: parentCC, subject, html }).catch(() => {})
   }
 
   // Create Google Calendar events for both PM and dancer (booking is auto-confirmed)

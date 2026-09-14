@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { TABLES, appBase, type ClientFields, type MemberPlan, getPlansForUser } from "@/lib/airtable"
 import { sendEmail, parentInviteEmail } from "@/lib/email"
 import { resolveClientProfile } from "@/lib/profile-core"
@@ -53,6 +53,7 @@ export async function updateProfile(input: {
       ...(input.parentEmail !== undefined ? { "Parent Email": input.parentEmail } : {}),
     })
     revalidatePath("/dashboard/profile")
+    revalidateTag(`member-${user.id}`)
 
     // Send parent invite email only if no account already exists for that email
     if (input.parentEmail?.trim()) {

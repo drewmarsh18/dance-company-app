@@ -25,7 +25,7 @@ import { eq } from "drizzle-orm"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { resolveClientProfile } from "@/lib/profile-core"
 import { slotsForDate } from "@/lib/availability"
-import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
+import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ, makeConfirmToken } from "@/lib/utils"
 import { sendEmail, bookingConfirmationEmail, bookingCancelledEmail, prepMasterBookingRequestEmail, bookingUpdatedEmail } from "@/lib/email"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
@@ -175,19 +175,22 @@ export async function cancelBooking(
       pushData: { route: "/member/bookings" },
     }).catch(() => {})
 
-    if (user.email) {
+    const cancelParentCC = clientRecord?.fields?.["Parent Email"]
+      ?? (profile.isParentView && user.email !== effectiveEmail ? user.email : undefined)
+
+    // Email dancer (primary) + CC parent
+    if (effectiveEmail) {
       const { subject, html } = bookingCancelledEmail({
-        dancerName: user.name ?? "Dancer",
+        dancerName: memberName,
         prepMasterName: pmName,
         date: booking.fields.Date ?? dateLabel,
         time: cancelledTime,
         creditRefunded: !within24,
       })
-      const cancelRecipients = [effectiveEmail, ...(profile.isParentView && user.email !== effectiveEmail ? [user.email] : [])].filter(Boolean)
-      sendEmail({ to: cancelRecipients, subject, html }).catch((e) => console.error("Cancel email failed:", e))
+      sendEmail({ to: effectiveEmail, cc: cancelParentCC ?? undefined, subject, html }).catch((e) => console.error("Cancel email to dancer failed:", e))
     }
 
-    // Notify the PrepMaster
+    // Notify the PrepMaster separately
     getPrepMasters().then(async (all) => {
       const pm = all.find((p) => p.name === pmName)
       if (!pm?.email) return
@@ -291,6 +294,10 @@ export async function rescheduleBooking(
       : await findClientByRecordId(profile.recordId)
     const memberName = clientRecord?.fields.Name ?? user.name ?? user.email ?? "Your member"
     const existingNotes = existing.fields.Notes || undefined
+    const rescheduleParentCC = clientRecord?.fields?.["Parent Email"]
+      ?? (profile.isParentView && user.email && user.email !== effectiveEmail ? user.email : undefined)
+
+    // Email dancer (primary) + CC parent
     if (effectiveEmail) {
       const { subject, html } = bookingUpdatedEmail({
         recipientName: memberName,
@@ -300,9 +307,9 @@ export async function rescheduleBooking(
         time: newTime,
         notes: existingNotes,
       })
-      const rescheduleRecipients = [effectiveEmail, ...(profile.isParentView && user.email && user.email !== effectiveEmail ? [user.email] : [])].filter(Boolean)
-      sendEmail({ to: rescheduleRecipients, subject, html }).catch((e) => console.error("Reschedule email to member failed:", e))
+      sendEmail({ to: effectiveEmail, cc: rescheduleParentCC ?? undefined, subject, html }).catch((e) => console.error("Reschedule email to dancer failed:", e))
     }
+
     // Find PrepMaster's email + userId to notify them (email + in-app)
     getPrepMasters().then(async (all) => {
       const pm = all.find((p) => p.name === prepMasterName)
@@ -322,7 +329,7 @@ export async function rescheduleBooking(
         }).catch(() => {})
       }
 
-      // Email → PrepMaster
+      // Email → PrepMaster separately
       const { subject, html } = bookingUpdatedEmail({
         recipientName: pm.name,
         updatedByName: memberName,
@@ -454,25 +461,24 @@ export async function createBooking(input: {
 
     const dancerDisplayName = client.fields.Name ?? user.name ?? "Dancer"
 
-    // Send booking confirmation email to the child's email (and cc parent if booking on their behalf)
-    const confirmationRecipients: string[] = []
-    if (effectiveEmail) confirmationRecipients.push(effectiveEmail)
-    if (profile.isParentView && user.email && user.email !== effectiveEmail) confirmationRecipients.push(user.email)
-    if (confirmationRecipients.length > 0) {
+    // Send booking confirmation email to the dancer; CC parent if one exists
+    if (effectiveEmail) {
+      const createParentCC = client.fields?.["Parent Email"]
+        ?? (profile.isParentView && user.email && user.email !== effectiveEmail ? user.email : undefined)
       const { subject, html } = bookingConfirmationEmail({
         dancerName: dancerDisplayName,
         prepMasterName: input.prepMasterName,
         date: input.date,
         time: input.time,
       })
-      sendEmail({ to: confirmationRecipients, subject, html }).catch((e) => console.error("Confirmation email failed:", e))
+      sendEmail({ to: effectiveEmail, cc: createParentCC ?? undefined, subject, html }).catch((e) => console.error("Confirmation email failed:", e))
     }
 
     // Email + push notification to PrepMaster with approve/deny — fire and forget
     getPrepMaster(input.prepMasterId).then(async (pm) => {
       if (!pm?.email) return
-      const approveUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=approve&token=${CONFIRM_SECRET}`
-      const denyUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=deny&token=${CONFIRM_SECRET}`
+      const approveUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=approve&token=${makeConfirmToken(CONFIRM_SECRET, record.id, "approve")}`
+      const denyUrl = `${APP_URL}/api/booking/confirm?id=${record.id}&action=deny&token=${makeConfirmToken(CONFIRM_SECRET, record.id, "deny")}`
       const { subject, html } = prepMasterBookingRequestEmail({
         prepMasterName: pm.name,
         dancerName: dancerDisplayName,

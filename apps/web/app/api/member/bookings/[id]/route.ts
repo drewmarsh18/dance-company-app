@@ -69,11 +69,11 @@ export async function DELETE(
     revalidate: 0,
   })
   const booking = records[0]
-  if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." })
+  if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." }, { status: 404 })
 
   const currentStatus = (booking.fields.Status ?? "").toLowerCase()
   if (currentStatus.startsWith("cancelled") || currentStatus === "declined") {
-    return NextResponse.json({ ok: false, error: "This booking has already been cancelled." })
+    return NextResponse.json({ ok: false, error: "This booking has already been cancelled." }, { status: 409 })
   }
 
   const pmNameDel = booking.fields["Prep Master Name"] ?? ""
@@ -119,6 +119,7 @@ export async function DELETE(
     title: "Booking cancelled",
     body: `Your session with ${pmName} on ${dateLabel} has been cancelled.${within24 ? " No credit refunded (within 24 hours)." : ""}`,
     bookingId: id,
+    pushData: { route: "/member/bookings" },
   }).catch(() => {})
 
   {
@@ -131,8 +132,7 @@ export async function DELETE(
       time: cancelledTime,
       creditRefunded: !within24,
     })
-    const cancelRecipients = [effectiveEmail, ...(parentCC && parentCC !== effectiveEmail ? [parentCC] : [])].filter(Boolean)
-    sendEmail({ to: cancelRecipients, subject, html }).catch(() => {})
+    sendEmail({ to: effectiveEmail, cc: (parentCC && parentCC !== effectiveEmail ? parentCC : undefined) ?? undefined, subject, html }).catch(() => {})
   }
 
   // Notify the PrepMaster
@@ -190,15 +190,23 @@ export async function PATCH(
     revalidate: 0,
   })
   const booking = records[0]
-  if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." })
+  if (!booking) return NextResponse.json({ ok: false, error: "Booking not found." }, { status: 404 })
 
   const rescheduleStatus = (booking.fields.Status ?? "").toLowerCase()
   if (rescheduleStatus.startsWith("cancelled") || rescheduleStatus === "declined") {
-    return NextResponse.json({ ok: false, error: "This booking cannot be rescheduled." })
+    return NextResponse.json({ ok: false, error: "This booking cannot be rescheduled." }, { status: 409 })
   }
 
-  if (isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "")) {
-    return NextResponse.json({ ok: false, error: "Bookings within 24 hours cannot be rescheduled." })
+  // Look up PrepMaster timezone before 24hr check so the window is anchored to the PM's clock
+  const pmName = booking.fields["Prep Master Name"] ?? ""
+  const [pmEntry] = await getPrepMasters().then((all) => all.filter((p) => p.name === pmName))
+  const pmTz = pmEntry?.email
+    ? await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pmEntry.email)).limit(1)
+        .then((rows) => rows[0]?.timezone ?? COMPANY_TZ)
+    : COMPANY_TZ
+
+  if (isWithin24Hours(booking.fields.Date ?? "", booking.fields.Time ?? "", pmTz)) {
+    return NextResponse.json({ ok: false, error: "Bookings within 24 hours cannot be rescheduled." }, { status: 422 })
   }
 
   const body = await req.json() as { date?: string; time?: string; notes?: string }
@@ -213,14 +221,6 @@ export async function PATCH(
   if (body.date) update.Date = body.date
   if (body.time) update.Time = body.time
   if (body.notes !== undefined) update.Notes = body.notes
-
-  // Look up PrepMaster timezone so UTC Datetime is accurate for any PM timezone
-  const pmName = booking.fields["Prep Master Name"] ?? ""
-  const [pmEntry] = await getPrepMasters().then((all) => all.filter((p) => p.name === pmName))
-  const pmTz = pmEntry?.email
-    ? await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pmEntry.email)).limit(1)
-        .then((rows) => rows[0]?.timezone ?? COMPANY_TZ)
-    : COMPANY_TZ
 
   if (body.date || body.time) {
     const utc = etToUtcIso(
@@ -237,14 +237,14 @@ export async function PATCH(
       // Double-booking check
       const takenSlots = await getBookedSlots(pmName, body.date)
       if (takenSlots.includes(body.time)) {
-        return NextResponse.json({ ok: false, error: "That time was just booked. Please choose another slot." })
+        return NextResponse.json({ ok: false, error: "That time was just booked. Please choose another slot." }, { status: 409 })
       }
       // Availability check — slot must be within PM's configured hours
       if (pmEntry?.email) {
         const week = await getAvailabilityForEmail(pmEntry.email)
         const openSlots = slotsForDate(body.date, week)
         if (!openSlots.includes(body.time)) {
-          return NextResponse.json({ ok: false, error: "That time is outside this PrepMaster's availability." })
+          return NextResponse.json({ ok: false, error: "That time is outside this PrepMaster's availability." }, { status: 422 })
         }
       }
     }
@@ -285,8 +285,7 @@ export async function PATCH(
       time: newTime,
       notes: body.notes,
     })
-    const rescheduleRecipients = [effectiveEmail, ...(parentCC && parentCC !== effectiveEmail ? [parentCC] : [])].filter(Boolean)
-    sendEmail({ to: rescheduleRecipients, subject, html }).catch(() => {})
+    sendEmail({ to: effectiveEmail, cc: (parentCC && parentCC !== effectiveEmail ? parentCC : undefined) ?? undefined, subject, html }).catch(() => {})
   }
 
   // Notify PrepMaster
