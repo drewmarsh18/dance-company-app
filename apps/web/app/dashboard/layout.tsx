@@ -27,7 +27,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     isAdmin ? Promise.resolve(null) : getOrCreateProfile({ noCreate: true }),
   ])
   console.log("[layout] got unreadCount", Date.now() - t0 + "ms")
-  const bell = <NotificationBell initialCount={unreadCount} />
+  // Bell only shown to admins — members use the Inbox nav tab instead
+  const bell = isAdmin ? <NotificationBell initialCount={unreadCount} /> : undefined
   const activeChildUserId = profile?.effectiveUserId ?? ""
   const activeChild = linkedChildren.find((c) => c.userId === activeChildUserId)
 
