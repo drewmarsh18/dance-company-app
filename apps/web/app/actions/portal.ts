@@ -216,6 +216,10 @@ export async function declineBooking(
     if (!records[0]) return { ok: false, error: "Booking not found." }
 
     const booking = records[0]
+    const currentDeclineStatus = (booking.fields.Status ?? "").toLowerCase()
+    if (currentDeclineStatus.startsWith("cancelled") || currentDeclineStatus === "declined") {
+      return { ok: false, error: "This booking has already been cancelled." }
+    }
     const isReschedule = !!(booking.fields["Is Reschedule"])
     const dancerUserId = booking.fields["User ID"]
 
@@ -320,6 +324,10 @@ export async function cancelBookingAsPrepMaster(
     if (!records[0]) return { ok: false, error: "Booking not found." }
 
     const booking = records[0].fields
+    const currentCancelStatus = (booking.Status ?? "").toLowerCase()
+    if (currentCancelStatus.startsWith("cancelled") || currentCancelStatus === "declined") {
+      return { ok: false, error: "This booking has already been cancelled." }
+    }
     const dateStr = booking.Date ?? ""
     const timeStr = booking.Time ?? ""
     const dancerUserId = booking["User ID"]

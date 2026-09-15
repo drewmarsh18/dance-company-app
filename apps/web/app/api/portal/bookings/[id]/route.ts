@@ -146,6 +146,10 @@ export async function PATCH(
   }
 
   if (body.action === "decline") {
+    const currentDeclineStatus = (booking.fields.Status ?? "").toLowerCase()
+    if (currentDeclineStatus.startsWith("cancelled") || currentDeclineStatus === "declined") {
+      return NextResponse.json({ ok: false, error: "This booking has already been cancelled." }, { status: 409 })
+    }
     const dancerUserId = booking.fields["User ID"]
     const isReschedule = !!(booking.fields["Is Reschedule"])
 
@@ -254,6 +258,10 @@ export async function PATCH(
   }
 
   if (body.action === "cancel") {
+    const currentCancelStatus = (booking.fields.Status ?? "").toLowerCase()
+    if (currentCancelStatus.startsWith("cancelled") || currentCancelStatus === "declined") {
+      return NextResponse.json({ ok: false, error: "This booking has already been cancelled." }, { status: 409 })
+    }
     const dateStr = booking.fields.Date ?? ""
     const timeStr = booking.fields.Time ?? ""
     const dancerUserId = booking.fields["User ID"]
