@@ -25,7 +25,7 @@ import { eq } from "drizzle-orm"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { resolveClientProfile } from "@/lib/profile-core"
 import { slotsForDate } from "@/lib/availability"
-import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ, makeConfirmToken } from "@/lib/utils"
+import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, fmtEmailTime, COMPANY_TZ, makeConfirmToken } from "@/lib/utils"
 import { sendEmail, bookingConfirmationEmail, bookingCancelledEmail, prepMasterBookingRequestEmail, bookingUpdatedEmail } from "@/lib/email"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
@@ -178,13 +178,15 @@ export async function cancelBooking(
     const cancelParentCC = clientRecord?.fields?.["Parent Email"]
       ?? (profile.isParentView && user.email !== effectiveEmail ? user.email : undefined)
 
+    const utcCancelIso = booking.fields["UTC Datetime"] ?? etToUtcIso(booking.fields.Date ?? "", cancelledTime, pmCancelTz)
+
     // Email dancer (primary) + CC parent
     if (effectiveEmail) {
       const { subject, html } = bookingCancelledEmail({
         dancerName: memberName,
         prepMasterName: pmName,
         date: booking.fields.Date ?? dateLabel,
-        time: cancelledTime,
+        time: fmtEmailTime(cancelledTime, pmCancelTz, utcCancelIso, null),
         creditRefunded: !within24,
       })
       sendEmail({ to: effectiveEmail, cc: cancelParentCC ?? undefined, subject, html }).catch((e) => console.error("Cancel email to dancer failed:", e))
@@ -209,7 +211,7 @@ export async function cancelBooking(
         dancerName: memberName,
         prepMasterName: pm.name,
         date: booking.fields.Date ?? dateLabel,
-        time: cancelledTime,
+        time: fmtEmailTime(cancelledTime, pmCancelTz, utcCancelIso, null),
         creditRefunded: false,
       })
       sendEmail({ to: pm.email, subject, html }).catch(() => {})
@@ -243,11 +245,17 @@ export async function rescheduleBooking(
     const existing = records[0]
     if (!existing) return { ok: false, error: "Booking not found." }
 
-    if (isWithin24Hours(existing.fields.Date ?? "", existing.fields.Time ?? "")) {
+    const prepMasterName = existing.fields["Prep Master Name"] ?? ""
+    const pmReschEntry = (await getPrepMasters()).find((p) => p.name === prepMasterName)
+    const [pmReschTzRowEarly] = pmReschEntry?.email
+      ? await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pmReschEntry.email)).limit(1)
+      : [undefined]
+    const pmReschTzEarly = pmReschTzRowEarly?.timezone ?? COMPANY_TZ
+
+    if (isWithin24Hours(existing.fields.Date ?? "", existing.fields.Time ?? "", pmReschTzEarly)) {
       return { ok: false, error: "Bookings within 24 hours cannot be rescheduled." }
     }
 
-    const prepMasterName = existing.fields["Prep Master Name"] ?? ""
     const booked = await getBookedSlots(prepMasterName, newDate)
     if (booked.includes(newTime)) {
       return { ok: false, error: "That time slot is already taken." }
@@ -304,7 +312,7 @@ export async function rescheduleBooking(
         updatedByName: memberName,
         updatedByRole: "member",
         date: newDate,
-        time: newTime,
+        time: fmtEmailTime(newTime, pmReschTz, utcForReschedule, memberReschTz),
         notes: existingNotes,
       })
       sendEmail({ to: effectiveEmail, cc: rescheduleParentCC ?? undefined, subject, html }).catch((e) => console.error("Reschedule email to dancer failed:", e))
@@ -335,7 +343,7 @@ export async function rescheduleBooking(
         updatedByName: memberName,
         updatedByRole: "member",
         date: newDate,
-        time: newTime,
+        time: fmtEmailTime(newTime, pmReschTz, utcForReschedule, null),
         notes: existingNotes,
       })
       sendEmail({ to: pm.email, subject, html }).catch((e) => console.error("Reschedule email to PM failed:", e))
@@ -469,7 +477,7 @@ export async function createBooking(input: {
         dancerName: dancerDisplayName,
         prepMasterName: input.prepMasterName,
         date: input.date,
-        time: input.time,
+        time: fmtEmailTime(input.time, pmTz, utcForCreate ?? undefined, memberCreateRow?.timezone ?? null),
       })
       sendEmail({ to: effectiveEmail, cc: createParentCC ?? undefined, subject, html }).catch((e) => console.error("Confirmation email failed:", e))
     }
@@ -522,7 +530,7 @@ export async function createBooking(input: {
       })
       sendSms(
         phone,
-        `New booking! ${user.name} has booked a session with you on ${dateLabel} at ${input.time}. Log in to College Dance Prep to view details.`,
+        `New booking! ${dancerDisplayName} has booked a session with you on ${dateLabel} at ${input.time}. Log in to College Dance Prep to view details.`,
       ).catch((e) => console.error("SMS failed:", e))
     })
 

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { appBase, TABLES, type BookingFields, type ClientFields, type AirtableRecord, getMostRecentInactivePlanForUser, setPlanStatus, getPrepMasters } from "@/lib/airtable"
-import { sendEmail, bookingCancelledEmail } from "@/lib/email"
+import { sendEmail, bookingCancelledEmail, bookingConfirmedByPmEmail } from "@/lib/email"
 import { db } from "@/lib/db"
 import { user as userTable, calendarEventLink } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar"
-import { COMPANY_TZ, verifyConfirmToken } from "@/lib/utils"
+import { COMPANY_TZ, verifyConfirmToken, fmtTimeForNotif } from "@/lib/utils"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
 const SECRET = process.env.BOOKING_CONFIRM_SECRET
@@ -60,17 +60,23 @@ export async function GET(req: NextRequest) {
 
       // Notify dancer via email
       const dancerEmail = booking.fields["Client Email"]
-      const dancerName = dancerEmail ?? "Member"
       const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
       const date = booking.fields.Date ?? ""
       const time = booking.fields.Time ?? ""
       if (dancerEmail) {
-        const { sendEmail: _send, bookingConfirmationEmail } = await import("@/lib/email")
         const { getParentEmailForMember } = await import("@/lib/airtable")
-        const { subject, html } = bookingConfirmationEmail({ dancerName, prepMasterName: pmName, date, time })
-        const parentCC = booking.fields["User ID"] ? await getParentEmailForMember(booking.fields["User ID"]).catch(() => null) : null
-        // Override subject/body to say "confirmed"
-        await sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject: `Booking confirmed — ${date} at ${time}`, html: html.replace("Booking request received", "Booking confirmed").replace("Your booking request has been submitted!", "Great news — your session has been confirmed!").replace("Your booking is pending confirmation from your PrepMaster. You will receive an email notification once they have confirmed your booking request.", "See you there! Need to cancel? Please do so at least 24 hours in advance to get your credit back.") })
+        const userId = booking.fields["User ID"]
+        const utcDt = booking.fields["UTC Datetime"] ?? null
+        const timeDisplay = utcDt ? fmtTimeForNotif(utcDt, COMPANY_TZ, null) : time
+        let dancerName = dancerEmail
+        if (userId) {
+          const safeId = userId.replace(/'/g, "\\'")
+          const recs = await appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeId}'`, maxRecords: 1, revalidate: 0 })
+          if (recs[0]?.fields.Name) dancerName = recs[0].fields.Name
+        }
+        const parentCC = userId ? await getParentEmailForMember(userId).catch(() => null) : null
+        const { subject, html } = bookingConfirmedByPmEmail({ dancerName, prepMasterName: pmName, date, time: timeDisplay })
+        await sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject, html })
       }
 
       // Create Google Calendar events for PM and dancer (fire-and-forget)
@@ -83,9 +89,14 @@ export async function GET(req: NextRequest) {
           Promise.resolve(booking.fields["User ID"] ?? null),
         ])
         const pmTz = pmUser?.timezone ?? COMPANY_TZ
-        const dancerName = booking.fields.Name ?? booking.fields["Client Email"] ?? "Member"
-        const eventArgs = { dancerName, prepMasterName: pm.name, date: booking.fields.Date ?? "", time: booking.fields.Time ?? "", notes: booking.fields.Notes, sessionType: booking.fields["Session Type"], timezone: pmTz }
+        let dancerName = booking.fields["Client Email"] ?? "Member"
         const dancerUserRow = dancerUserId ? await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1).then((r) => r[0] ?? null) : null
+        if (dancerUserId) {
+          const safeId = dancerUserId.replace(/'/g, "\\'")
+          const clientRecs = await appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeId}'`, maxRecords: 1, revalidate: 0 })
+          if (clientRecs[0]?.fields.Name) dancerName = clientRecs[0].fields.Name
+        }
+        const eventArgs = { dancerName, prepMasterName: pm.name, date: booking.fields.Date ?? "", time: booking.fields.Time ?? "", notes: booking.fields.Notes, sessionType: booking.fields["Session Type"], timezone: pmTz }
         const [pmEventId, dancerEventId] = await Promise.all([
           pmUser ? createCalendarEvent(pmUser.id, eventArgs) : Promise.resolve(null),
           dancerUserRow ? createCalendarEvent(dancerUserRow.id, { ...eventArgs }) : Promise.resolve(null),
@@ -155,11 +166,13 @@ export async function GET(req: NextRequest) {
         const date = booking.fields.Date ?? ""
         const time = booking.fields.Time ?? ""
         const parentCC = clients[0]?.fields?.["Parent Email"] ?? null
+        const utcDtDeny = booking.fields["UTC Datetime"] ?? null
+        const timeDenyDisplay = utcDtDeny ? fmtTimeForNotif(utcDtDeny, COMPANY_TZ, null) : time
         const { subject, html } = bookingCancelledEmail({
           dancerName: dancerEmail,
           prepMasterName: pmName,
           date,
-          time,
+          time: timeDenyDisplay,
           creditRefunded: true,
         })
         await sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject, html })

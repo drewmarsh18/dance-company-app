@@ -127,8 +127,8 @@ function RoleGuard() {
     checked.current = true
     authClient.$fetch(`${API_BASE}/api/me`).then(({ data }: any) => {
       const role = data?.role
-      if (!role || role === "prep_master" || role === "admin") router.replace("/")
-    }).catch(() => router.replace("/"))
+      if (role && role === "prep_master") router.replace("/")
+    }).catch(() => { /* network error — do not redirect */ })
   }, [])
   return null
 }

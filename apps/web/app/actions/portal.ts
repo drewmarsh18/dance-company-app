@@ -2,13 +2,14 @@
 
 import { revalidatePath, revalidateTag } from "next/cache"
 import { getSessionUserWithRole } from "@/lib/roles"
-import { TABLES, appBase, getPrepMasterByEmail, getBookedSlots, type BookingFields, type ClientFields } from "@/lib/airtable"
-import { sendEmail, bookingUpdatedEmail, bookingCancelledEmail } from "@/lib/email"
+import { TABLES, appBase, getPrepMasterByEmail, getBookedSlots, getMostRecentInactivePlanForUser, setPlanStatus, type BookingFields, type ClientFields } from "@/lib/airtable"
+import { sendEmail, bookingUpdatedEmail, bookingCancelledEmail, bookingConfirmedByPmEmail, bookingDeclinedByPmEmail } from "@/lib/email"
 import { createNotification } from "@/app/actions/notifications"
-import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
+import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, fmtEmailTime, COMPANY_TZ } from "@/lib/utils"
 import { db } from "@/lib/db"
-import { user as userTable } from "@/lib/db/schema"
+import { user as userTable, calendarEventLink } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
+import { updateCalendarEvent } from "@/lib/google-calendar"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 
@@ -91,6 +92,27 @@ export async function confirmBooking(
         bookingId,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
+    }
+
+    // Email dancer (+ parent CC)
+    const confirmDancerEmail = records[0].fields["Client Email"]
+    if (confirmDancerEmail) {
+      const safeConfirmId = (dancerUserId ?? "").replace(/'/g, "\\'")
+      const confirmMemberRecs = dancerUserId
+        ? await appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeConfirmId}'`, maxRecords: 1 })
+        : []
+      const confirmDancerName = confirmMemberRecs[0]?.fields.Name ?? confirmDancerEmail
+      const confirmParentCC = confirmMemberRecs[0]?.fields?.["Parent Email"] ?? undefined
+      const [pmTzConfirmRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+      const pmTzConfirm = pmTzConfirmRow?.timezone ?? COMPANY_TZ
+      const utcConfirmEmail = etToUtcIso(confirmDate, confirmTime, pmTzConfirm)
+      const { subject, html } = bookingConfirmedByPmEmail({
+        dancerName: confirmDancerName,
+        prepMasterName: pm.name,
+        date: confirmDate,
+        time: fmtEmailTime(confirmTime, pmTzConfirm, utcConfirmEmail, null),
+      })
+      sendEmail({ to: confirmDancerEmail, cc: confirmParentCC, subject, html }).catch(() => {})
     }
 
     revalidatePath("/portal")
@@ -190,6 +212,29 @@ export async function adjustBooking(
     })
     sendEmail({ to: user.email, subject, html }).catch((e) => console.error("Update email to PM failed:", e))
 
+    // Update Google Calendar events for all linked users — fire and forget
+    if (fields.date || fields.time || fields.notes !== undefined) {
+      ;(async () => {
+        const links = await db
+          .select({ userId: calendarEventLink.userId, gcalEventId: calendarEventLink.gcalEventId })
+          .from(calendarEventLink)
+          .where(eq(calendarEventLink.bookingId, bookingId))
+        const sessionType = records[0].fields["Session Type"] as string | undefined
+        const [pmTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+        const pmTz = pmTzRow?.timezone ?? COMPANY_TZ
+        const eventArgs = {
+          dancerName,
+          prepMasterName: pm.name,
+          date: newDate,
+          time: newTime,
+          notes: newNotes,
+          sessionType,
+          timezone: pmTz,
+        }
+        await Promise.all(links.map(({ userId, gcalEventId }) => updateCalendarEvent(userId, gcalEventId, eventArgs).catch(() => {})))
+      })().catch(() => {})
+    }
+
     // No revalidatePath here — the component updates optimistically in place,
     // so triggering a server re-render would cause the card to jump positions
     // in the sorted list, making it appear as a new card.
@@ -279,6 +324,11 @@ export async function declineBooking(
         await appBase.update<ClientFields>(TABLES.clients, client.id, {
           "Credits Remaining": Math.round((current + creditRefund) * 100) / 100,
         })
+        // Reactivate the most-recently-used plan if credits were at zero
+        if (current === 0) {
+          const inactivePlan = await getMostRecentInactivePlanForUser(dancerUserId)
+          if (inactivePlan) await setPlanStatus(inactivePlan.id, "Active")
+        }
       }
       revalidatePath(`/dashboard`)
     }
@@ -287,10 +337,12 @@ export async function declineBooking(
     const declineDate = booking.fields.Date ?? ""
     const declineTime = booking.fields.Time ?? ""
     const dateLabel = fmtDate(declineDate)
+    const [pmTzDeclineRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+    const pmTzDecline = pmTzDeclineRow?.timezone ?? COMPANY_TZ
+    const utcDecline = booking.fields["UTC Datetime"] ?? etToUtcIso(declineDate, declineTime, pmTzDecline)
     if (dancerUserId) {
       const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
-      const utcDecline = etToUtcIso(declineDate, declineTime, COMPANY_TZ)
-      const timeLabel = utcDecline ? fmtTimeForNotif(utcDecline, COMPANY_TZ, memberRow?.timezone ?? null) : `${fmtTime(declineTime)} ET`
+      const timeLabel = utcDecline ? fmtTimeForNotif(utcDecline, pmTzDecline, memberRow?.timezone ?? null) : `${fmtTime(declineTime)} ET`
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
@@ -299,6 +351,23 @@ export async function declineBooking(
         bookingId,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
+
+      // Email dancer (+ parent CC) — BUG-18 fix
+      const declineDancerEmail = booking.fields["Client Email"]
+      if (declineDancerEmail) {
+        const safeDeclineId = dancerUserId.replace(/'/g, "\\'")
+        const declineMemberRecs = await appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeDeclineId}'`, maxRecords: 1 })
+        const declineDancerName = declineMemberRecs[0]?.fields.Name ?? declineDancerEmail
+        const declineParentCC = declineMemberRecs[0]?.fields?.["Parent Email"] ?? undefined
+        const [declineMemberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
+        const { subject, html } = bookingDeclinedByPmEmail({
+          dancerName: declineDancerName,
+          prepMasterName: pm.name,
+          date: declineDate,
+          time: fmtEmailTime(declineTime, pmTzDecline, utcDecline, declineMemberRow?.timezone ?? null),
+        })
+        sendEmail({ to: declineDancerEmail, cc: declineParentCC, subject, html }).catch(() => {})
+      }
     }
 
     revalidatePath("/portal")
@@ -400,11 +469,12 @@ export async function cancelBookingAsPrepMaster(
         if (memberRecords[0]?.fields.Name) dancerName = memberRecords[0].fields.Name
         cancelParentCC = memberRecords[0]?.fields?.["Parent Email"] ?? undefined
       }
+      const pmCancelTz = pmRow?.timezone ?? COMPANY_TZ
       const { subject, html } = bookingCancelledEmail({
         dancerName,
         prepMasterName: pm.name,
         date: dateStr,
-        time: timeStr,
+        time: fmtEmailTime(timeStr, pmCancelTz, utcCancel, null),
         creditRefunded: true,
       })
       sendEmail({ to: dancerEmail, cc: cancelParentCC, subject, html }).catch(() => {})

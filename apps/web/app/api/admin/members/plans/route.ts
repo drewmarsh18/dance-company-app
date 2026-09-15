@@ -87,9 +87,10 @@ export async function DELETE(req: Request) {
   if (!planRecords[0]) return NextResponse.json({ error: "Plan not found." }, { status: 404 })
   if (!clientRecords[0]) return NextResponse.json({ error: "Member not found." }, { status: 404 })
 
+  const planSessionsFromRecord = (planRecords[0].fields as any)["Sessions"] ?? 0
   await appBase.destroy(TABLES.plans, planId)
   const currentCredits = (clientRecords[0].fields as any)["Credits Remaining"] ?? 0
-  const newCredits = Math.max(0, currentCredits - (planSessions ?? 0))
+  const newCredits = Math.max(0, currentCredits - planSessionsFromRecord)
   await appBase.update(TABLES.clients, memberId, { "Credits Remaining": newCredits })
   return NextResponse.json({ ok: true, newCredits })
 }

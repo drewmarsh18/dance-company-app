@@ -79,10 +79,11 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    const priorBalance = client ? (client.fields["Credits Remaining"] ?? 0) : 0
+    const newBalance = Math.round((priorBalance + creditAmount) * 100) / 100
     if (client) {
-      const current = client.fields["Credits Remaining"] ?? 0
       await appBase.update<ClientFields>(TABLES.clients, client.id, {
-        "Credits Remaining": Math.round((current + creditAmount) * 100) / 100,
+        "Credits Remaining": newBalance,
       })
     }
 
@@ -111,7 +112,6 @@ export async function POST(req: NextRequest) {
     revalidateTag(`member-${userId}`)
 
     // In-app + push notification
-    const newBalance = Math.round(((client ? (client.fields["Credits Remaining"] ?? 0) : 0) + creditAmount) * 100) / 100
     createNotification({
       userId,
       type: "purchase_complete",

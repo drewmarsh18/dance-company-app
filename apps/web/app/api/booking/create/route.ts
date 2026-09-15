@@ -17,7 +17,7 @@ import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingConfirmationEmail, prepMasterBookingRequestEmail } from "@/lib/email"
 import { sendSms } from "@/lib/sms"
-import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ, makeConfirmToken } from "@/lib/utils"
+import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, fmtEmailTime, COMPANY_TZ, makeConfirmToken } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -125,24 +125,34 @@ export async function POST(req: Request) {
   const pmTimezone = pmUserRow?.timezone ?? COMPANY_TZ
   const serverUtcDatetime = pmUserRow ? (etToUtcIso(date, time, pmTimezone) ?? utcDatetime) : (utcDatetime ?? null)
 
-  // Create booking
-  const record = await appBase.create<BookingFields>(TABLES.bookings, {
-    "User ID": effectiveUserId,
-    "Client Email": effectiveEmail,
-    "Prep Master Name": prepMasterName,
-    Date: date,
-    Time: time,
-    ...(serverUtcDatetime ? { "UTC Datetime": serverUtcDatetime } : {}),
-    Status: "Pending",
-    Notes: notes ?? "",
-    "Session Type": sessionType ?? "pack-hour",
-  })
-
-  // Deduct credit
+  // Deduct credit before creating the booking so a booking is never created
+  // without a corresponding credit deduction.
   const newCredits = Math.round((credits - creditCost) * 100) / 100
   await appBase.update<ClientFields>(TABLES.clients, profile.recordId, {
     "Credits Remaining": newCredits,
   })
+
+  // Create booking — rollback the credit deduction if this fails
+  let record: Awaited<ReturnType<typeof appBase.create<BookingFields>>>
+  try {
+    record = await appBase.create<BookingFields>(TABLES.bookings, {
+      "User ID": effectiveUserId,
+      "Client Email": effectiveEmail,
+      "Prep Master Name": prepMasterName,
+      Date: date,
+      Time: time,
+      ...(serverUtcDatetime ? { "UTC Datetime": serverUtcDatetime } : {}),
+      Status: "Pending",
+      Notes: notes ?? "",
+      "Session Type": sessionType ?? "pack-hour",
+    })
+  } catch (err) {
+    // Booking creation failed — refund the credit so the member is not charged
+    await appBase.update<ClientFields>(TABLES.clients, profile.recordId, {
+      "Credits Remaining": credits,
+    }).catch(() => {})
+    return NextResponse.json({ ok: false, error: "Failed to create booking. Your credit has been refunded." })
+  }
 
   // Mark plan used if needed
   if (planId && planSessions === 1) {
@@ -179,7 +189,7 @@ export async function POST(req: Request) {
       dancerName: dancerDisplayName,
       prepMasterName,
       date,
-      time,
+      time: fmtEmailTime(time, pmTimezone, serverUtcDatetime, memberTz),
     })
     sendEmail({ to: effectiveEmail, subject, html, ...(parentEmailCC ? { cc: parentEmailCC } : {}) }).catch(() => {})
   }
@@ -193,7 +203,7 @@ export async function POST(req: Request) {
       dancerName: dancerDisplayName,
       dancerEmail: effectiveEmail ?? "",
       date,
-      time,
+      time: fmtEmailTime(time, pmTimezone, serverUtcDatetime, null),
       notes: notes || undefined,
       approveUrl,
       denyUrl,

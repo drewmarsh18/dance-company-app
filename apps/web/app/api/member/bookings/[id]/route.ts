@@ -7,7 +7,7 @@ import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingCancelledEmail, bookingUpdatedEmail } from "@/lib/email"
-import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
+import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, fmtEmailTime, COMPANY_TZ } from "@/lib/utils"
 import { getPrepMasters } from "@/lib/airtable"
 import { db } from "@/lib/db"
 import { user as userTable, calendarEventLink } from "@/lib/db/schema"
@@ -125,11 +125,12 @@ export async function DELETE(
   {
     const effectiveEmail = profile.email || user.email
     const parentCC = profile.isParentView && user.email && user.email !== effectiveEmail ? user.email : (client?.fields?.["Parent Email"] ?? null)
+    const utcCancelMember = booking.fields["UTC Datetime"] ?? etToUtcIso(booking.fields.Date ?? "", cancelledTime, pmDelTz)
     const { subject, html } = bookingCancelledEmail({
       dancerName: memberName,
       prepMasterName: pmName,
       date: booking.fields.Date ?? dateLabel,
-      time: cancelledTime,
+      time: fmtEmailTime(cancelledTime, pmDelTz, utcCancelMember, null),
       creditRefunded: !within24,
     })
     sendEmail({ to: effectiveEmail, cc: (parentCC && parentCC !== effectiveEmail ? parentCC : undefined) ?? undefined, subject, html }).catch(() => {})
@@ -150,11 +151,12 @@ export async function DELETE(
         pushData: { route: "/portal" },
       }).catch(() => {})
     }
+    const utcCancelPm = booking.fields["UTC Datetime"] ?? etToUtcIso(booking.fields.Date ?? "", cancelledTime, pmDelTz)
     const { subject, html } = bookingCancelledEmail({
       dancerName: memberName,
       prepMasterName: pm.name,
       date: booking.fields.Date ?? dateLabel,
-      time: cancelledTime,
+      time: fmtEmailTime(cancelledTime, pmDelTz, utcCancelPm, null),
       creditRefunded: false,
     })
     sendEmail({ to: pm.email, subject, html }).catch(() => {})
@@ -282,7 +284,7 @@ export async function PATCH(
       updatedByName: memberName,
       updatedByRole: "member",
       date: newDate,
-      time: newTime,
+      time: fmtEmailTime(newTime, pmTz, update["UTC Datetime"] ?? null, memberTz),
       notes: body.notes,
     })
     sendEmail({ to: effectiveEmail, cc: (parentCC && parentCC !== effectiveEmail ? parentCC : undefined) ?? undefined, subject, html }).catch(() => {})
@@ -311,7 +313,7 @@ export async function PATCH(
       updatedByName: memberName,
       updatedByRole: "member",
       date: newDate,
-      time: newTime,
+      time: fmtEmailTime(newTime, pmTz, update["UTC Datetime"] ?? null, null),
       notes: body.notes,
     })
     sendEmail({ to: pm.email, subject, html }).catch(() => {})

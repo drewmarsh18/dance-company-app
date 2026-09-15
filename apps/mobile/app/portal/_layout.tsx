@@ -42,13 +42,14 @@ export default function PortalLayout() {
   const pathname = usePathname()
   const roleChecked = useRef(false)
 
-  // Server-side role guard — redirect if session user is not a prep_master
+  // Role guard — only non-staff users are redirected; admins pass through freely
   useEffect(() => {
     if (roleChecked.current) return
     roleChecked.current = true
     authClient.$fetch(`${API_BASE}/api/me`).then(({ data }: any) => {
-      if (!data || data.role !== "prep_master") router.replace("/")
-    }).catch(() => router.replace("/"))
+      const role = data?.role
+      if (role && role !== "prep_master" && role !== "admin") router.replace("/")
+    }).catch(() => { /* network error — do not redirect, let the page load */ })
   }, [])
 
   useEffect(() => {

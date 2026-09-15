@@ -3,13 +3,14 @@ import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import {
   getPrepMasterByEmail, getBookingsForPrepMaster, getBookedSlots,
+  getMostRecentInactivePlanForUser, setPlanStatus,
   TABLES, appBase, type BookingFields, type ClientFields,
 } from "@/lib/airtable"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, portalBookedEmail } from "@/lib/email"
-import { etToUtcIso } from "@/lib/utils"
+import { etToUtcIso, fmtEmailTime } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable, calendarEventLink } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
 
   const week = await getAvailabilityForEmail(prepMaster.email)
   const openSlots = slotsForDate(date, week)
-  if (openSlots.length > 0 && !openSlots.includes(time)) {
+  if (!openSlots.includes(time)) {
     return NextResponse.json({ ok: false, error: "That time is outside your availability for that day." }, { status: 422 })
   }
 
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
   }
 
   const [[dancer], [pmRow]] = await Promise.all([
-    db.select({ id: userTable.id, name: userTable.name })
+    db.select({ id: userTable.id, name: userTable.name, timezone: userTable.timezone })
       .from(userTable).where(eq(userTable.email, dancerEmail.toLowerCase())).limit(1),
     db.select({ id: userTable.id, timezone: userTable.timezone })
       .from(userTable).where(eq(userTable.email, session.user.email.toLowerCase())).limit(1),
@@ -103,9 +104,23 @@ export async function POST(req: Request) {
       if (current < creditCost) {
         return NextResponse.json({ ok: false, error: "NO_CREDITS" }, { status: 422 })
       }
+      const newCredits = Math.round((current - creditCost) * 100) / 100
       await appBase.update(TABLES.clients, clientRecord.id, {
-        "Credits Remaining": Math.round((current - creditCost) * 100) / 100,
+        "Credits Remaining": newCredits,
       })
+      if (newCredits <= 0 && dancer?.id) {
+        const planToMark = await getMostRecentInactivePlanForUser(dancer.id).catch(() => null)
+        // If they still have an Active plan, mark it Used; otherwise mark the most recent active-status plan
+        const safeIdPlan = dancer.id.replace(/'/g, "\\'")
+        const activePlanRecs = await appBase.list(TABLES.plans, {
+          filterByFormula: `AND({User ID} = '${safeIdPlan}', {Status} = 'Active')`,
+          maxRecords: 1,
+          revalidate: 0,
+        })
+        const activePlan = activePlanRecs[0]
+        if (activePlan) await setPlanStatus(activePlan.id, "Used").catch(() => {})
+        else if (planToMark) await setPlanStatus(planToMark.id, "Used").catch(() => {})
+      }
     }
   }
 
@@ -140,11 +155,12 @@ export async function POST(req: Request) {
       : []
     const memberName = memberRecs[0]?.fields?.Name ?? dancerDisplayName
     const parentCC = memberRecs[0]?.fields?.["Parent Email"] ?? undefined
+    const dancerTz = dancer?.timezone ?? null
     const { subject, html } = portalBookedEmail({
       dancerName: memberName,
       prepMasterName: prepMaster.name,
       date,
-      time,
+      time: fmtEmailTime(time, pmTimezone, utcDatetime, dancerTz),
       sessionType: sessionType ?? undefined,
     })
     sendEmail({ to: dancerEmail, cc: parentCC, subject, html }).catch(() => {})

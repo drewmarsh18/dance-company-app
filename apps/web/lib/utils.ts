@@ -78,6 +78,28 @@ export function fmtTimeForNotif(utcIso: string, senderTz: string, recipientTz?: 
   return `${senderStr} (${recipStr} your time)`
 }
 
+/** Returns the short timezone abbreviation for a given IANA timezone at the current moment.
+ *  e.g. "America/New_York" → "EDT" or "EST" */
+export function tzAbbr(ianaTimezone: string): string {
+  const d = new Date()
+  return new Intl.DateTimeFormat("en-US", { timeZone: ianaTimezone, timeZoneName: "short" })
+    .formatToParts(d).find((p) => p.type === "timeZoneName")?.value ?? ianaTimezone
+}
+
+/** Formats a time label for an email recipient.
+ *  If utcIso + pmTz are available, converts to both PM and recipient timezone.
+ *  Falls back to raw time + PM timezone abbreviation when UTC is unavailable. */
+export function fmtEmailTime(
+  rawTime: string,
+  pmTz: string,
+  utcIso?: string | null,
+  recipientTz?: string | null,
+): string {
+  if (utcIso) return fmtTimeForNotif(utcIso, pmTz, recipientTz)
+  const abbr = tzAbbr(pmTz)
+  return `${rawTime} ${abbr}`
+}
+
 /** Formats a YYYY-MM-DD date string as "Wed, Jul 15" — matches the app display format. */
 export function fmtDate(dateIso: string): string {
   if (!dateIso) return dateIso

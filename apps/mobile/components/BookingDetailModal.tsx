@@ -184,6 +184,7 @@ export function BookingDetailModal({
   const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({})
   const [pmTimezone, setPmTimezone] = useState<string>("America/New_York")
   const [availLoading, setAvailLoading] = useState(false)
+  const [availLoadError, setAvailLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     if (booking) {
@@ -204,25 +205,38 @@ export function BookingDetailModal({
   async function loadAvailability() {
     if (!booking?.prepMasterName || availWeek.length > 0) return
     setAvailLoading(true)
+    setAvailLoadError(null)
     try {
-      const { data: coachesData } = await authClient.$fetch(`${API_BASE}/api/booking/coaches`)
+      const { data: coachesData, error: coachesErr } = await authClient.$fetch(`${API_BASE}/api/booking/coaches`)
+      if (coachesErr) throw new Error("Failed to load coaches")
       const coaches = (coachesData as any)?.coaches ?? []
       const coach = coaches.find((c: any) =>
-        c.name?.toLowerCase() === booking.prepMasterName.toLowerCase()
+        c.name?.toLowerCase().trim() === booking.prepMasterName.toLowerCase().trim()
       )
-      if (!coach?.id) return
-      const { data: detail } = await authClient.$fetch(`${API_BASE}/api/booking/coaches/${coach.id}`)
-      if (detail) {
-        setAvailWeek((detail as any).week ?? [])
-        setBookedSlots((detail as any).bookedSlots ?? {})
-        setPmTimezone((detail as any).pmTimezone ?? "America/New_York")
+      if (!coach?.id) {
+        console.error("[loadAvailability] Coach not found in coaches list:", booking.prepMasterName, coaches.map((c: any) => c.name))
+        setAvailLoadError("Could not find this PrepMaster's schedule. Please try again later.")
+        return
       }
-    } catch { /* availability unavailable — dropdown will show generic message */ }
+      const { data: detail, error: detailErr } = await authClient.$fetch(`${API_BASE}/api/booking/coaches/${coach.id}`)
+      if (detailErr || !(detail as any)?.week) {
+        console.error("[loadAvailability] coaches/[id] error:", detailErr ?? detail)
+        setAvailLoadError("Could not load availability. Please try again later.")
+        return
+      }
+      setAvailWeek((detail as any).week ?? [])
+      setBookedSlots((detail as any).bookedSlots ?? {})
+      setPmTimezone((detail as any).pmTimezone ?? "America/New_York")
+    } catch (err) {
+      console.error("[loadAvailability] unexpected error:", err)
+      setAvailLoadError("Could not load availability. Please try again later.")
+    }
     finally { setAvailLoading(false) }
   }
 
   function enterReschedule() {
     setMode("reschedule")
+    setAvailLoadError(null)
     loadAvailability()
   }
 
@@ -257,15 +271,9 @@ export function BookingDetailModal({
     if (booking.utcDatetime) {
       return (new Date(booking.utcDatetime).getTime() - Date.now()) < 24 * 60 * 60 * 1000
     }
-    // Fallback: parse the 12-hour time string manually
-    const match = booking.time?.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i)
-    if (!match) return false
-    let h = parseInt(match[1])
-    const m = match[2] ? parseInt(match[2]) : 0
-    if (match[3].toUpperCase() === "PM" && h !== 12) h += 12
-    if (match[3].toUpperCase() === "AM" && h === 12) h = 0
-    const sessionDate = new Date(`${booking.date}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`)
-    return (sessionDate.getTime() - Date.now()) < 24 * 60 * 60 * 1000
+    // No UTC datetime available — can't determine the exact moment without the PM's timezone.
+    // Err on the side of allowing the cancellation rather than using a wrong timezone assumption.
+    return false
   }
 
   function prevMonth() {
@@ -444,6 +452,8 @@ export function BookingDetailModal({
                 </View>
                 {availLoading ? (
                   <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 24 }} />
+                ) : availLoadError ? (
+                  <Text style={styles.noSlotsNote}>{availLoadError}</Text>
                 ) : !editDate ? (
                   <Text style={styles.noSlotsNote}>Select a date first.</Text>
                 ) : availableLocalLabels.length === 0 ? (

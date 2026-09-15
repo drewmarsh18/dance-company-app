@@ -2,10 +2,10 @@ import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { revalidateTag } from "next/cache"
 import { auth } from "@/lib/auth"
-import { getPrepMasterByEmail, TABLES, appBase, type BookingFields, type ClientFields } from "@/lib/airtable"
+import { getPrepMasterByEmail, TABLES, appBase, getMostRecentInactivePlanForUser, setPlanStatus, type BookingFields, type ClientFields } from "@/lib/airtable"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, bookingUpdatedEmail, bookingCancelledEmail, bookingConfirmedByPmEmail, bookingDeclinedByPmEmail } from "@/lib/email"
-import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, COMPANY_TZ } from "@/lib/utils"
+import { isWithin24Hours, fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, fmtEmailTime, COMPANY_TZ } from "@/lib/utils"
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar"
 import { db } from "@/lib/db"
 import { user as userTable, calendarEventLink } from "@/lib/db/schema"
@@ -60,10 +60,10 @@ export async function PATCH(
       "Original Time": "",
       "Original UTC Datetime": "",
     })
-    revalidateTag(`portal-${session.user.email}`, "max")
+    revalidateTag(`portal-${session.user.email}`)
     const dancerUserId = booking.fields["User ID"]
     if (dancerUserId) {
-      revalidateTag(`member-${dancerUserId}`, "max")
+      revalidateTag(`member-${dancerUserId}`)
       const [pmRow, dancerRow] = await Promise.all([
         db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1),
         db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1),
@@ -92,7 +92,7 @@ export async function PATCH(
           dancerName,
           prepMasterName: pm.name,
           date: booking.fields.Date ?? "",
-          time: booking.fields.Time ?? "",
+          time: fmtEmailTime(booking.fields.Time ?? "", pmTz, utcStr, dTz),
         })
         sendEmail({ to: dancerEmailConfirm, cc: parentCC, subject, html }).catch(() => {})
       }
@@ -115,7 +115,12 @@ export async function PATCH(
         const bTime = booking.fields.Time ?? ""
         const bNotes = booking.fields.Notes ?? ""
         const bType = booking.fields["Session Type"] ?? "private-60"
-        const dancerName = booking.fields.Name ?? "Member"
+        let dancerName = booking.fields["Client Email"] ?? "Member"
+        if (dancerUserId) {
+          const safeIdCal = dancerUserId.replace(/'/g, "\\'")
+          const calClientRecs = await appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeIdCal}'`, maxRecords: 1, revalidate: 0 })
+          if (calClientRecs[0]?.fields.Name) dancerName = calClientRecs[0].fields.Name
+        }
 
         // PM event
         if (pmUserRow[0]) {
@@ -243,7 +248,7 @@ export async function PATCH(
           dancerName: dancerNameDecline,
           prepMasterName: pm.name,
           date: booking.fields.Date ?? "",
-          time: booking.fields.Time ?? "",
+          time: fmtEmailTime(booking.fields.Time ?? "", pmTzDecline, utcDecline, dTzDecline),
         })
         sendEmail({ to: dancerEmailDecline, cc: parentCCDecline, subject, html }).catch(() => {})
       }
@@ -289,16 +294,25 @@ export async function PATCH(
         await appBase.update<ClientFields>(TABLES.clients, client.id, {
           "Credits Remaining": Math.round((current + creditRefund) * 100) / 100,
         })
+        if (current === 0) {
+          const inactivePlan = await getMostRecentInactivePlanForUser(dancerUserId)
+          if (inactivePlan) await setPlanStatus(inactivePlan.id, "Active")
+        }
       }
     }
 
     if (dancerUserId) {
-      revalidateTag(`member-${dancerUserId}`, "max")
+      revalidateTag(`member-${dancerUserId}`)
+      const [pmCancelNotifTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
+      const pmCancelNotifTz = pmCancelNotifTzRow?.timezone ?? COMPANY_TZ
+      const utcCancelNotif = booking.fields["UTC Datetime"] ?? etToUtcIso(dateStr, timeStr, pmCancelNotifTz)
+      const [memberCancelRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
+      const cancelTimeLabel = utcCancelNotif ? fmtTimeForNotif(utcCancelNotif, pmCancelNotifTz, memberCancelRow?.timezone ?? null) : `${fmtTime(timeStr)} ET`
       createNotification({
         userId: dancerUserId,
         type: "booking_cancelled",
         title: "Session cancelled by PrepMaster",
-        body: `${pm.name} cancelled your session on ${fmtDate(dateStr)} at ${fmtTime(timeStr)}. Your credit has been refunded.`,
+        body: `${pm.name} cancelled your session on ${fmtDate(dateStr)} at ${cancelTimeLabel}. Your credit has been refunded.`,
         bookingId: id,
         pushData: { route: "/member/bookings" },
       }).catch(() => {})
@@ -317,11 +331,14 @@ export async function PATCH(
         if (memberRecord?.fields.Name) dancerName = memberRecord.fields.Name
         parentCC = memberRecord?.fields?.["Parent Email"] ?? null
       }
+      const [pmCancelTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
+      const pmCancelTz = pmCancelTzRow?.timezone ?? COMPANY_TZ
+      const utcCancel = booking.fields["UTC Datetime"] ?? etToUtcIso(dateStr, timeStr, pmCancelTz)
       const { subject, html } = bookingCancelledEmail({
         dancerName,
         prepMasterName: pm.name,
         date: dateStr,
-        time: timeStr,
+        time: fmtEmailTime(timeStr, pmCancelTz, utcCancel, null),
         creditRefunded: true,
       })
       sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject, html }).catch(() => {})
@@ -333,7 +350,7 @@ export async function PATCH(
         deleteCalendarEvent(userId, gcalEventId).catch(() => {})
       }
     }).catch(() => {})
-    revalidateTag(`portal-${session.user.email}`, "max")
+    revalidateTag(`portal-${session.user.email}`)
     return NextResponse.json({ ok: true, creditRefunded: true })
   }
 
@@ -353,11 +370,30 @@ export async function PATCH(
     if (utc) update["UTC Datetime"] = utc
   }
   await appBase.update<BookingFields>(TABLES.bookings, id, update)
-  revalidateTag(`portal-${session.user.email}`, "max")
-  if (booking.fields["User ID"]) revalidateTag(`member-${booking.fields["User ID"]}`, "max")
+  revalidateTag(`portal-${session.user.email}`)
+  if (booking.fields["User ID"]) revalidateTag(`member-${booking.fields["User ID"]}`)
 
   const newDate = body.date ?? booking.fields.Date ?? ""
   const newTime = body.time ?? booking.fields.Time ?? ""
+
+  const newNotes = body.prepMasterNotes !== undefined ? body.prepMasterNotes : (booking.fields["Prep Master Notes"] || undefined)
+
+  // Look up dancer details once — used for both calendar update and email/notification
+  const editDancerEmail = booking.fields["Client Email"]
+  const editDancerUserId = booking.fields["User ID"]
+  let editDancerName = editDancerEmail ?? "Member"
+  let editDancerTz: string | null = null
+  let editParentCC: string | null = null
+  if (editDancerUserId) {
+    const safeId = editDancerUserId.replace(/'/g, "\\'")
+    const [memberRecord, dbRow] = await Promise.all([
+      appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeId}'`, maxRecords: 1 }),
+      db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, editDancerUserId)).limit(1),
+    ])
+    if (memberRecord[0]?.fields.Name) editDancerName = memberRecord[0].fields.Name
+    editParentCC = memberRecord[0]?.fields?.["Parent Email"] ?? null
+    editDancerTz = dbRow[0]?.timezone ?? null
+  }
 
   // Update calendar events if date or time changed
   if (body.date || body.time) {
@@ -366,7 +402,7 @@ export async function PATCH(
     getCalendarLinks(id).then(async (links) => {
       for (const { userId, gcalEventId } of links) {
         await updateCalendarEvent(userId, gcalEventId, {
-          dancerName: booking.fields.Name ?? "Member",
+          dancerName: editDancerName,
           prepMasterName: pm.name,
           date: newDate,
           time: newTime,
@@ -377,51 +413,44 @@ export async function PATCH(
       }
     }).catch(() => {})
   }
-  const newNotes = body.prepMasterNotes !== undefined ? body.prepMasterNotes : (booking.fields["Prep Master Notes"] || undefined)
-  const dancerEmail = booking.fields["Client Email"]
-  const dancerUserId = booking.fields["User ID"]
 
-  let dancerName = dancerEmail ?? "Your member"
-  let dancerTz: string | null = null
-  let rescheduleParentCC: string | null = null
-  if (dancerUserId) {
-    const safeId = dancerUserId.replace(/'/g, "\\'")
-    const [memberRecord, dbRow] = await Promise.all([
-      appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeId}'`, maxRecords: 1 }),
-      db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1),
-    ])
-    if (memberRecord[0]?.fields.Name) dancerName = memberRecord[0].fields.Name
-    rescheduleParentCC = memberRecord[0]?.fields?.["Parent Email"] ?? null
-    dancerTz = dbRow[0]?.timezone ?? null
-  }
-  const [pmDbRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
-  const pmTz = pmDbRow?.timezone ?? COMPANY_TZ
+  // Only notify and email the dancer when the date/time actually changed
+  if (body.date || body.time) {
+    const dancerEmail = editDancerEmail
+    const dancerUserId = editDancerUserId
+    const dancerName = editDancerName
+    const dancerTz = editDancerTz
+    const rescheduleParentCC = editParentCC
+    const [pmDbRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, session.user.email)).limit(1)
+    const pmTz = pmDbRow?.timezone ?? COMPANY_TZ
 
-  if (dancerUserId) {
-    const utcForNotif = update["UTC Datetime"] ?? booking.fields["UTC Datetime"] ?? etToUtcIso(newDate, newTime, pmTz)
-    const timeLabel = utcForNotif
-      ? fmtTimeForNotif(utcForNotif, pmTz, dancerTz)
-      : `${fmtTime(newTime)} ET`
-    createNotification({
-      userId: dancerUserId,
-      type: "booking_updated",
-      title: "Session rescheduled",
-      body: `${pm.name} has rescheduled your session to ${fmtDate(newDate)} at ${timeLabel}.`,
-      bookingId: id,
-      pushData: { route: "/member/bookings" },
-    }).catch(() => {})
-  }
+    if (dancerUserId) {
+      const utcForNotif = update["UTC Datetime"] ?? booking.fields["UTC Datetime"] ?? etToUtcIso(newDate, newTime, pmTz)
+      const timeLabel = utcForNotif
+        ? fmtTimeForNotif(utcForNotif, pmTz, dancerTz)
+        : `${fmtTime(newTime)} ET`
+      createNotification({
+        userId: dancerUserId,
+        type: "booking_updated",
+        title: "Session rescheduled",
+        body: `${pm.name} has rescheduled your session to ${fmtDate(newDate)} at ${timeLabel}.`,
+        bookingId: id,
+        pushData: { route: "/member/bookings" },
+      }).catch(() => {})
+    }
 
-  if (dancerEmail) {
-    const { subject, html } = bookingUpdatedEmail({
-      recipientName: dancerName,
-      updatedByName: pm.name,
-      updatedByRole: "PrepMaster",
-      date: newDate,
-      time: newTime,
-      notes: newNotes,
-    })
-    sendEmail({ to: dancerEmail, cc: rescheduleParentCC ?? undefined, subject, html }).catch(() => {})
+    if (dancerEmail) {
+      const utcForEmail = update["UTC Datetime"] ?? booking.fields["UTC Datetime"] ?? null
+      const { subject, html } = bookingUpdatedEmail({
+        recipientName: dancerName,
+        updatedByName: pm.name,
+        updatedByRole: "PrepMaster",
+        date: newDate,
+        time: fmtEmailTime(newTime, pmTz, utcForEmail, dancerTz),
+        notes: newNotes,
+      })
+      sendEmail({ to: dancerEmail, cc: rescheduleParentCC ?? undefined, subject, html }).catch(() => {})
+    }
   }
 
   // Return the computed UTC so the mobile app can update localUtcDatetime immediately
