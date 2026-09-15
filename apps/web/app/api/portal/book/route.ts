@@ -10,7 +10,7 @@ import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, portalBookedEmail } from "@/lib/email"
-import { etToUtcIso, fmtEmailTime } from "@/lib/utils"
+import { etToUtcIso, fmtEmailTime, fmtTimeForNotif, fmtDate } from "@/lib/utils"
 import { db } from "@/lib/db"
 import { user as userTable, calendarEventLink } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -164,6 +164,26 @@ export async function POST(req: Request) {
       sessionType: sessionType ?? undefined,
     })
     sendEmail({ to: dancerEmail, cc: parentCC, subject, html }).catch(() => {})
+
+    // SMS to dancer
+    const dancerPhone = memberRecs[0]?.fields?.Phone ?? null
+    if (dancerPhone) {
+      const { sendSms } = await import("@/lib/sms")
+      const dateLabel = new Date(`${date} ${time}`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+      sendSms(dancerPhone, `${prepMaster.name} has booked a session with you on ${dateLabel} at ${fmtEmailTime(time, pmTimezone, utcDatetime, null)}. Log in to College Dance Prep to view details.`).catch(() => {})
+    }
+  }
+
+  // PM self-confirmation notification
+  if (pmRow?.id) {
+    const pmTimeLabel = utcDatetime ? fmtTimeForNotif(utcDatetime, pmTimezone, null) : time
+    createNotification({
+      userId: pmRow.id,
+      type: "booking_confirmed",
+      title: "Session booked",
+      body: `You booked a session with ${dancerDisplayName} on ${fmtDate(date)} at ${pmTimeLabel}.`,
+      pushData: { route: "/portal" },
+    }).catch(() => {})
   }
 
   // Create Google Calendar events for both PM and dancer (booking is auto-confirmed)

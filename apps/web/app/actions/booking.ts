@@ -327,6 +327,8 @@ export async function rescheduleBooking(
       const [pmUser] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pm.email))
       if (pmUser) {
         const pmReschLabel = utcForReschedule ? fmtTimeForNotif(utcForReschedule, pmReschTz, pmUser.timezone ?? null) : fmtTime(newTime)
+        const approveUrl = `${APP_URL}/api/booking/confirm?id=${bookingId}&action=approve&token=${makeConfirmToken(CONFIRM_SECRET, bookingId, "approve")}`
+        const denyUrl = `${APP_URL}/api/booking/confirm?id=${bookingId}&action=deny&token=${makeConfirmToken(CONFIRM_SECRET, bookingId, "deny")}`
         createNotification({
           userId: pmUser.id,
           type: "booking_updated",
@@ -334,6 +336,9 @@ export async function rescheduleBooking(
           body: `${memberName} wants to reschedule to ${fmtDate(newDate)} at ${pmReschLabel}. Please approve or decline.`,
           bookingId,
           pushData: { route: "/portal" },
+          pushCategory: "BOOKING_REQUEST",
+          approveUrl,
+          denyUrl,
         }).catch(() => {})
       }
 

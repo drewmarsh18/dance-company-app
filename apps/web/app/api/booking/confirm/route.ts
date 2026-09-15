@@ -67,7 +67,18 @@ export async function GET(req: NextRequest) {
         const { getParentEmailForMember } = await import("@/lib/airtable")
         const userId = booking.fields["User ID"]
         const utcDt = booking.fields["UTC Datetime"] ?? null
-        const timeDisplay = utcDt ? fmtTimeForNotif(utcDt, COMPANY_TZ, null) : time
+        // Look up PM's actual timezone instead of assuming COMPANY_TZ
+        let pmTzForEmail = COMPANY_TZ
+        const pmNameForTz = booking.fields["Prep Master Name"] ?? ""
+        if (pmNameForTz && utcDt) {
+          const pmsForTz = await getPrepMasters()
+          const pmForTz = pmsForTz.find((p) => p.name === pmNameForTz)
+          if (pmForTz?.email) {
+            const [pmRowForTz] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pmForTz.email)).limit(1)
+            if (pmRowForTz?.timezone) pmTzForEmail = pmRowForTz.timezone
+          }
+        }
+        const timeDisplay = utcDt ? fmtTimeForNotif(utcDt, pmTzForEmail, null) : time
         let dancerName = dancerEmail
         if (userId) {
           const safeId = userId.replace(/'/g, "\\'")
