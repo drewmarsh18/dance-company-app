@@ -178,8 +178,8 @@ export async function POST(req: Request) {
   // Look up member timezone for notification body
   const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, effectiveUserId)).limit(1)
   const memberTz = memberRow?.timezone ?? null
-  const utcForNotif = etToUtcIso(date, time, COMPANY_TZ)
-  const memberTimeLabel = utcForNotif ? fmtTimeForNotif(utcForNotif, COMPANY_TZ, memberTz) : `${fmtTime(time)} ET`
+  const utcForNotif = serverUtcDatetime ?? etToUtcIso(date, time, pmTimezone)
+  const memberTimeLabel = utcForNotif ? fmtTimeForNotif(utcForNotif, pmTimezone, memberTz) : fmtTime(time)
 
   // In-app notification
   createNotification({
@@ -228,7 +228,7 @@ export async function POST(req: Request) {
         userId: pmUser.id,
         type: "booking_request",
         title: "New session request",
-        body: `${dancerDisplayName} wants to book ${fmtDate(date)} at ${utcForNotif ? fmtTimeForNotif(utcForNotif, COMPANY_TZ, pmUser?.timezone ?? null) : fmtTime(time)}.`,
+        body: `${dancerDisplayName} wants to book ${fmtDate(date)} at ${utcForNotif ? fmtTimeForNotif(utcForNotif, pmTimezone, pmUser?.timezone ?? null) : fmtTime(time)}.`,
         bookingId: record.id,
         pushCategory: "BOOKING_REQUEST",
         pushData: { bookingId: record.id, approveUrl, denyUrl },

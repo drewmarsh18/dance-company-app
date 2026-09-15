@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { appBase, TABLES, type BookingFields, type ClientFields, type AirtableRecord, getMostRecentInactivePlanForUser, setPlanStatus, getPrepMasters } from "@/lib/airtable"
-import { sendEmail, bookingCancelledEmail, bookingConfirmedByPmEmail } from "@/lib/email"
+import { sendEmail, bookingCancelledEmail, bookingConfirmedByPmEmail, bookingDeclinedByPmEmail } from "@/lib/email"
 import { db } from "@/lib/db"
 import { user as userTable, calendarEventLink } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar"
-import { COMPANY_TZ, verifyConfirmToken, fmtTimeForNotif } from "@/lib/utils"
+import { COMPANY_TZ, verifyConfirmToken, fmtTimeForNotif, fmtEmailTime } from "@/lib/utils"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
 const SECRET = process.env.BOOKING_CONFIRM_SECRET
@@ -160,20 +160,35 @@ export async function GET(req: NextRequest) {
         }).catch(() => {})
       }
 
-      // Notify dancer via email
+      // Notify dancer via email — use bookingDeclinedByPmEmail (PM declined, not member cancellation)
       if (dancerEmail) {
         const pmName = booking.fields["Prep Master Name"] ?? "your PrepMaster"
         const date = booking.fields.Date ?? ""
         const time = booking.fields.Time ?? ""
         const parentCC = clients[0]?.fields?.["Parent Email"] ?? null
         const utcDtDeny = booking.fields["UTC Datetime"] ?? null
-        const timeDenyDisplay = utcDtDeny ? fmtTimeForNotif(utcDtDeny, COMPANY_TZ, null) : time
-        const { subject, html } = bookingCancelledEmail({
-          dancerName: dancerEmail,
+        // Look up PM's timezone for accurate time display
+        const pms = await getPrepMasters()
+        const pmEntry = pms.find((p) => p.name === pmName)
+        const pmTzDeny = pmEntry?.email
+          ? await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.email, pmEntry.email)).limit(1).then((r) => r[0]?.timezone ?? COMPANY_TZ)
+          : COMPANY_TZ
+        const denyUserId = booking.fields["User ID"]
+        const denyMemberTz = denyUserId
+          ? await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, denyUserId)).limit(1).then((r) => r[0]?.timezone ?? null)
+          : null
+        const timeDenyDisplay = utcDtDeny ? fmtEmailTime(time, pmTzDeny, utcDtDeny, denyMemberTz) : time
+        let denyDancerName = dancerEmail
+        if (denyUserId) {
+          const safeId = denyUserId.replace(/'/g, "\\'")
+          const recs = await appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeId}'`, maxRecords: 1, revalidate: 0 })
+          if (recs[0]?.fields.Name) denyDancerName = recs[0].fields.Name
+        }
+        const { subject, html } = bookingDeclinedByPmEmail({
+          dancerName: denyDancerName,
           prepMasterName: pmName,
           date,
           time: timeDenyDisplay,
-          creditRefunded: true,
         })
         await sendEmail({ to: dancerEmail, cc: parentCC ?? undefined, subject, html })
       }

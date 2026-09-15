@@ -190,6 +190,23 @@ export async function PATCH(
           bookingId: id,
           pushData: { route: "/member/bookings" },
         }).catch(() => {})
+
+        // Email dancer that reschedule was denied and original time kept
+        const revertDancerEmail = booking.fields["Client Email"]
+        if (revertDancerEmail) {
+          const safeRevertId = dancerUserId.replace(/'/g, "\\'")
+          const revertMemberRecs = await appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeRevertId}'`, maxRecords: 1 })
+          const revertDancerName = revertMemberRecs[0]?.fields.Name ?? revertDancerEmail
+          const revertParentCC = revertMemberRecs[0]?.fields?.["Parent Email"] ?? undefined
+          const { subject, html } = bookingDeclinedByPmEmail({
+            dancerName: revertDancerName,
+            prepMasterName: pm.name,
+            date: origDate,
+            time: timeLabel,
+            customNote: "Your reschedule request was declined. Your session has been kept at the original time.",
+          })
+          sendEmail({ to: revertDancerEmail, cc: revertParentCC, subject, html }).catch(() => {})
+        }
       }
       return NextResponse.json({ ok: true, rescheduleReverted: true, origDate, origTime, origUtc: origUtc || null })
     }

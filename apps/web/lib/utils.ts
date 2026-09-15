@@ -2,14 +2,25 @@ import { createHmac, timingSafeEqual } from "crypto"
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
+const TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+
 export function makeConfirmToken(secret: string, bookingId: string, action: string): string {
-  return createHmac("sha256", secret).update(`${bookingId}:${action}`).digest("hex")
+  // Embed a day-granularity timestamp so links expire after 7 days
+  const dayBucket = Math.floor(Date.now() / (24 * 60 * 60 * 1000))
+  return createHmac("sha256", secret).update(`${bookingId}:${action}:${dayBucket}`).digest("hex")
 }
 
 export function verifyConfirmToken(secret: string, bookingId: string, action: string, token: string): boolean {
-  const expected = makeConfirmToken(secret, bookingId, action)
   try {
-    return timingSafeEqual(Buffer.from(token, "hex"), Buffer.from(expected, "hex"))
+    const tokenBuf = Buffer.from(token, "hex")
+    const now = Date.now()
+    // Check current day bucket and up to 6 previous days (covers the 7-day window)
+    for (let i = 0; i < 7; i++) {
+      const dayBucket = Math.floor((now - i * 24 * 60 * 60 * 1000) / (24 * 60 * 60 * 1000))
+      const expected = createHmac("sha256", secret).update(`${bookingId}:${action}:${dayBucket}`).digest("hex")
+      if (timingSafeEqual(tokenBuf, Buffer.from(expected, "hex"))) return true
+    }
+    return false
   } catch {
     return false
   }

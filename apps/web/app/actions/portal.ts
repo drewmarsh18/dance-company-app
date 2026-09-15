@@ -191,11 +191,15 @@ export async function adjustBooking(
       adjustParentCC = memberRecords[0]?.fields?.["Parent Email"] ?? undefined
     }
 
+    // Look up PM's timezone for accurate UTC conversion and time display
+    const [pmAdjustTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+    const pmAdjustTz = pmAdjustTzRow?.timezone ?? COMPANY_TZ
+
     // In-app notification → member
-    const utcAdjust = etToUtcIso(newDate, newTime, COMPANY_TZ)
+    const utcAdjust = etToUtcIso(newDate, newTime, pmAdjustTz)
     if (dancerUserId) {
       const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
-      const memberAdjustLabel = utcAdjust ? fmtTimeForNotif(utcAdjust, COMPANY_TZ, memberRow?.timezone ?? null) : `${fmtTime(newTime)} ET`
+      const memberAdjustLabel = utcAdjust ? fmtTimeForNotif(utcAdjust, pmAdjustTz, memberRow?.timezone ?? null) : fmtTime(newTime)
       createNotification({
         userId: dancerUserId,
         type: "booking_updated",
@@ -207,8 +211,7 @@ export async function adjustBooking(
     }
 
     // In-app notification → PrepMaster (themselves, as a confirmation)
-    const [pmRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
-    const pmAdjustLabel = utcAdjust ? fmtTimeForNotif(utcAdjust, COMPANY_TZ, pmRow?.timezone ?? null) : `${fmtTime(newTime)} ET`
+    const pmAdjustLabel = utcAdjust ? fmtTimeForNotif(utcAdjust, pmAdjustTz, pmAdjustTz) : fmtTime(newTime)
     createNotification({
       userId: user.id,
       type: "booking_updated",
@@ -257,7 +260,7 @@ export async function adjustBooking(
           time: newTime,
           notes: newNotes,
           sessionType,
-          timezone: pmTz,
+          timezone: pmAdjustTz,
         }
         await Promise.all(links.map(({ userId, gcalEventId }) => updateCalendarEvent(userId, gcalEventId, eventArgs).catch(() => {})))
       })().catch(() => {})
@@ -313,9 +316,11 @@ export async function declineBooking(
         "Decline Reason": reason,
       })
       if (dancerUserId) {
+        const [pmRevertTzRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+        const pmRevertTz = pmRevertTzRow?.timezone ?? COMPANY_TZ
         const [memberRow] = await db.select({ timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1)
-        const utcForNotif = origUtc || etToUtcIso(origDate, origTime, COMPANY_TZ)
-        const timeLabel = utcForNotif ? fmtTimeForNotif(utcForNotif, COMPANY_TZ, memberRow?.timezone ?? null) : `${fmtTime(origTime)} ET`
+        const utcForNotif = origUtc || etToUtcIso(origDate, origTime, pmRevertTz)
+        const timeLabel = utcForNotif ? fmtTimeForNotif(utcForNotif, pmRevertTz, memberRow?.timezone ?? null) : fmtTime(origTime)
         createNotification({
           userId: dancerUserId,
           type: "booking_updated",
@@ -324,6 +329,23 @@ export async function declineBooking(
           bookingId,
           pushData: { route: "/member/bookings" },
         }).catch(() => {})
+
+        // Email dancer that reschedule was denied and original time kept
+        const revertDancerEmail = booking.fields["Client Email"]
+        if (revertDancerEmail) {
+          const safeId = dancerUserId.replace(/'/g, "\\'")
+          const memberRecs = await appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeId}'`, maxRecords: 1 })
+          const revertDancerName = memberRecs[0]?.fields.Name ?? revertDancerEmail
+          const revertParentCC = memberRecs[0]?.fields?.["Parent Email"] ?? undefined
+          const { subject, html } = bookingDeclinedByPmEmail({
+            dancerName: revertDancerName,
+            prepMasterName: pm.name,
+            date: origDate,
+            time: timeLabel,
+            customNote: `${pm.name} was unable to accommodate your reschedule request. Your session has been kept at the original time.`,
+          })
+          sendEmail({ to: revertDancerEmail, cc: revertParentCC, subject, html }).catch(() => {})
+        }
       }
       revalidatePath("/portal")
       return { ok: true, rescheduleReverted: true }

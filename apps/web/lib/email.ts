@@ -480,15 +480,18 @@ export function bookingDeclinedByPmEmail({
   prepMasterName,
   date,
   time,
+  customNote,
 }: {
   dancerName: string
   prepMasterName: string
   date: string
   time: string
+  customNote?: string
 }) {
+  const note = customNote ?? `<strong>${prepMasterName}</strong> was unable to accommodate your booking request. Your credit has been refunded.`
   const body = `
     <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px">Hi ${firstName(dancerName)},</p>
-    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px"><strong>${prepMasterName}</strong> was unable to accommodate your booking request. Your credit has been refunded.</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 4px">${note}</p>
     ${sessionTable([
       { label: "PrepMaster", value: prepMasterName },
       { label: "Date", value: date },

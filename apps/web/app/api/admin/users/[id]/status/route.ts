@@ -7,7 +7,7 @@ import { createNotification } from "@/app/actions/notifications"
 import { sendPushToUser } from "@/lib/push"
 import { appBase, TABLES } from "@/lib/airtable"
 import type { ClientFields } from "@/lib/airtable"
-import { sendEmail, accountApprovedEmail, accountDeniedEmail, prepMasterApprovedEmail } from "@/lib/email"
+import { sendEmail, accountApprovedEmail, accountDeniedEmail, prepMasterApprovedEmail, parentAccountApprovedEmail } from "@/lib/email"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.collegedanceprep.com"
 
@@ -113,6 +113,11 @@ export async function PATCH(
       ? prepMasterApprovedEmail({ prepMasterName: target.name, portalUrl })
       : accountApprovedEmail({ memberName: target.name, dashboardUrl })
     sendEmail({ to: target.email, cc: parentEmail ?? undefined, subject: approvalEmail.subject, html: approvalEmail.html }).catch(() => {})
+    // Also send the parent their own approval email if a parent email is on record
+    if (parentEmail && !isPrepMaster) {
+      const { subject, html } = parentAccountApprovedEmail({ childName: target.name, parentEmail, dashboardUrl: `${APP_URL}/dashboard` })
+      sendEmail({ to: parentEmail, subject, html }).catch(() => {})
+    }
   } else {
     // Look up parent email for denied accounts too
     let deniedParentEmail: string | null = null
