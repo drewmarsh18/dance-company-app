@@ -19,7 +19,7 @@ import { sendEmail, bookingConfirmationEmail, prepMasterBookingRequestEmail } fr
 import { sendSms } from "@/lib/sms"
 import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, fmtEmailTime, COMPANY_TZ, makeConfirmToken } from "@/lib/utils"
 import { db } from "@/lib/db"
-import { user as userTable } from "@/lib/db/schema"
+import { user as userTable, bookingAttemptLock } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { createCalendarEvent, getCalendarBusySlots } from "@/lib/google-calendar"
 import { resolveClientProfile } from "@/lib/profile-core"
@@ -125,6 +125,16 @@ export async function POST(req: Request) {
   const pmTimezone = pmUserRow?.timezone ?? COMPANY_TZ
   const serverUtcDatetime = pmUserRow ? (etToUtcIso(date, time, pmTimezone) ?? utcDatetime) : (utcDatetime ?? null)
 
+  // Acquire a booking attempt lock — prevents two simultaneous requests from
+  // both passing the credit check and double-deducting. The unique constraint
+  // on (userId, date, time) means only one request wins; the other gets a 409.
+  const lockId = crypto.randomUUID()
+  try {
+    await db.insert(bookingAttemptLock).values({ id: lockId, userId: effectiveUserId, date, time })
+  } catch {
+    return NextResponse.json({ ok: false, error: "A booking for that time is already in progress. Please try again." }, { status: 409 })
+  }
+
   // Deduct credit before creating the booking so a booking is never created
   // without a corresponding credit deduction.
   const newCredits = Math.round((credits - creditCost) * 100) / 100
@@ -151,6 +161,7 @@ export async function POST(req: Request) {
     await appBase.update<ClientFields>(TABLES.clients, profile.recordId, {
       "Credits Remaining": credits,
     }).catch(() => {})
+    await db.delete(bookingAttemptLock).where(eq(bookingAttemptLock.id, lockId)).catch(() => {})
     return NextResponse.json({ ok: false, error: "Failed to create booking. Your credit has been refunded." })
   }
 
@@ -234,6 +245,9 @@ export async function POST(req: Request) {
     })
     sendSms(phone, `New booking! ${dancerDisplayName} has booked a session with you on ${dateLabel} at ${time}. Log in to College Dance Prep to view details.`).catch(() => {})
   }).catch(() => {})
+
+  // Release the booking attempt lock — booking is committed
+  await db.delete(bookingAttemptLock).where(eq(bookingAttemptLock.id, lockId)).catch(() => {})
 
   return NextResponse.json({ ok: true, id: record.id, creditCost, newCredits })
 }

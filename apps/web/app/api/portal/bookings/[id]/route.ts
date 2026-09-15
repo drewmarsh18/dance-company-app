@@ -218,6 +218,10 @@ export async function PATCH(
         await appBase.update<ClientFields>(TABLES.clients, client.id, {
           "Credits Remaining": Math.round((current + creditRefund) * 100) / 100,
         })
+        if (current === 0) {
+          const inactivePlan = await getMostRecentInactivePlanForUser(dancerUserId)
+          if (inactivePlan) await setPlanStatus(inactivePlan.id, "Active").catch(() => {})
+        }
       }
       revalidateTag(`member-${dancerUserId}`)
       const [pmDRow, dTzRow] = await Promise.all([

@@ -9,7 +9,7 @@ import { fmtDate, fmtTime, etToUtcIso, fmtTimeForNotif, fmtEmailTime, COMPANY_TZ
 import { db } from "@/lib/db"
 import { user as userTable, calendarEventLink } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
-import { updateCalendarEvent } from "@/lib/google-calendar"
+import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 
@@ -114,6 +114,34 @@ export async function confirmBooking(
       })
       sendEmail({ to: confirmDancerEmail, cc: confirmParentCC, subject, html }).catch(() => {})
     }
+
+    // Create Google Calendar events for PM and dancer — fire and forget
+    ;(async () => {
+      const [pmUserRow] = await db.select({ id: userTable.id, timezone: userTable.timezone }).from(userTable).where(eq(userTable.id, user.id)).limit(1)
+      const pmTzCal = pmUserRow?.timezone ?? COMPANY_TZ
+      let calDancerName = confirmDancerEmail ?? "Member"
+      let dancerUserRow: { id: string } | undefined
+      if (dancerUserId) {
+        const safeId = dancerUserId.replace(/'/g, "\\'")
+        const [clientRec, dRow] = await Promise.all([
+          appBase.list<ClientFields>(TABLES.clients, { filterByFormula: `{User ID} = '${safeId}'`, maxRecords: 1, revalidate: 0 }),
+          db.select({ id: userTable.id }).from(userTable).where(eq(userTable.id, dancerUserId)).limit(1),
+        ])
+        if (clientRec[0]?.fields.Name) calDancerName = clientRec[0].fields.Name
+        dancerUserRow = dRow[0]
+      }
+      const eventArgs = { dancerName: calDancerName, prepMasterName: pm.name, date: confirmDate, time: confirmTime, sessionType: records[0].fields["Session Type"] as string | undefined, timezone: pmTzCal }
+      const [pmEventId, dancerEventId] = await Promise.all([
+        pmUserRow ? createCalendarEvent(pmUserRow.id, eventArgs) : Promise.resolve(null),
+        dancerUserRow ? createCalendarEvent(dancerUserRow.id, { ...eventArgs }) : Promise.resolve(null),
+      ])
+      const links = []
+      if (pmUserRow && pmEventId) links.push({ id: crypto.randomUUID(), bookingId, userId: pmUserRow.id, gcalEventId: pmEventId })
+      if (dancerUserRow && dancerEventId) links.push({ id: crypto.randomUUID(), bookingId, userId: dancerUserRow.id, gcalEventId: dancerEventId })
+      if (links.length > 0) {
+        await db.insert(calendarEventLink).values(links).onConflictDoNothing().catch(() => {})
+      }
+    })().catch(() => {})
 
     revalidatePath("/portal")
     return { ok: true }
@@ -427,6 +455,10 @@ export async function cancelBookingAsPrepMaster(
         await appBase.update<ClientFields>(TABLES.clients, client.id, {
           "Credits Remaining": Math.round((current + creditRefund) * 100) / 100,
         })
+        if (current === 0) {
+          const inactivePlan = await getMostRecentInactivePlanForUser(dancerUserId)
+          if (inactivePlan) await setPlanStatus(inactivePlan.id, "Active").catch(() => {})
+        }
       }
       revalidateTag(`member-${dancerUserId}`)
     }
@@ -479,6 +511,12 @@ export async function cancelBookingAsPrepMaster(
       })
       sendEmail({ to: dancerEmail, cc: cancelParentCC, subject, html }).catch(() => {})
     }
+
+    // Delete Google Calendar events for all linked users — fire and forget
+    db.select({ userId: calendarEventLink.userId, gcalEventId: calendarEventLink.gcalEventId })
+      .from(calendarEventLink).where(eq(calendarEventLink.bookingId, bookingId))
+      .then((links) => { for (const { userId, gcalEventId } of links) deleteCalendarEvent(userId, gcalEventId).catch(() => {}) })
+      .catch(() => {})
 
     revalidatePath("/portal")
     return { ok: true, creditRefunded: true }

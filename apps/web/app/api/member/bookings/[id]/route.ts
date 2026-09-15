@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { revalidateTag } from "next/cache"
 import { auth } from "@/lib/auth"
-import { TABLES, appBase, type BookingFields, type ClientFields, getBookedSlots } from "@/lib/airtable"
+import { TABLES, appBase, type BookingFields, type ClientFields, getBookedSlots, getMostRecentInactivePlanForUser, setPlanStatus } from "@/lib/airtable"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { slotsForDate } from "@/lib/availability"
 import { createNotification } from "@/app/actions/notifications"
@@ -101,6 +101,10 @@ export async function DELETE(
       await appBase.update<ClientFields>(TABLES.clients, client.id, {
         "Credits Remaining": Math.round((current + creditCost) * 100) / 100,
       })
+      if (current === 0 && effectiveUserId) {
+        const inactivePlan = await getMostRecentInactivePlanForUser(effectiveUserId)
+        if (inactivePlan) await setPlanStatus(inactivePlan.id, "Active").catch(() => {})
+      }
     }
   }
 

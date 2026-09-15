@@ -54,7 +54,9 @@ export function etToUtcIso(date: string, timeStr: string, tz = COMPANY_TZ): stri
 export function isWithin24Hours(date: string, time: string, tz = COMPANY_TZ): boolean {
   const utcIso = etToUtcIso(date, time, tz)
   if (!utcIso) return false
-  return new Date(utcIso).getTime() - Date.now() < 24 * 60 * 60 * 1000
+  const diff = new Date(utcIso).getTime() - Date.now()
+  // Only flag future sessions that are within 24 hours — past sessions are not late cancellations
+  return diff > 0 && diff < 24 * 60 * 60 * 1000
 }
 
 /**

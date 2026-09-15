@@ -160,6 +160,31 @@ export const calendarEventLink = pgTable(
   }),
 )
 
+// Idempotency guard for Stripe webhooks — prevents double-credit on duplicate deliveries.
+// Row is inserted atomically before touching Airtable; duplicate stripeSessionId is rejected.
+export const stripeWebhookProcessed = pgTable("stripe_webhook_processed", {
+  stripeSessionId: text("stripeSessionId").primaryKey(),
+  userId: text("userId").notNull(),
+  processedAt: timestamp("processedAt").notNull().defaultNow(),
+})
+
+// Booking attempt lock — prevents double-deduction when two requests race for the same slot.
+// A row is inserted before credits are deducted; duplicate (userId, date, time) is rejected.
+// Row is deleted after the booking is fully committed (or on rollback).
+export const bookingAttemptLock = pgTable(
+  "booking_attempt_lock",
+  {
+    id: text("id").primaryKey(),
+    userId: text("userId").notNull(),
+    date: text("date").notNull(),
+    time: text("time").notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (t) => ({
+    userDateTimeUnique: unique("booking_attempt_lock_user_date_time").on(t.userId, t.date, t.time),
+  }),
+)
+
 // A PrepMaster's weekly recurring availability. One row per (email, weekday).
 // Keyed by the PrepMaster's email, which is both their login email and their
 // Workers-table email, so dancers can look up availability when booking.

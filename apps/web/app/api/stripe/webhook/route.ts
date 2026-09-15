@@ -10,6 +10,8 @@ import {
 import { PACKAGES } from "@cdp/core"
 import { createNotification } from "@/app/actions/notifications"
 import { sendEmail, purchaseReceiptEmail } from "@/lib/email"
+import { db } from "@/lib/db"
+import { stripeWebhookProcessed } from "@/lib/db/schema"
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
 if (!WEBHOOK_SECRET) throw new Error("STRIPE_WEBHOOK_SECRET env var is not set")
@@ -36,13 +38,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing metadata" }, { status: 400 })
     }
 
-    // Idempotency — Stripe may retry delivery; skip if this checkout was already processed
+    // Idempotency — Stripe may retry delivery; use a Postgres unique insert to atomically
+    // claim this session. If two deliveries race, only one will succeed the insert.
     const stripeSessionId = session.id
-    const existing = await appBase.list<PlanFields>(TABLES.plans, {
-      filterByFormula: `{Stripe Session ID} = '${stripeSessionId}'`,
-      maxRecords: 1,
-    })
-    if (existing.length > 0) {
+    try {
+      await db.insert(stripeWebhookProcessed).values({ stripeSessionId, userId })
+    } catch {
+      // Unique constraint violation — already processed
       return NextResponse.json({ received: true })
     }
 

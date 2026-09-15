@@ -20,7 +20,7 @@ import { sendSms } from "@/lib/sms"
 import { createNotification } from "@/app/actions/notifications"
 import { createCalendarEvent, getCalendarBusySlots } from "@/lib/google-calendar"
 import { db } from "@/lib/db"
-import { user as userTable } from "@/lib/db/schema"
+import { user as userTable, bookingAttemptLock } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { getAvailabilityForEmail } from "@/app/actions/availability"
 import { resolveClientProfile } from "@/lib/profile-core"
@@ -425,25 +425,39 @@ export async function createBooking(input: {
       }
     }
 
-    // 4) Create the booking, then deduct one credit.
-    // Compute UTC now (before record creation) so we can store it on the record.
-    const utcForCreate = etToUtcIso(input.date, input.time, pmTz)
-    const record = await appBase.create<BookingFields>(TABLES.bookings, {
-      "User ID": effectiveUserId,
-      "Client Email": effectiveEmail,
-      "Prep Master Name": input.prepMasterName,
-      Date: input.date,
-      Time: input.time,
-      Status: "Pending",
-      Notes: input.notes ?? "",
-      "Session Type": input.sessionType ?? "pack-hour",
-      ...(utcForCreate ? { "UTC Datetime": utcForCreate } : {}),
-    })
+    // 4) Acquire a booking attempt lock to prevent double-deduction from concurrent requests.
+    const lockId = crypto.randomUUID()
+    try {
+      await db.insert(bookingAttemptLock).values({ id: lockId, userId: effectiveUserId, date: input.date, time: input.time })
+    } catch {
+      return { ok: false, error: "A booking for that time is already in progress. Please try again." }
+    }
 
+    // Deduct credit before creating the booking record; rollback on failure.
+    const utcForCreate = etToUtcIso(input.date, input.time, pmTz)
     const newCredits = Math.round((credits - creditCost) * 100) / 100
     await appBase.update<ClientFields>(TABLES.clients, client.id, {
       "Credits Remaining": newCredits,
     })
+
+    let record: Awaited<ReturnType<typeof appBase.create<BookingFields>>>
+    try {
+      record = await appBase.create<BookingFields>(TABLES.bookings, {
+        "User ID": effectiveUserId,
+        "Client Email": effectiveEmail,
+        "Prep Master Name": input.prepMasterName,
+        Date: input.date,
+        Time: input.time,
+        Status: "Pending",
+        Notes: input.notes ?? "",
+        "Session Type": input.sessionType ?? "pack-hour",
+        ...(utcForCreate ? { "UTC Datetime": utcForCreate } : {}),
+      })
+    } catch (err) {
+      await appBase.update<ClientFields>(TABLES.clients, client.id, { "Credits Remaining": credits }).catch(() => {})
+      await db.delete(bookingAttemptLock).where(eq(bookingAttemptLock.id, lockId)).catch(() => {})
+      return { ok: false, error: "Failed to create booking. Your credit has been refunded." }
+    }
 
     // Mark the used plan as Used:
     // - Single-session plans (sessions=1): mark immediately
@@ -536,6 +550,7 @@ export async function createBooking(input: {
 
     revalidatePath("/dashboard")
     revalidateTag(`member-${effectiveUserId}`)
+    await db.delete(bookingAttemptLock).where(eq(bookingAttemptLock.id, lockId)).catch(() => {})
     return { ok: true, id: record.id }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to create booking"
