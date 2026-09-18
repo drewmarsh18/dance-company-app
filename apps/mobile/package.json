@@ -41,6 +41,5 @@
     "ios": "expo run:ios",
     "web": "expo start --web"
   },
-  "private": true,
-  "packageManager": "pnpm@9.0.0"
+  "private": true
 }
