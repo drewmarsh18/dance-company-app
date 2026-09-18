@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      pg:
-        specifier: ^8.23.0
-        version: 8.23.0
     devDependencies:
       turbo:
         specifier: ^2.5.4
@@ -7612,7 +7608,7 @@ snapshots:
   '@types/pg@8.20.0':
     dependencies:
       '@types/node': 24.13.2
-      pg-protocol: 1.15.0
+      pg-protocol: 1.16.0
       pg-types: 2.2.0
 
   '@types/react-dom@19.2.3(@types/react@19.2.17)':
@@ -9884,6 +9880,7 @@ snapshots:
   pg-pool@3.14.0(pg@8.23.0):
     dependencies:
       pg: 8.23.0
+    optional: true
 
   pg-protocol@1.15.0: {}
 
@@ -9916,6 +9913,7 @@ snapshots:
       pgpass: 1.0.5
     optionalDependencies:
       pg-cloudflare: 1.4.0
+    optional: true
 
   pgpass@1.0.5:
     dependencies:
