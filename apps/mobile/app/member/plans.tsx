@@ -33,7 +33,7 @@ export default function MemberPlansScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Choose your training plan</Text>
-          <Text style={styles.subtitle}>Every plan includes private one-on-one sessions with your choice of PrepMaster. Bundle hourly privates to drop your rate from $119 to $99 per session.</Text>
+          <Text style={styles.subtitle}>Every plan includes private one-on-one sessions with your choice of PrepMaster. Bundle hourly privates to drop your rate from $119 to $94 per session.</Text>
         </View>
 
         <View style={styles.section}>

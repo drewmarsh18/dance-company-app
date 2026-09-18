@@ -18,7 +18,7 @@ export default async function PackagesPage() {
         <p className="mt-3 text-pretty leading-relaxed text-muted-foreground">
           Every plan includes private one-on-one sessions with your choice of prep
           master. Bundle hourly privates to drop your rate from{" "}
-          {formatPrice(SINGLE_HOUR_PRICE)} to {formatPrice(99)} per session.
+          {formatPrice(SINGLE_HOUR_PRICE)} to {formatPrice(94)} per session.
         </p>
       </div>
 
