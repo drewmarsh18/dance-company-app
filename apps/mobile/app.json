@@ -10,8 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.collegedanceprep.app",
-      "buildNumber": "13",
-      "infoPlist": {
+"infoPlist": {
         "NSCameraUsageDescription": "Used for scanning barcodes.",
         "NSPhotoLibraryUsageDescription": "Used for selecting profile photos.",
         "ITSAppUsesNonExemptEncryption": false
