@@ -25,7 +25,7 @@ export type PerPrivate = {
   price: number
 }
 
-export const SINGLE_HOUR_PRICE = 119
+export const SINGLE_HOUR_PRICE = 109
 
 export const PACKAGES: DancePackage[] = [
   {
@@ -34,12 +34,12 @@ export const PACKAGES: DancePackage[] = [
     sessions: 4,
     price: 425,
     perSession: 106,
-    savings: 51,
+    savings: 11,
     expiryDays: 180,
     features: [
       "4 hourly private sessions",
       "Book with any Prep Master",
-      "Save $51 vs. individual sessions",
+      "Save $11 vs. individual sessions",
     ],
   },
   {
@@ -48,12 +48,12 @@ export const PACKAGES: DancePackage[] = [
     sessions: 8,
     price: 830,
     perSession: 104,
-    savings: 122,
+    savings: 42,
     expiryDays: 180,
     features: [
       "8 hourly private sessions",
       "Book with any Prep Master",
-      "Save $122 vs. individual sessions",
+      "Save $42 vs. individual sessions",
     ],
   },
   {
@@ -62,12 +62,12 @@ export const PACKAGES: DancePackage[] = [
     sessions: 12,
     price: 1200,
     perSession: 100,
-    savings: 228,
+    savings: 108,
     expiryDays: 365,
     features: [
       "12 hourly private sessions",
       "Book with any Prep Master",
-      "Save $228 vs. individual sessions",
+      "Save $108 vs. individual sessions",
     ],
   },
   {
@@ -76,13 +76,13 @@ export const PACKAGES: DancePackage[] = [
     sessions: 16,
     price: 1520,
     perSession: 95,
-    savings: 384,
+    savings: 224,
     expiryDays: 365,
     highlight: true,
     features: [
       "16 hourly private sessions",
       "Book with any Prep Master",
-      "Save $384 vs. individual sessions",
+      "Save $224 vs. individual sessions",
     ],
   },
   {
@@ -91,12 +91,12 @@ export const PACKAGES: DancePackage[] = [
     sessions: 20,
     price: 1880,
     perSession: 94,
-    savings: 500,
+    savings: 300,
     expiryDays: 365,
     features: [
       "20 hourly private sessions",
       "Book with any Prep Master",
-      "Save $500 vs. individual sessions",
+      "Save $300 vs. individual sessions",
     ],
   },
 ]
@@ -104,8 +104,8 @@ export const PACKAGES: DancePackage[] = [
 export const PER_PRIVATE: PerPrivate[] = [
   { id: "private-30", name: "30 Minute", minutes: 30, price: 65 },
   { id: "private-45", name: "45 Minute", minutes: 45, price: 89 },
-  { id: "private-60", name: "Hour", minutes: 60, price: 119 },
-  { id: "private-90", name: "90 Minute", minutes: 90, price: 169 },
+  { id: "private-60", name: "Hour", minutes: 60, price: 109 },
+  { id: "private-90", name: "90 Minute", minutes: 90, price: 159 },
 ]
 
 export function formatPrice(amount: number) {
