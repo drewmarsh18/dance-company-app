@@ -42,5 +42,6 @@
     "web": "expo start --web",
     "eas-build-post-install": "cd ../.. && pnpm install --no-frozen-lockfile"
   },
-  "private": true
+  "private": true,
+  "packageManager": "pnpm@11.9.0"
 }
