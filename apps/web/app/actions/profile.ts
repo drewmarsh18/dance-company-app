@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { revalidatePath, revalidateTag } from "next/cache"
 import { TABLES, appBase, type ClientFields, type MemberPlan, getPlansForUser } from "@/lib/airtable"
-import { sendEmail, parentInviteEmail } from "@/lib/email"
+import { sendEmail, parentInviteEmail, signupReceivedEmail } from "@/lib/email"
 import { resolveClientProfile } from "@/lib/profile-core"
 
 export type { ClientProfile } from "@/lib/profile-core"
@@ -61,11 +61,16 @@ export async function updateProfile(input: {
       const { user: userTable } = await import("@/lib/db/schema")
       const { eq } = await import("drizzle-orm")
       const existing = await dbInstance.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, input.parentEmail.trim().toLowerCase())).limit(1)
+      const childName = input.memberName ?? input.name ?? user.name ?? "your child"
       if (existing.length === 0) {
-        const childName = input.memberName ?? input.name ?? user.name ?? "your child"
+        // No account yet — send the invite so they can create one
         const { subject, html } = parentInviteEmail({ childName, parentEmail: input.parentEmail.trim() })
         sendEmail({ to: input.parentEmail.trim(), subject, html }).catch(() => {})
       }
+      // Always CC the parent on the signup-received confirmation so they know the
+      // dancer's account is pending review — whether or not they have an account yet.
+      const { subject: confirmSubject, html: confirmHtml } = signupReceivedEmail({ memberName: childName })
+      sendEmail({ to: input.parentEmail.trim(), subject: confirmSubject, html: confirmHtml }).catch(() => {})
     }
 
     return { ok: true }
