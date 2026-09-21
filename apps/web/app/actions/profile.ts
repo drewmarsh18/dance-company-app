@@ -55,22 +55,28 @@ export async function updateProfile(input: {
     revalidatePath("/dashboard/profile")
     revalidateTag(`member-${user.id}`)
 
-    // Send parent invite email only if no account already exists for that email
+    // Only send parent emails if the parent email is new (wasn't already set on this record)
     if (input.parentEmail?.trim()) {
-      const { db: dbInstance } = await import("@/lib/db")
-      const { user: userTable } = await import("@/lib/db/schema")
-      const { eq } = await import("drizzle-orm")
-      const existing = await dbInstance.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, input.parentEmail.trim().toLowerCase())).limit(1)
-      const childName = input.memberName ?? input.name ?? user.name ?? "your child"
-      if (existing.length === 0) {
-        // No account yet — send the invite so they can create one
-        const { subject, html } = parentInviteEmail({ childName, parentEmail: input.parentEmail.trim() })
-        sendEmail({ to: input.parentEmail.trim(), subject, html }).catch(() => {})
+      const currentRecord = await appBase.get<ClientFields>(TABLES.clients, input.recordId)
+      const previousParentEmail = (currentRecord as { fields?: ClientFields })?.fields?.["Parent Email"]?.trim().toLowerCase() ?? ""
+      const newParentEmail = input.parentEmail.trim().toLowerCase()
+      const isNewParentEmail = newParentEmail !== previousParentEmail
+
+      if (isNewParentEmail) {
+        const { db: dbInstance } = await import("@/lib/db")
+        const { user: userTable } = await import("@/lib/db/schema")
+        const { eq } = await import("drizzle-orm")
+        const existing = await dbInstance.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, newParentEmail)).limit(1)
+        const childName = input.memberName ?? input.name ?? user.name ?? "your child"
+        if (existing.length === 0) {
+          // No account yet — send the invite so they can create one
+          const { subject, html } = parentInviteEmail({ childName, parentEmail: input.parentEmail.trim() })
+          sendEmail({ to: input.parentEmail.trim(), subject, html }).catch(() => {})
+        }
+        // Notify the parent that the dancer's account is pending review
+        const { subject: confirmSubject, html: confirmHtml } = signupReceivedEmail({ memberName: childName })
+        sendEmail({ to: input.parentEmail.trim(), subject: confirmSubject, html: confirmHtml }).catch(() => {})
       }
-      // Always CC the parent on the signup-received confirmation so they know the
-      // dancer's account is pending review — whether or not they have an account yet.
-      const { subject: confirmSubject, html: confirmHtml } = signupReceivedEmail({ memberName: childName })
-      sendEmail({ to: input.parentEmail.trim(), subject: confirmSubject, html: confirmHtml }).catch(() => {})
     }
 
     return { ok: true }
