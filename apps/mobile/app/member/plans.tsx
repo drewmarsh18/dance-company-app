@@ -33,7 +33,7 @@ export default function MemberPlansScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Your Training, Your Choice!</Text>
-          <Text style={styles.subtitle}>Every session is a full hour, one-on-one with the PrepMaster of your choice. Book more, save more.</Text>
+          <Text style={styles.subtitle}>Every session is a full hour, one-on-one with the PrepMaster of your choice.{" "}<Text style={styles.subtitleAccent}>Book more, save more.</Text></Text>
         </View>
 
         <View style={styles.section}>
@@ -106,7 +106,8 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     scroll: { padding: SPACING.md, gap: SPACING.lg, paddingBottom: SPACING.xl },
     header: { gap: SPACING.sm, alignItems: "center", paddingTop: SPACING.sm },
     title: { fontSize: 24, fontWeight: "700", color: COLORS.text, textAlign: "center", fontFamily: "Sora_700Bold" },
-    subtitle: { fontSize: 13, color: COLORS.textMuted, textAlign: "center", lineHeight: 20 },
+    subtitle: { fontSize: 13, fontWeight: "700", color: COLORS.text, textAlign: "center", lineHeight: 20 },
+    subtitleAccent: { fontSize: 13, fontWeight: "700", color: COLORS.primary },
     section: { gap: SPACING.sm },
     sectionTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_600SemiBold" },
     sectionSub: { fontSize: 13, color: COLORS.textMuted },
@@ -117,8 +118,8 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     popularText: { fontSize: 11, fontWeight: "700", color: "#fff" },
     packageTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     packageName: { fontSize: 18, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_600SemiBold" },
-    savingsBadge: { backgroundColor: COLORS.primary + "22", paddingHorizontal: 12, paddingVertical: 4, borderRadius: RADIUS.full },
-    savingsText: { fontSize: 13, fontWeight: "700", color: COLORS.primary },
+    savingsBadge: { backgroundColor: COLORS.primary + "22", paddingHorizontal: 16, paddingVertical: 7, borderRadius: RADIUS.full },
+    savingsText: { fontSize: 15, fontWeight: "700", color: COLORS.primary },
     packageType: { fontSize: 12, color: COLORS.textMuted },
     priceRow: { flexDirection: "row", alignItems: "flex-end", gap: 4, marginTop: 4 },
     price: { fontSize: 36, fontWeight: "800", color: COLORS.text },
