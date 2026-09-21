@@ -32,8 +32,8 @@ export default function MemberPlansScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>Choose your training plan</Text>
-          <Text style={styles.subtitle}>Every plan includes private one-on-one sessions with your choice of PrepMaster. Bundle hourly privates to drop your rate from $109 to $94 per session.</Text>
+          <Text style={styles.title}>Your Training, Your Choice!</Text>
+          <Text style={styles.subtitle}>Every session is a full hour, one-on-one with the Prepmaster of your choice. Book more, save more. Bundle your privates and your rate drops from $109 to just $94 per hour.</Text>
         </View>
 
         <View style={styles.section}>
@@ -55,7 +55,6 @@ export default function MemberPlansScreen() {
                     <Text style={styles.price}>${pkg.price}</Text>
                     <Text style={styles.pricePer}>/ {pkg.sessions} hours</Text>
                   </View>
-                  <Text style={styles.perSession}>${pkg.perSession} per session</Text>
                   <View style={styles.features}>
                     {pkg.features.map((f) => (
                       <View key={f} style={styles.featureRow}>
@@ -124,7 +123,6 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     priceRow: { flexDirection: "row", alignItems: "flex-end", gap: 4, marginTop: 4 },
     price: { fontSize: 36, fontWeight: "800", color: COLORS.text },
     pricePer: { fontSize: 13, color: COLORS.textMuted, marginBottom: 6 },
-    perSession: { fontSize: 13, fontWeight: "600", color: COLORS.primary },
     features: { gap: 8, marginTop: 4 },
     featureRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
     featureText: { fontSize: 13, color: COLORS.text, flex: 1, lineHeight: 18 },

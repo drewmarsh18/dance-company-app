@@ -29,21 +29,6 @@ export const SINGLE_HOUR_PRICE = 109
 
 export const PACKAGES: DancePackage[] = [
   {
-    id: "pack-16",
-    name: "16 Pack",
-    sessions: 16,
-    price: 1520,
-    perSession: 95,
-    savings: 224,
-    expiryDays: 365,
-    highlight: true,
-    features: [
-      "16 hourly private sessions",
-      "Book with any Prep Master",
-      "Save $224 vs. individual sessions",
-    ],
-  },
-  {
     id: "pack-4",
     name: "4 Pack",
     sessions: 4,
@@ -53,7 +38,7 @@ export const PACKAGES: DancePackage[] = [
     expiryDays: 180,
     features: [
       "4 hourly private sessions",
-      "Book with any Prep Master",
+      "Book with any Prepmaster",
       "Save $11 vs. individual sessions",
     ],
   },
@@ -67,7 +52,7 @@ export const PACKAGES: DancePackage[] = [
     expiryDays: 180,
     features: [
       "8 hourly private sessions",
-      "Book with any Prep Master",
+      "Book with any Prepmaster",
       "Save $42 vs. individual sessions",
     ],
   },
@@ -75,14 +60,29 @@ export const PACKAGES: DancePackage[] = [
     id: "pack-12",
     name: "12 Pack",
     sessions: 12,
-    price: 1200,
-    perSession: 100,
-    savings: 108,
+    price: 1188,
+    perSession: 99,
+    savings: 120,
     expiryDays: 365,
     features: [
       "12 hourly private sessions",
-      "Book with any Prep Master",
-      "Save $108 vs. individual sessions",
+      "Book with any Prepmaster",
+      "Save $120 vs. individual sessions",
+    ],
+  },
+  {
+    id: "pack-16",
+    name: "16 Pack",
+    sessions: 16,
+    price: 1520,
+    perSession: 95,
+    savings: 224,
+    expiryDays: 365,
+    highlight: true,
+    features: [
+      "16 hourly private sessions",
+      "Book with any Prepmaster",
+      "Save $224 vs. individual sessions",
     ],
   },
   {
@@ -95,7 +95,7 @@ export const PACKAGES: DancePackage[] = [
     expiryDays: 365,
     features: [
       "20 hourly private sessions",
-      "Book with any Prep Master",
+      "Book with any Prepmaster",
       "Save $300 vs. individual sessions",
     ],
   },
