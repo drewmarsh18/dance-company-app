@@ -55,6 +55,7 @@ export async function POST(req: Request) {
       sessions: pkg ? String(pkg.sessions) : "1",
       sessionType: pkg ? "pack-hour" : perPrivate!.id,
     },
+    allow_promotion_codes: true,
     customer_email: session.user.email,
     success_url: `${APP_URL}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${APP_URL}/dashboard/packages`,
