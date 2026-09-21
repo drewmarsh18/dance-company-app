@@ -15,10 +15,9 @@ export default async function PackagesPage() {
         <h1 className="font-heading text-3xl font-bold tracking-tight text-balance md:text-4xl">
           Choose your training plan
         </h1>
-        <p className="mt-3 text-pretty leading-relaxed text-muted-foreground">
-          Every plan includes private one-on-one sessions with your choice of prep
-          master. Bundle hourly privates to drop your rate from{" "}
-          {formatPrice(SINGLE_HOUR_PRICE)} to {formatPrice(94)} per session.
+        <p className="mt-3 text-pretty leading-relaxed text-primary font-medium">
+          Every plan includes private one-on-one sessions with your choice of
+          PrepMaster. Book more, save more.
         </p>
       </div>
 

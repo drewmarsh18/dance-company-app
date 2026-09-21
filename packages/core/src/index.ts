@@ -25,78 +25,92 @@ export type PerPrivate = {
   price: number
 }
 
-export const SINGLE_HOUR_PRICE = 109
+export const SINGLE_HOUR_PRICE = 115
 
 export const PACKAGES: DancePackage[] = [
   {
     id: "pack-4",
     name: "4 Pack",
     sessions: 4,
-    price: 425,
-    perSession: 106,
-    savings: 11,
+    price: 445,
+    perSession: 111,
+    savings: 15,
     expiryDays: 180,
     features: [
       "4 hourly private sessions",
       "Book with any Prepmaster",
-      "Save $11 vs. individual sessions",
+      "Save $15 vs. individual sessions",
     ],
   },
   {
     id: "pack-8",
     name: "8 Pack",
     sessions: 8,
-    price: 830,
-    perSession: 104,
-    savings: 42,
+    price: 870,
+    perSession: 109,
+    savings: 50,
     expiryDays: 180,
     features: [
       "8 hourly private sessions",
       "Book with any Prepmaster",
-      "Save $42 vs. individual sessions",
+      "Save $50 vs. individual sessions",
     ],
   },
   {
     id: "pack-12",
     name: "12 Pack",
     sessions: 12,
-    price: 1188,
-    perSession: 99,
-    savings: 120,
+    price: 1280,
+    perSession: 107,
+    savings: 100,
     expiryDays: 365,
     features: [
       "12 hourly private sessions",
       "Book with any Prepmaster",
-      "Save $120 vs. individual sessions",
+      "Save $100 vs. individual sessions",
     ],
   },
   {
     id: "pack-16",
     name: "16 Pack",
     sessions: 16,
-    price: 1520,
-    perSession: 95,
-    savings: 224,
+    price: 1690,
+    perSession: 106,
+    savings: 150,
     expiryDays: 365,
     highlight: true,
     features: [
       "16 hourly private sessions",
       "Book with any Prepmaster",
-      "Save $224 vs. individual sessions",
+      "Save $150 vs. individual sessions",
     ],
   },
   {
     id: "pack-20",
     name: "20 Pack",
     sessions: 20,
-    price: 1880,
-    perSession: 94,
-    savings: 300,
+    price: 2100,
+    perSession: 105,
+    savings: 200,
     expiryDays: 365,
     features: [
       "20 hourly private sessions",
       "Book with any Prepmaster",
-      "Save $300 vs. individual sessions",
+      "Save $200 vs. individual sessions",
+    ],
+  },
+  {
+    id: "pack-24",
+    name: "24 Pack",
+    sessions: 24,
+    price: 2510,
+    perSession: 105,
+    savings: 250,
+    expiryDays: 365,
+    features: [
+      "24 hourly private sessions",
+      "Book with any Prepmaster",
+      "Save $250 vs. individual sessions",
     ],
   },
 ]
@@ -104,8 +118,8 @@ export const PACKAGES: DancePackage[] = [
 export const PER_PRIVATE: PerPrivate[] = [
   { id: "private-30", name: "30 Minute", minutes: 30, price: 65 },
   { id: "private-45", name: "45 Minute", minutes: 45, price: 89 },
-  { id: "private-60", name: "Hour", minutes: 60, price: 109 },
-  { id: "private-90", name: "90 Minute", minutes: 90, price: 159 },
+  { id: "private-60", name: "Hour", minutes: 60, price: 115 },
+  { id: "private-90", name: "90 Minute", minutes: 90, price: 165 },
 ]
 
 export function formatPrice(amount: number) {

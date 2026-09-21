@@ -33,7 +33,7 @@ export function PackageCard({ pkg }: { pkg: DancePackage }) {
 
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-heading text-xl font-bold">{pkg.name}</h2>
-        <Badge variant="secondary" className="shrink-0">
+        <Badge className="shrink-0 bg-primary/15 text-primary hover:bg-primary/20 text-sm px-3 py-1">
           Save {formatPrice(pkg.savings)}
         </Badge>
       </div>
