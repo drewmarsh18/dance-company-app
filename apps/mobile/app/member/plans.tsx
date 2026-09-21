@@ -33,7 +33,7 @@ export default function MemberPlansScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Your Training, Your Choice!</Text>
-          <Text style={styles.subtitle}>Every session is a full hour, one-on-one with the Prepmaster of your choice. Book more, save more. Bundle your privates and your rate drops from $109 to just $94 per hour.</Text>
+          <Text style={styles.subtitle}>Every session is a full hour, one-on-one with the PrepMaster of your choice. Book more, save more.</Text>
         </View>
 
         <View style={styles.section}>
@@ -117,8 +117,8 @@ function makeStyles(COLORS: ReturnType<typeof useColors>) {
     popularText: { fontSize: 11, fontWeight: "700", color: "#fff" },
     packageTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     packageName: { fontSize: 18, fontWeight: "700", color: COLORS.text, fontFamily: "Sora_600SemiBold" },
-    savingsBadge: { backgroundColor: COLORS.grayLight, paddingHorizontal: 10, paddingVertical: 3, borderRadius: RADIUS.full },
-    savingsText: { fontSize: 12, fontWeight: "600", color: COLORS.textSecondary },
+    savingsBadge: { backgroundColor: COLORS.primary + "22", paddingHorizontal: 12, paddingVertical: 4, borderRadius: RADIUS.full },
+    savingsText: { fontSize: 13, fontWeight: "700", color: COLORS.primary },
     packageType: { fontSize: 12, color: COLORS.textMuted },
     priceRow: { flexDirection: "row", alignItems: "flex-end", gap: 4, marginTop: 4 },
     price: { fontSize: 36, fontWeight: "800", color: COLORS.text },
