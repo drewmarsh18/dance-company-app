@@ -42,6 +42,7 @@ export type WorkerFields = {
   University?: string
   Address?: string
   "Worker Role"?: string
+  "Reports to"?: string
   "Hourly Rate"?: number
   Active?: boolean
 }
@@ -235,6 +236,7 @@ export type PrepMaster = {
   university: string
   address: string
   workerRole: string
+  reportsTo: string
 }
 
 function toPrepMaster(r: AirtableRecord<WorkerFields>): PrepMaster {
@@ -247,6 +249,7 @@ function toPrepMaster(r: AirtableRecord<WorkerFields>): PrepMaster {
     university: r.fields.University ?? "",
     address: r.fields.Address ?? "",
     workerRole: r.fields["Worker Role"] ?? "PrepMaster",
+    reportsTo: r.fields["Reports to"] ?? "",
     // Hourly Rate is intentionally NOT included here.
   }
 }
@@ -785,4 +788,93 @@ async function getClientsByUserIds(
     })
   }
   return map
+}
+
+// --- Regional Director: team view -------------------------------------------
+
+/** Returns all active PrepMasters whose "Reports to" field matches rdName. */
+export async function getTeamForRD(rdName: string): Promise<PrepMaster[]> {
+  const safe = rdName.replace(/'/g, "\\'")
+  const records = await list<WorkerFields>(TABLES.workers, {
+    filterByFormula: `AND({Reports to} = '${safe}', {Active} = TRUE())`,
+    sort: [{ field: "Full Name", direction: "asc" }],
+    revalidate: 60,
+  })
+  return records.map(toPrepMaster)
+}
+
+export type TeamBookingSummary = {
+  pm: PrepMaster
+  bookings: PrepMasterBooking[]
+}
+
+/**
+ * For a list of PrepMaster names, fetch all bookings in a given month in one
+ * Airtable call, then group the results by PM name.
+ */
+export async function getMonthBookingsForTeam(
+  pmNames: string[],
+  year: number,
+  month: number,
+): Promise<TeamBookingSummary[]> {
+  if (pmNames.length === 0) return []
+
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const startDate = `${year}-${pad(month)}-01`
+  // Last day of the month
+  const lastDay = new Date(year, month, 0).getDate()
+  const endDate = `${year}-${pad(month)}-${pad(lastDay)}`
+
+  const nameClauses = pmNames
+    .map((n) => `{Prep Master Name} = '${n.replace(/'/g, "\\'")}'`)
+    .join(", ")
+
+  const records = await list<BookingFields>(TABLES.bookings, {
+    filterByFormula: `AND(OR(${nameClauses}), {Date} >= '${startDate}', {Date} <= '${endDate}')`,
+    sort: [{ field: "Date", direction: "asc" }],
+    revalidate: 0,
+  })
+
+  const grouped = new Map<string, PrepMasterBooking[]>()
+  for (const name of pmNames) grouped.set(name, [])
+
+  for (const r of records) {
+    const pmName = r.fields["Prep Master Name"] ?? ""
+    if (!grouped.has(pmName)) continue
+    const status = r.fields.Status ?? "pending"
+    const statusLc = status.toLowerCase()
+    // Only include confirmed, completed, cancelled
+    if (!["confirmed", "completed"].includes(statusLc) && !statusLc.startsWith("cancel")) continue
+    grouped.get(pmName)!.push({
+      id: r.id,
+      date: r.fields.Date ?? "",
+      time: r.fields.Time ?? "",
+      utcDatetime: r.fields["UTC Datetime"] ?? null,
+      status: statusLc.startsWith("cancel") ? "canceled" : statusLc,
+      notes: r.fields.Notes ?? "",
+      prepMasterNotes: r.fields["Prep Master Notes"] ?? "",
+      declineReason: r.fields["Decline Reason"] ?? "",
+      cancellationReason: r.fields["Cancellation Reason"] ?? "",
+      dancerName: r.fields.Name ?? "",
+      dancerEmail: r.fields["Client Email"] ?? "",
+      dancerPhone: "",
+      userId: r.fields["User ID"] ?? "",
+      sessionType: r.fields["Session Type"] ?? null,
+      isReschedulePending: r.fields["Is Reschedule"] ?? false,
+    })
+  }
+
+  return pmNames.map((name) => ({
+    pm: { id: name, name, email: "", phone: "", region: "", university: "", address: "", workerRole: "PrepMaster", reportsTo: "" },
+    bookings: grouped.get(name) ?? [],
+  }))
+}
+
+export async function getAllRegionalDirectors(): Promise<PrepMaster[]> {
+  const records = await list<WorkerFields>(TABLES.workers, {
+    filterByFormula: `AND({Worker Role} = 'Regional Director', {Active} = TRUE())`,
+    sort: [{ field: "Full Name", direction: "asc" }],
+    revalidate: 300,
+  })
+  return records.map(toPrepMaster)
 }

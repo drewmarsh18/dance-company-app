@@ -3,9 +3,9 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { CalendarDays, Clock, CalendarPlus, Inbox, UserCircle, BookOpen } from "lucide-react"
+import { CalendarDays, Clock, CalendarPlus, Inbox, UserCircle, BookOpen, Users } from "lucide-react"
 
-const LINKS = [
+const BASE_LINKS = [
   { href: "/portal", label: "Schedule", icon: CalendarDays },
   { href: "/portal/book", label: "Book session", icon: CalendarPlus },
   { href: "/portal/availability", label: "Availability", icon: Clock },
@@ -14,12 +14,17 @@ const LINKS = [
   { href: "/portal/onboarding", label: "Onboarding", icon: BookOpen },
 ]
 
-export function PortalNav() {
+const RD_LINK = { href: "/portal/my-prep-masters", label: "My PrepMasters", icon: Users }
+
+type Props = { isRD?: boolean }
+
+export function PortalNav({ isRD }: Props) {
   const pathname = usePathname()
+  const links = isRD ? [...BASE_LINKS, RD_LINK] : BASE_LINKS
 
   return (
     <nav className="flex items-center gap-0.5 border-b overflow-x-auto scrollbar-none">
-      {LINKS.map((link) => {
+      {links.map((link) => {
         const active = pathname === link.href
         const Icon = link.icon
         return (

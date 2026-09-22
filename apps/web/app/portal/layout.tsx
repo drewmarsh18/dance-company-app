@@ -9,6 +9,7 @@ import {
   homePathForRole,
   markInviteAccepted,
 } from "@/lib/roles"
+import { getPrepMasterByEmail, isAirtableConfigured } from "@/lib/airtable"
 import { ShieldCheck } from "lucide-react"
 
 export default async function PortalLayout({ children }: { children: ReactNode }) {
@@ -21,6 +22,13 @@ export default async function PortalLayout({ children }: { children: ReactNode }
 
   if (user.role === "prep_master") {
     await markInviteAccepted(user.email)
+  }
+
+  // Check if this user is a Regional Director or admin to show the My PrepMasters tab
+  let showMyPrepMasters = isAdmin
+  if (!showMyPrepMasters && isAirtableConfigured()) {
+    const worker = await getPrepMasterByEmail(user.email)
+    showMyPrepMasters = worker?.workerRole === "Regional Director"
   }
 
   return (
@@ -45,7 +53,7 @@ export default async function PortalLayout({ children }: { children: ReactNode }
         </div>
       )}
       <div className="mx-auto max-w-5xl px-5 pt-4">
-        <PortalNav />
+        <PortalNav isRD={showMyPrepMasters} />
       </div>
       <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
       <Toaster position="top-center" />
