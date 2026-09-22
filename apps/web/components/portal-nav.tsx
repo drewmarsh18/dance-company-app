@@ -20,7 +20,9 @@ type Props = { isRD?: boolean }
 
 export function PortalNav({ isRD }: Props) {
   const pathname = usePathname()
-  const links = isRD ? [...BASE_LINKS, RD_LINK] : BASE_LINKS
+  const links = isRD
+    ? [BASE_LINKS[0], RD_LINK, ...BASE_LINKS.slice(1)]
+    : BASE_LINKS
 
   return (
     <nav className="flex items-center gap-0.5 border-b overflow-x-auto scrollbar-none">
