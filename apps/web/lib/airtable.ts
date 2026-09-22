@@ -41,7 +41,7 @@ export type WorkerFields = {
   Region?: string
   University?: string
   Address?: string
-  "Worker Role"?: string
+  "Role"?: string
   "Reports to"?: string
   "Hourly Rate"?: number
   Active?: boolean
@@ -248,7 +248,7 @@ function toPrepMaster(r: AirtableRecord<WorkerFields>): PrepMaster {
     region: r.fields.Region ?? "",
     university: r.fields.University ?? "",
     address: r.fields.Address ?? "",
-    workerRole: r.fields["Worker Role"] ?? "PrepMaster",
+    workerRole: r.fields["Role"] ?? "PrepMaster",
     reportsTo: r.fields["Reports to"] ?? "",
     // Hourly Rate is intentionally NOT included here.
   }
@@ -872,7 +872,7 @@ export async function getMonthBookingsForTeam(
 
 export async function getAllRegionalDirectors(): Promise<PrepMaster[]> {
   const records = await list<WorkerFields>(TABLES.workers, {
-    filterByFormula: `AND({Worker Role} = 'Regional Director', {Active} = TRUE())`,
+    filterByFormula: `AND({Role} = 'Regional Director', {Active} = TRUE())`,
     sort: [{ field: "Full Name", direction: "asc" }],
     revalidate: 300,
   })
