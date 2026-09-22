@@ -90,9 +90,20 @@ export function AdminOverviewPanel({ members, bookings, workers, plans }: Props)
   // Revenue = sum of per-session price based on session type
   const revenue = completed.reduce((sum, b) => sum + sessionRevenue(b, packRateMap), 0)
 
-  // Pay owed = sum over each completed booking of that PrepMaster's hourly rate
+  // Pay owed = PrepMaster's hourly rate × session duration fraction
+  const SESSION_DURATION: Record<string, number> = {
+    "private-30": 0.5,
+    "private-45": 0.75,
+    "private-60": 1,
+    "pack-hour": 1,
+    "private-90": 1.5,
+  }
   const workerRateMap = new Map(workers.map((w) => [w.name, w.hourlyRate]))
-  const payOwed = completed.reduce((sum, b) => sum + (workerRateMap.get(b.prepMasterName) ?? 0), 0)
+  const payOwed = completed.reduce((sum, b) => {
+    const rate = workerRateMap.get(b.prepMasterName) ?? 0
+    const fraction = SESSION_DURATION[b.sessionType ?? ""] ?? 1
+    return sum + rate * fraction
+  }, 0)
   const margin = revenue - payOwed
 
   // All-time totals
