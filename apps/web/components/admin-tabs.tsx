@@ -87,7 +87,7 @@ export function AdminTabs({ members, bookings, workers, plans, packages }: Props
         )}
       </div>
 
-      {active === "overview" && <AdminOverviewPanel members={members} bookings={bookings} workers={workers} />}
+      {active === "overview" && <AdminOverviewPanel members={members} bookings={bookings} workers={workers} plans={plans} />}
       {active === "members" && (
         <AdminMembersPanel members={members} bookings={bookings} plans={plans} packages={packages} query={query} />
       )}
