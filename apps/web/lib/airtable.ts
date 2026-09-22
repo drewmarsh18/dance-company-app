@@ -562,6 +562,7 @@ export type AdminMember = {
   goals: string
   creditsRemaining: number
   parentEmail: string
+  accountStatus?: "pending" | "active"
 }
 
 export type AdminWorker = {

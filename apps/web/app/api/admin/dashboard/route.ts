@@ -11,8 +11,8 @@ import {
 } from "@/lib/airtable"
 import { PACKAGES } from "@/lib/packages"
 import { db } from "@/lib/db"
-import { prepMasterInvite } from "@/lib/db/schema"
-import { inArray } from "drizzle-orm"
+import { prepMasterInvite, user as userTable } from "@/lib/db/schema"
+import { inArray, eq } from "drizzle-orm"
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -45,7 +45,21 @@ export async function GET() {
       inviteStatus: (inviteMap[w.email.trim().toLowerCase()] ?? null) as "pending" | "accepted" | "revoked" | null,
     }))
 
-    return NextResponse.json({ members, bookings, workers: workersWithStatus, plans, packages: PACKAGES })
+    // Join pending account status from DB by email
+    const memberEmails = members.map((m) => m.email.trim().toLowerCase()).filter(Boolean)
+    const pendingUsers = memberEmails.length > 0
+      ? await db
+          .select({ email: userTable.email, status: userTable.status })
+          .from(userTable)
+          .where(inArray(userTable.email, memberEmails))
+      : []
+    const pendingMap = new Map(pendingUsers.map((u) => [u.email.toLowerCase(), u.status]))
+    const membersWithStatus = members.map((m) => ({
+      ...m,
+      accountStatus: (pendingMap.get(m.email.trim().toLowerCase()) === "pending" ? "pending" : "active") as "pending" | "active",
+    }))
+
+    return NextResponse.json({ members: membersWithStatus, bookings, workers: workersWithStatus, plans, packages: PACKAGES })
   } catch (err) {
     console.error("[admin/dashboard] error:", err)
     return NextResponse.json(
