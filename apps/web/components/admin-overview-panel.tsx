@@ -248,7 +248,7 @@ export function AdminOverviewPanel({ members, bookings, workers, plans }: Props)
                   {completed.sort((a, b) => (b.date > a.date ? 1 : -1)).map((b) => {
                     const amt = sessionRevenue(b, packRateMap)
                     const isLateCancelled = b.status.toLowerCase() === "cancelled (late)"
-                    const sessionLabel = b.sessionType === "private-30" ? "30 min" : b.sessionType === "private-45" ? "45 min" : "60 min"
+                    const sessionLabel = b.sessionType === "private-30" ? "30 min" : b.sessionType === "private-45" ? "45 min" : b.sessionType === "private-90" ? "90 min" : b.sessionType === "pack-hour" ? "Pack (60 min)" : "60 min"
                     return (
                       <li key={b.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-sm">
                         <div className="min-w-0">
