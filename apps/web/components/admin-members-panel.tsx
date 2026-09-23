@@ -30,6 +30,7 @@ import {
   X,
 } from "lucide-react"
 import { Label } from "@/components/ui/label"
+import { LocalTime } from "@/components/local-time"
 
 type Props = {
   members: AdminMember[]
@@ -496,7 +497,7 @@ export function AdminMembersPanel({ members, bookings, plans, packages, query = 
                             <div className="min-w-0">
                               <span className="font-medium">{b.prepMasterName || "PrepMaster"}</span>
                               <span className="ml-2 text-muted-foreground">
-                                {b.date}{b.time ? ` · ${b.time}` : ""}
+                                {b.date}{b.time ? <> · <LocalTime slot={b.time} dateIso={b.date} utcDatetime={b.utcDatetime} /></> : ""}
                               </span>
                               {b.sessionType && (
                                 <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${b.sessionType === "pack-hour" ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"}`}>

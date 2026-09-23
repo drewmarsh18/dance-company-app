@@ -53,6 +53,7 @@ import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { BookingFilterBar, applyFilters, type SortDir } from "@/components/booking-filter-bar"
 import { TrendingUp, DollarSign, CalendarDays, Users, Award, Activity, ChevronDown, ChevronUp, Search } from "lucide-react"
+import { LocalTime } from "@/components/local-time"
 
 type Props = {
   members: AdminMember[]
@@ -254,7 +255,7 @@ export function AdminOverviewPanel({ members, bookings, workers, plans }: Props)
                         <div className="min-w-0">
                           <p className="font-medium truncate">{b.dancerName || b.clientEmail || "Client"}</p>
                           <p className="text-xs text-muted-foreground">
-                            {b.prepMasterName}{b.date ? ` · ${b.date}` : ""}{b.time ? ` · ${b.time}` : ""} · {sessionLabel}
+                            {b.prepMasterName}{b.date ? ` · ${b.date}` : ""}{b.time ? <> · <LocalTime slot={b.time} dateIso={b.date} utcDatetime={b.utcDatetime} /></> : ""} · {sessionLabel}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -329,7 +330,7 @@ export function AdminOverviewPanel({ members, bookings, workers, plans }: Props)
                         >
                           <div className="min-w-0">
                             <p className="font-medium truncate">{b.dancerName || b.clientEmail || "Client"}</p>
-                            <p className="text-xs text-muted-foreground">{b.prepMasterName}{b.date ? ` · ${b.date}` : ""}{b.time ? ` · ${b.time}` : ""}</p>
+                            <p className="text-xs text-muted-foreground">{b.prepMasterName}{b.date ? ` · ${b.date}` : ""}{b.time ? <> · <LocalTime slot={b.time} dateIso={b.date} utcDatetime={b.utcDatetime} /></> : ""}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <Badge

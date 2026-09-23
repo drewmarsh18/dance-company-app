@@ -14,6 +14,7 @@ import { ArrowLeft, Users, DollarSign, Phone, Mail, Home, CalendarDays, ChevronD
 import { getUniversityColor } from "@/lib/university-colors"
 import { BookingFilterBar, applyFilters, type SortDir } from "@/components/booking-filter-bar"
 import { PER_PRIVATE, PACKAGES } from "@/lib/packages"
+import { LocalTime } from "@/components/local-time"
 
 const UNIVERSITIES = [
   "Alabama","Arizona","ASU","Boise","Cincinnati","Coastal Carolina","CSU","CU Boulder",
@@ -587,7 +588,7 @@ function BookingHistoryList({ bookings }: { bookings: AdminBooking[] }) {
               <div className="min-w-0">
                 <span className="font-medium">{b.dancerName || b.clientEmail || "Client"}</span>
                 <span className="ml-2 text-muted-foreground">
-                  {b.date}{b.time ? ` · ${b.time}` : ""}
+                  {b.date}{b.time ? <> · <LocalTime slot={b.time} dateIso={b.date} utcDatetime={b.utcDatetime} /></> : ""}
                 </span>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -613,7 +614,7 @@ function BookingHistoryList({ bookings }: { bookings: AdminBooking[] }) {
                   </div>
                   <div>
                     <span className="text-xs text-muted-foreground">Time</span>
-                    <p className="font-medium">{b.time || "—"}</p>
+                    <p className="font-medium">{b.time ? <LocalTime slot={b.time} dateIso={b.date} utcDatetime={b.utcDatetime} /> : "—"}</p>
                   </div>
                   <div>
                     <span className="text-xs text-muted-foreground">Status</span>

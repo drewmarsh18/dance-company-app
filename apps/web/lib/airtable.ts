@@ -586,6 +586,7 @@ export type AdminBooking = {
   prepMasterName: string
   date: string
   time: string
+  utcDatetime: string | null
   status: string
   notes: string
   sessionType: SessionType | null
@@ -647,6 +648,7 @@ export async function adminGetAllBookings(): Promise<AdminBooking[]> {
       prepMasterName: r.fields["Prep Master Name"] ?? "",
       date: r.fields.Date ?? "",
       time: r.fields.Time ?? "",
+      utcDatetime: r.fields["UTC Datetime"] ?? null,
       status: r.fields.Status ?? "Pending",
       notes: r.fields.Notes ?? "",
       sessionType: (r.fields["Session Type"] as SessionType) ?? null,
@@ -763,6 +765,7 @@ export async function adminCreateMember(fields: {
     phone: record.fields.Phone ?? "",
     goals: record.fields.Goals ?? "",
     creditsRemaining: record.fields["Credits Remaining"] ?? 0,
+    parentEmail: record.fields["Parent Email"] ?? "",
   }
 }
 
