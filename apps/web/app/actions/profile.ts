@@ -46,6 +46,13 @@ export async function updateProfile(input: {
     if (!profile || profile.recordId !== input.recordId) {
       return { ok: false, error: "Unauthorized" }
     }
+    // Fetch current record BEFORE updating to detect if parent email is new
+    let previousParentEmail = ""
+    if (input.parentEmail !== undefined) {
+      const currentRecord = await appBase.get<ClientFields>(TABLES.clients, input.recordId)
+      previousParentEmail = (currentRecord as { fields?: ClientFields })?.fields?.["Parent Email"]?.trim().toLowerCase() ?? ""
+    }
+
     await appBase.update<ClientFields>(TABLES.clients, input.recordId, {
       ...(input.name ? { Name: input.name } : {}),
       Phone: input.phone,
@@ -57,8 +64,6 @@ export async function updateProfile(input: {
 
     // Only send parent emails if the parent email is new (wasn't already set on this record)
     if (input.parentEmail?.trim()) {
-      const currentRecord = await appBase.get<ClientFields>(TABLES.clients, input.recordId)
-      const previousParentEmail = (currentRecord as { fields?: ClientFields })?.fields?.["Parent Email"]?.trim().toLowerCase() ?? ""
       const newParentEmail = input.parentEmail.trim().toLowerCase()
       const isNewParentEmail = newParentEmail !== previousParentEmail
 
