@@ -26,6 +26,11 @@ const UNIVERSITIES = [
   "Western Michigan","Wisconsin","WVU","Wichita State",
 ]
 
+function isSessionPast(b: { utcDatetime?: string | null; date?: string | null }): boolean {
+  const t = b.utcDatetime ? new Date(b.utcDatetime).getTime() : b.date ? new Date(b.date).getTime() : 0
+  return t > 0 && t <= Date.now()
+}
+
 const SESSION_REVENUE_FRACTION: Record<string, number> = {
   "private-30": 0.5, "private-45": 0.75, "private-60": 1, "pack-hour": 1, "private-90": 1.5,
 }
@@ -335,7 +340,7 @@ function PrepMasterProfile({
   const [infoOpen, setInfoOpen] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(true)
 
-  const completedBookings = bookings.filter((b) => b.status.toLowerCase() !== "cancelled")
+  const completedBookings = bookings.filter((b) => b.status.toLowerCase() !== "cancelled" && isSessionPast(b))
 
   async function handleSendInvite() {
     const targetEmail = email.trim()

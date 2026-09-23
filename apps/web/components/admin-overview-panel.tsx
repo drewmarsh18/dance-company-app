@@ -31,6 +31,11 @@ type Props = {
   plans: MemberPlan[]
 }
 
+function isSessionPast(b: { utcDatetime?: string | null; date?: string | null }): boolean {
+  const t = b.utcDatetime ? new Date(b.utcDatetime).getTime() : b.date ? new Date(b.date).getTime() : 0
+  return t > 0 && t <= Date.now()
+}
+
 function currentMonthKey() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
@@ -54,7 +59,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
 
   const monthKey = currentMonthKey()
   const thisMonth = bookings.filter((b) => b.date?.startsWith(monthKey))
-  const completed = thisMonth.filter((b) => b.status.toLowerCase() !== "cancelled")
+  const completed = thisMonth.filter((b) => b.status.toLowerCase() !== "cancelled" && isSessionPast(b))
   const cancelled = thisMonth.filter((b) => b.status.toLowerCase().startsWith("cancelled"))
 
   // Revenue = sum of per-session price based on session type
@@ -77,7 +82,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
   const margin = revenue - payOwed
 
   // All-time totals
-  const allCompleted = bookings.filter((b) => b.status.toLowerCase() !== "cancelled")
+  const allCompleted = bookings.filter((b) => b.status.toLowerCase() !== "cancelled" && isSessionPast(b))
   const allRevenue = allCompleted.reduce((sum, b) => sum + sessionRevenue(b), 0)
 
   // Top PrepMasters this month by completed booking count
