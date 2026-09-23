@@ -47,9 +47,6 @@ export function PackageCard({ pkg }: { pkg: DancePackage }) {
           / {pkg.sessions} hours
         </span>
       </div>
-      <p className="mt-1 text-sm font-medium text-primary">
-        {formatPrice(pkg.perSession)} per session
-      </p>
 
       <ul className="mt-6 flex flex-1 flex-col gap-3">
         {pkg.features.map((feature) => (

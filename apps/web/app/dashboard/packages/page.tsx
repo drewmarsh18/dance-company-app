@@ -13,11 +13,11 @@ export default async function PackagesPage() {
     <div className="mx-auto max-w-6xl px-5 py-8">
       <div className="mx-auto max-w-2xl text-center">
         <h1 className="font-heading text-3xl font-bold tracking-tight text-balance md:text-4xl">
-          Choose your training plan
+          Your Training, Your Choice!
         </h1>
-        <p className="mt-3 text-pretty leading-relaxed text-primary font-medium">
-          Every plan includes private one-on-one sessions with your choice of
-          PrepMaster. Book more, save more.
+        <p className="mt-3 text-pretty leading-relaxed font-bold">
+          Every session is a full hour, one-on-one with the PrepMaster of your choice.{" "}
+          <span className="text-primary">Book more, save more.</span>
         </p>
       </div>
 
