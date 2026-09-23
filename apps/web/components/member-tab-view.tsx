@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { ChevronLeft, ChevronRight, CalendarDays, List, CalendarClock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { LocalTime } from "@/components/local-time"
 
 type CalEvent = {
   id: string; title: string; start: string | null; end: string | null; allDay: boolean
@@ -208,7 +209,7 @@ function WeekView({
                 return (
                   <button key={b.id} onClick={() => onBookingClick(b)}
                     className={cn("w-full text-left rounded border-l-2 px-1 py-0.5 text-[10px] truncate", style.border, style.bg, style.text)}>
-                    {b.time ? b.time.replace(/ (AM|PM)/, "$1").replace(/:00/, "") : ""} {b.prepMasterName || "Session"}
+                    {b.time ? <LocalTime slot={b.time} dateIso={b.date} utcDatetime={b.utcDatetime} className="shrink-0" /> : ""} {b.prepMasterName || "Session"}
                   </button>
                 )
               })}

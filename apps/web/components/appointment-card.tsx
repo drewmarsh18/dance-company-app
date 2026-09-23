@@ -13,8 +13,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { CalendarDays, Clock, Mail, Phone, StickyNote, Check, X, Pencil, Tag } from "lucide-react"
+import { LocalTime } from "@/components/local-time"
 
-const COMPANY_TZ_LABEL = "ET"
 
 // Generate all hourly time slots from 7am to 11pm for the edit panel
 const ALL_TIME_SLOTS = generateHourlySlots("07:00", "23:00")
@@ -183,7 +183,7 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
               {localTime && (
                 <span className="flex items-center gap-1.5 text-muted-foreground">
                   <Clock className="size-4" />
-                  {localTime} <span className="text-xs">({COMPANY_TZ_LABEL})</span>
+                  <LocalTime slot={localTime} dateIso={localDate} utcDatetime={booking.utcDatetime} />
                 </span>
               )}
               <Badge variant={statusVariant} className="capitalize">{displayStatus}</Badge>
