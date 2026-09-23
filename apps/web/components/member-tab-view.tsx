@@ -435,16 +435,16 @@ export function MemberTabView({
   return (
     <>
       {/* Tab bar */}
-      <div className="flex items-center gap-1 self-start rounded-lg border border-border bg-muted p-1">
+      <div className="flex gap-0.5 border-b self-start w-fit">
         <button onClick={() => setTab("list")}
-          className={cn("flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-            tab === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          className={cn("flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap",
+            tab === "list" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
           )}>
           <List className="size-4" /> List
         </button>
         <button onClick={() => setTab("calendar")}
-          className={cn("flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-            tab === "calendar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          className={cn("flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap",
+            tab === "calendar" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
           )}>
           <CalendarDays className="size-4" /> Calendar
         </button>

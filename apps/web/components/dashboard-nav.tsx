@@ -1,20 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { authClient } from "@/lib/auth-client"
 import { BrandLogo } from "@/components/brand-logo"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { cn } from "@/lib/utils"
-import { LogOut, User, Inbox } from "lucide-react"
-
-const links = [
-  { href: "/dashboard", label: "Home" },
-  { href: "/dashboard/coaches", label: "PrepMasters" },
-  { href: "/dashboard/packages", label: "Packages" },
-  { href: "/dashboard/inbox", label: "Inbox" },
-]
+import { LogOut, User } from "lucide-react"
 
 export function DashboardNav({
   user,
@@ -23,7 +15,6 @@ export function DashboardNav({
   user: { name: string; email: string; image?: string | null }
   notificationBell?: React.ReactNode
 }) {
-  const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -58,29 +49,6 @@ export function DashboardNav({
         <Link href="/dashboard" aria-label="College Dance Prep home">
           <BrandLogo />
         </Link>
-
-        <nav className="hidden items-center gap-1 md:flex">
-          {links.map((link) => {
-            const active =
-              link.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(link.href)
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {link.label}
-              </Link>
-            )
-          })}
-        </nav>
 
         <div className="flex items-center gap-3">
           {notificationBell}
@@ -126,28 +94,6 @@ export function DashboardNav({
         </div>
       </div>
 
-      <nav className="flex items-center gap-1 border-t px-3 py-2 md:hidden">
-        {[...links, { href: "/dashboard/profile", label: "Profile" }].map((link) => {
-          const active =
-            link.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname.startsWith(link.href)
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                "flex-1 rounded-md px-3 py-2 text-center text-sm font-medium transition-colors",
-                active
-                  ? "bg-secondary text-secondary-foreground"
-                  : "text-muted-foreground",
-              )}
-            >
-              {link.label}
-            </Link>
-          )
-        })}
-      </nav>
     </header>
   )
 }

@@ -1,7 +1,9 @@
 import type { ReactNode } from "react"
 import { redirect } from "next/navigation"
+import { Suspense } from "react"
 import Link from "next/link"
 import { DashboardNav } from "@/components/dashboard-nav"
+import { DashboardTabNav } from "@/components/dashboard-tab-nav"
 import { NotificationBell } from "@/components/notification-bell"
 import { ChildSwitcher } from "@/components/child-switcher"
 import { Toaster } from "@/components/ui/sonner"
@@ -44,6 +46,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             </Link>
           </div>
         </div>
+        <div className="mx-auto max-w-6xl px-5 pt-4">
+          <Suspense>
+            <DashboardTabNav />
+          </Suspense>
+        </div>
         <main className="mx-auto max-w-6xl px-5 py-8">{children}</main>
         <Toaster position="top-center" />
       </div>
@@ -56,6 +63,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       {linkedChildren.length >= 2 && (
         <ChildSwitcher children={linkedChildren} activeChildUserId={activeChildUserId} />
       )}
+      <div className="mx-auto max-w-6xl px-5 pt-4">
+        <Suspense>
+          <DashboardTabNav />
+        </Suspense>
+      </div>
       {activeChild?.status === "pending" ? (
         <main className="mx-auto max-w-6xl px-5 py-16 flex flex-col items-center text-center gap-4">
           <div className="rounded-full bg-amber-100 dark:bg-amber-900/30 p-4">

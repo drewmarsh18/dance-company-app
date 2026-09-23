@@ -1,6 +1,8 @@
 import type { ReactNode } from "react"
 import { redirect } from "next/navigation"
+import { Suspense } from "react"
 import { StaffHeader } from "@/components/staff-header"
+import { AdminNav } from "@/components/admin-nav"
 import { NotificationBell } from "@/components/notification-bell"
 import { Toaster } from "@/components/ui/sonner"
 import { getSessionUserWithRole, homePathForRole } from "@/lib/roles"
@@ -26,6 +28,11 @@ export default async function AdminLayout({
         isAdmin
         notificationBell={<NotificationBell initialCount={unreadCount} />}
       />
+      <div className="mx-auto max-w-5xl px-5 pt-4">
+        <Suspense>
+          <AdminNav />
+        </Suspense>
+      </div>
       <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
       <Toaster position="top-center" />
     </div>
