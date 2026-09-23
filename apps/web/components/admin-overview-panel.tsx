@@ -4,49 +4,18 @@ import { useState } from "react"
 import type { AdminMember, AdminBooking, AdminWorker, MemberPlan } from "@/lib/airtable"
 import { SINGLE_HOUR_PRICE } from "@/lib/packages"
 
-const SINGLE_SESSION_PRICE: Record<string, number> = {
-  "private-30": 65,
-  "private-45": 89,
-  "private-60": SINGLE_HOUR_PRICE,
+// Revenue = $115/hr × duration fraction, regardless of pack or single
+const SESSION_REVENUE_FRACTION: Record<string, number> = {
+  "private-30": 0.5,
+  "private-45": 0.75,
+  "private-60": 1,
+  "pack-hour": 1,
+  "private-90": 1.5,
 }
 
-// For pack bookings, derive per-session price from the plan the member was on at booking time
-function buildPackRateMap(plans: MemberPlan[], bookings: AdminBooking[]): Map<string, number> {
-  // bookingId → per-session price
-  const map = new Map<string, number>()
-  // userId → plans sorted by purchasedAt desc
-  const byUser = new Map<string, MemberPlan[]>()
-  for (const p of plans) {
-    if (!byUser.has(p.userId)) byUser.set(p.userId, [])
-    byUser.get(p.userId)!.push(p)
-  }
-  for (const b of bookings) {
-    if (b.sessionType !== "pack-hour") continue
-    const userPlans = byUser.get(b.userId) ?? []
-    // Find the plan that was active on the booking date
-    const match = userPlans
-      .filter((p) => p.sessions > 0 && p.pricePaid > 0)
-      .find((p) => {
-        const start = new Date(p.purchasedAt).getTime()
-        const end = p.expiresAt ? new Date(p.expiresAt).getTime() : Infinity
-        const bookingTime = new Date(b.date).getTime()
-        return bookingTime >= start && bookingTime <= end
-      })
-    // Fallback: most recently purchased plan with sessions
-    const fallback = userPlans
-      .filter((p) => p.sessions > 0 && p.pricePaid > 0)
-      .sort((a, z) => new Date(z.purchasedAt).getTime() - new Date(a.purchasedAt).getTime())[0]
-    const plan = match ?? fallback
-    if (plan) map.set(b.id, Math.round((plan.pricePaid / plan.sessions) * 100) / 100)
-  }
-  return map
-}
-
-function sessionRevenue(booking: AdminBooking, packRateMap: Map<string, number>) {
-  if (booking.sessionType === "pack-hour") {
-    return packRateMap.get(booking.id) ?? SINGLE_HOUR_PRICE
-  }
-  return SINGLE_SESSION_PRICE[booking.sessionType ?? ""] ?? SINGLE_HOUR_PRICE
+function sessionRevenue(booking: AdminBooking) {
+  const fraction = SESSION_REVENUE_FRACTION[booking.sessionType ?? ""] ?? 1
+  return SINGLE_HOUR_PRICE * fraction
 }
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -75,21 +44,21 @@ function monthLabel(key: string) {
   })
 }
 
-export function AdminOverviewPanel({ members, bookings, workers, plans }: Props) {
+export function AdminOverviewPanel({ members, bookings, workers }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [revenueSheetOpen, setRevenueSheetOpen] = useState(false)
   const [sheetMonth, setSheetMonth] = useState(currentMonthKey())
   const [sheetSort, setSheetSort] = useState<SortDir>("desc")
   const [sheetSearch, setSheetSearch] = useState("")
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const packRateMap = buildPackRateMap(plans, bookings)
+
   const monthKey = currentMonthKey()
   const thisMonth = bookings.filter((b) => b.date?.startsWith(monthKey))
   const completed = thisMonth.filter((b) => b.status.toLowerCase() !== "cancelled")
   const cancelled = thisMonth.filter((b) => b.status.toLowerCase().startsWith("cancelled"))
 
   // Revenue = sum of per-session price based on session type
-  const revenue = completed.reduce((sum, b) => sum + sessionRevenue(b, packRateMap), 0)
+  const revenue = completed.reduce((sum, b) => sum + sessionRevenue(b), 0)
 
   // Pay owed = PrepMaster's hourly rate × session duration fraction
   const SESSION_DURATION: Record<string, number> = {
@@ -109,7 +78,7 @@ export function AdminOverviewPanel({ members, bookings, workers, plans }: Props)
 
   // All-time totals
   const allCompleted = bookings.filter((b) => b.status.toLowerCase() !== "cancelled")
-  const allRevenue = allCompleted.reduce((sum, b) => sum + sessionRevenue(b, packRateMap), 0)
+  const allRevenue = allCompleted.reduce((sum, b) => sum + sessionRevenue(b), 0)
 
   // Top PrepMasters this month by completed booking count
   const pmCounts = new Map<string, number>()
@@ -247,7 +216,7 @@ export function AdminOverviewPanel({ members, bookings, workers, plans }: Props)
               <>
                 <ul className="flex flex-col gap-1.5">
                   {completed.sort((a, b) => (b.date > a.date ? 1 : -1)).map((b) => {
-                    const amt = sessionRevenue(b, packRateMap)
+                    const amt = sessionRevenue(b)
                     const isLateCancelled = b.status.toLowerCase() === "cancelled (late)"
                     const sessionLabel = b.sessionType === "private-30" ? "30 min" : b.sessionType === "private-45" ? "45 min" : b.sessionType === "private-90" ? "90 min" : b.sessionType === "pack-hour" ? "Pack (60 min)" : "60 min"
                     return (
