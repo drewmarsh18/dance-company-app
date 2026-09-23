@@ -91,7 +91,7 @@ function planSessionType(planName: string): string {
   if (planName.includes("30")) return "private-30"
   if (planName.includes("45")) return "private-45"
   if (planName.includes("60")) return "private-60"
-  return "pack-hour"
+  return "private-60"
 }
 
 function CoachStep({ coaches, onSelect }: { coaches: Coach[]; onSelect: (c: Coach) => void }) {
@@ -432,7 +432,7 @@ export default function BookScreen() {
     date: string; time: string; notes: string; planId?: string; planSessions?: number; sessionType?: string
   }) => {
     if (!selectedCoach) return
-    const creditCost = CREDIT_COST[args.sessionType ?? "pack-hour"] ?? 1
+    const creditCost = CREDIT_COST[args.sessionType ?? "private-60"] ?? 1
     if (credits < creditCost) {
       Alert.alert("No credits", "Purchase a package to book a session.", [
         { text: "View Plans", onPress: () => router.push("/member/plans" as any) },

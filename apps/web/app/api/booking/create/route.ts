@@ -78,7 +78,7 @@ export async function POST(req: Request) {
     "private-30": 0.5,
     "private-90": 1.5,
   }
-  const creditCost = CREDIT_COST[sessionType ?? "pack-hour"] ?? 1
+  const creditCost = CREDIT_COST[sessionType ?? "private-60"] ?? 1
 
   // Resolve parent → active child (respects parentActiveChild selection for multi-child families)
   const profile = await resolveClientProfile({ id: user.id, email: user.email, name: user.name ?? "" }, true)
@@ -154,7 +154,7 @@ export async function POST(req: Request) {
       ...(serverUtcDatetime ? { "UTC Datetime": serverUtcDatetime } : {}),
       Status: "Pending",
       Notes: notes ?? "",
-      "Session Type": sessionType ?? "pack-hour",
+      "Session Type": sessionType ?? "private-60",
     })
   } catch (err) {
     // Booking creation failed — refund the credit so the member is not charged

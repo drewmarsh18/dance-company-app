@@ -90,7 +90,7 @@ export async function POST(req: Request) {
 
   // Credit deduction for PM-scheduled sessions
   const CREDIT_COST: Record<string, number> = { "pack-hour": 1, "private-30": 0.5, "private-45": 0.75, "private-60": 1, "private-90": 1.5 }
-  const creditCost = CREDIT_COST[sessionType ?? "pack-hour"] ?? 1
+  const creditCost = CREDIT_COST[sessionType ?? "private-60"] ?? 1
   let dancerDisplayName: string = dancer?.name ?? dancerEmail
   if (dancer?.id) {
     const safeId = dancer.id.replace(/'/g, "\\'")
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
     ...(utcDatetime ? { "UTC Datetime": utcDatetime } : {}),
     Status: "Confirmed",
     Notes: notes ?? "",
-    "Session Type": sessionType ?? "pack-hour",
+    "Session Type": sessionType ?? "private-60",
   })
 
   if (dancer?.id) {

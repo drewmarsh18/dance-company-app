@@ -125,7 +125,7 @@ export function BookingFlow({
     if (planName.includes("45")) return "private-45"
     if (planName.includes("60")) return "private-60"
     if (planName.includes("90")) return "private-90"
-    return "pack-hour"
+    return "private-60"
   }
 
   // If the active plan is a single per-private session, lock duration to that length
@@ -133,7 +133,7 @@ export function BookingFlow({
     const plan = effectiveOption?.plan
     if (!plan) return null
     const st = planSessionType(plan.planName)
-    if (st === "pack-hour") return null
+    if (st === "private-60") return null
     return st as "private-30" | "private-45" | "private-60" | "private-90"
   }, [effectiveOption])
 
@@ -158,7 +158,7 @@ export function BookingFlow({
         notes,
         planId: plan?.id,
         planSessions: plan?.sessions,
-        sessionType: activeDuration ?? (plan ? planSessionType(plan.planName) : "pack-hour"),
+        sessionType: activeDuration ?? (plan ? planSessionType(plan.planName) : "private-60"),
       })
       if (result.ok) {
         toast.success("Session booked!", {
