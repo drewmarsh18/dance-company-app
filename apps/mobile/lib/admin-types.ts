@@ -29,6 +29,7 @@ export type AdminBooking = {
   prepMasterName: string
   date: string
   time: string
+  utcDatetime?: string | null
   status: string
   notes: string
   sessionType: string | null

@@ -57,7 +57,14 @@ const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"]
 function BookingCard({ booking, onPress }: { booking: Booking; onPress?: () => void }) {
   const COLORS = useColors()
   const s = booking.status.toLowerCase()
-  const sc = s === "confirmed" ? { bg: COLORS.primaryLight, text: COLORS.primary }
+  const isPastConfirmed = s === "confirmed" && (
+    booking.utcDatetime
+      ? new Date(booking.utcDatetime) < new Date()
+      : booking.date ? new Date(`${booking.date}T23:59:59`) < new Date() : false
+  )
+  const displayStatus = isPastConfirmed ? "completed" : s
+  const sc = displayStatus === "confirmed" ? { bg: COLORS.primaryLight, text: COLORS.primary }
+    : displayStatus === "completed" ? { bg: COLORS.grayLight, text: COLORS.textMuted }
     : s === "declined" ? { bg: COLORS.amberLight, text: COLORS.amber }
     : s.startsWith("cancelled") ? { bg: COLORS.redLight, text: COLORS.red }
     : { bg: COLORS.grayLight, text: COLORS.textMuted }
@@ -69,7 +76,7 @@ function BookingCard({ booking, onPress }: { booking: Booking; onPress?: () => v
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
         <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full, backgroundColor: sc.bg }}>
-          <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "capitalize", color: sc.text }}>{booking.status}</Text>
+          <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "capitalize", color: sc.text }}>{displayStatus}</Text>
         </View>
         {onPress && <ChevronRight size={14} color={COLORS.textMuted} />}
       </View>

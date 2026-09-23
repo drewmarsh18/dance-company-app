@@ -9,10 +9,16 @@ import { useAdmin } from "@/lib/admin-context"
 import type { AdminBooking } from "@/lib/admin-types"
 import { formatTime } from "@/components/BookingDetailModal"
 
-const SESSION_PRICE: Record<string, number> = {
-  "private-30": 65, "private-45": 89, "private-60": 99, "pack-hour": 99,
+const SINGLE_HOUR_PRICE = 115
+const SESSION_REVENUE_FRACTION: Record<string, number> = {
+  "private-30": 0.5, "private-45": 0.75, "private-60": 1, "pack-hour": 1, "private-90": 1.5,
 }
-function sessionRevenue(sessionType: string | null) { return SESSION_PRICE[sessionType ?? ""] ?? 99 }
+const SESSION_DURATION_FRACTION: Record<string, number> = {
+  "private-30": 0.5, "private-45": 0.75, "private-60": 1, "pack-hour": 1, "private-90": 1.5,
+}
+function sessionRevenue(sessionType: string | null) {
+  return SINGLE_HOUR_PRICE * (SESSION_REVENUE_FRACTION[sessionType ?? ""] ?? 1)
+}
 function currentMonthLabel() { return new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }) }
 function currentMonthPrefix() { return new Date().toISOString().slice(0, 7) }
 
@@ -127,14 +133,23 @@ export default function AdminOverviewScreen() {
   const bookings = data?.bookings ?? []
   const workers = data?.workers ?? []
   const members = data?.members ?? []
+  function isSessionPast(b: { utcDatetime?: string | null; date?: string | null }): boolean {
+    const t = b.utcDatetime ? new Date(b.utcDatetime).getTime() : b.date ? new Date(b.date).getTime() : 0
+    return t > 0 && t <= Date.now()
+  }
   const thisMonth = bookings.filter((b) => b.date?.startsWith(currentMonthPrefix()))
-  const completed = thisMonth.filter((b) => b.status?.toLowerCase() !== "cancelled")
+  const confirmed = thisMonth.filter((b) => b.status?.toLowerCase() === "confirmed" && !isSessionPast(b))
+  const completed = thisMonth.filter((b) => b.status?.toLowerCase() !== "cancelled" && isSessionPast(b))
   const cancelled = thisMonth.filter((b) => b.status?.toLowerCase().startsWith("cancelled"))
   const revenue = completed.reduce((sum, b) => sum + sessionRevenue(b.sessionType), 0)
-  const allCompleted = bookings.filter((b) => b.status?.toLowerCase() !== "cancelled")
+  const allCompleted = bookings.filter((b) => b.status?.toLowerCase() !== "cancelled" && isSessionPast(b))
   const allRevenue = allCompleted.reduce((sum, b) => sum + sessionRevenue(b.sessionType), 0)
   const workerRateMap = new Map(workers.map((w) => [w.name, w.hourlyRate]))
-  const payOwedThisMonth = completed.reduce((sum, b) => sum + (workerRateMap.get(b.prepMasterName) ?? 0), 0)
+  const payOwedThisMonth = completed.reduce((sum, b) => {
+    const rate = workerRateMap.get(b.prepMasterName) ?? 0
+    const fraction = SESSION_DURATION_FRACTION[b.sessionType ?? ""] ?? 1
+    return sum + rate * fraction
+  }, 0)
   const margin = revenue - payOwedThisMonth
   const pmCounts: Record<string, number> = {}
   completed.forEach((b) => { if (b.prepMasterName) pmCounts[b.prepMasterName] = (pmCounts[b.prepMasterName] ?? 0) + 1 })
@@ -155,7 +170,7 @@ export default function AdminOverviewScreen() {
           <TouchableOpacity style={[styles.kpiCard, styles.kpiCardClickable]} onPress={() => setBookingsModalOpen(true)} activeOpacity={0.7}>
             <View style={styles.kpiHeader}><CalendarDays size={14} color={COLORS.primary} /><Text style={styles.kpiLabel}>Bookings this month</Text></View>
             <Text style={styles.kpiValue}>{thisMonth.length}</Text>
-            <Text style={styles.kpiSub}>{completed.length} completed · {cancelled.length} cancelled</Text>
+            <Text style={styles.kpiSub}>{confirmed.length} confirmed · {completed.length} completed · {cancelled.length} cancelled</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.kpiCard, styles.kpiCardClickable, { borderColor: "#bbf7d0" }]} onPress={() => setRevenueModalOpen(true)} activeOpacity={0.7}>
             <View style={styles.kpiHeader}><DollarSign size={14} color={COLORS.green} /><Text style={styles.kpiLabel}>Revenue this month</Text></View>

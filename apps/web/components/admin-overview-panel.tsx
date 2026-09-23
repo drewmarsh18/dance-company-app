@@ -59,6 +59,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
 
   const monthKey = currentMonthKey()
   const thisMonth = bookings.filter((b) => b.date?.startsWith(monthKey))
+  const confirmed = thisMonth.filter((b) => b.status.toLowerCase() === "confirmed" && !isSessionPast(b))
   const completed = thisMonth.filter((b) => b.status.toLowerCase() !== "cancelled" && isSessionPast(b))
   const cancelled = thisMonth.filter((b) => b.status.toLowerCase().startsWith("cancelled"))
 
@@ -115,7 +116,7 @@ export function AdminOverviewPanel({ members, bookings, workers }: Props) {
           icon={<CalendarDays className="size-4 text-primary" />}
           label="Bookings this month"
           value={String(thisMonth.length)}
-          sub={`${completed.length} completed · ${cancelled.length} cancelled`}
+          sub={`${confirmed.length} confirmed · ${completed.length} completed · ${cancelled.length} cancelled`}
           onClick={() => setSheetOpen(true)}
         />
         <KpiCard
