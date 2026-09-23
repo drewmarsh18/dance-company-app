@@ -10,17 +10,18 @@ export async function GET(req: NextRequest) {
   const [userId, source, role] = rawState.split(":")
   const isMobile = source === "mobile"
   const mobileRole = role ?? "portal"
+  const webReturn = role === "member" ? "/dashboard" : "/portal"
 
   if (!code || !userId) {
     if (isMobile) return NextResponse.redirect(`cdp://${mobileRole}/profile?calendar=error`)
-    return NextResponse.redirect(new URL("/portal?calendar=error", req.url))
+    return NextResponse.redirect(new URL(`${webReturn}?calendar=error`, req.url))
   }
 
   // Verify the authenticated session owns the userId in state — prevents IDOR token hijacking
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user || session.user.id !== userId) {
     if (isMobile) return NextResponse.redirect(`cdp://${mobileRole}/profile?calendar=error`)
-    return NextResponse.redirect(new URL("/portal?calendar=error", req.url))
+    return NextResponse.redirect(new URL(`${webReturn}?calendar=error`, req.url))
   }
 
   const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -38,12 +39,12 @@ export async function GET(req: NextRequest) {
   if (!res.ok) {
     console.error("Token exchange failed:", await res.text())
     if (isMobile) return NextResponse.redirect("cdp://portal/profile?calendar=error")
-    return NextResponse.redirect(new URL("/portal?calendar=error", req.url))
+    return NextResponse.redirect(new URL(`${webReturn}?calendar=error`, req.url))
   }
 
   const data = await res.json()
   await saveCalendarTokens(userId, data.access_token, data.refresh_token, data.expires_in)
 
   if (isMobile) return NextResponse.redirect(`cdp://${mobileRole}/profile?calendar=connected`)
-  return NextResponse.redirect(new URL("/portal?calendar=connected", req.url))
+  return NextResponse.redirect(new URL(`${webReturn}?calendar=connected`, req.url))
 }

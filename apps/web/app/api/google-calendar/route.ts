@@ -10,8 +10,10 @@ export async function GET() {
   const { resolveRole } = await import("@/lib/roles")
   if ((await resolveRole(session.user.email)) === "prep_master") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  // state = userId so the callback knows who to save tokens for
-  const url = getCalendarAuthUrl(session.user.id)
+  // state = "userId:web:member" or "userId:web:portal" so callback redirects correctly
+  const role = await resolveRole(session.user.email)
+  const returnPath = role === "dancer" ? "member" : "portal"
+  const url = getCalendarAuthUrl(`${session.user.id}:web:${returnPath}`)
   return NextResponse.redirect(url)
 }
 
