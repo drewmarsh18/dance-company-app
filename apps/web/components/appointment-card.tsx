@@ -361,7 +361,7 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`time-${booking.id}`}>Time (ET)</Label>
+                  <Label htmlFor={`time-${booking.id}`}>Time</Label>
                   <select
                     id={`time-${booking.id}`}
                     value={editTime}
