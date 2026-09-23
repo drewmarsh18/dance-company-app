@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Users, DollarSign, Phone, Mail, Home, CalendarDays, ChevronDown, ChevronUp, PlusCircle, X, GraduationCap, Trash2, Send } from "lucide-react"
 import { getUniversityColor } from "@/lib/university-colors"
 import { BookingFilterBar, applyFilters, type SortDir } from "@/components/booking-filter-bar"
-import { PER_PRIVATE, PACKAGES } from "@/lib/packages"
+import { SINGLE_HOUR_PRICE } from "@/lib/packages"
 import { LocalTime } from "@/components/local-time"
 
 const UNIVERSITIES = [
@@ -26,10 +26,17 @@ const UNIVERSITIES = [
   "Western Michigan","Wisconsin","WVU","Wichita State",
 ]
 
-const PACK_SESSION_PRICE = PACKAGES[0].perSession
+const SESSION_REVENUE_FRACTION: Record<string, number> = {
+  "private-30": 0.5, "private-45": 0.75, "private-60": 1, "pack-hour": 1, "private-90": 1.5,
+}
+const SESSION_DURATION_FRACTION: Record<string, number> = {
+  "private-30": 0.5, "private-45": 0.75, "private-60": 1, "pack-hour": 1, "private-90": 1.5,
+}
 const PRICE_POINTS = [
-  { label: "Pack hour", revenue: PACK_SESSION_PRICE },
-  ...PER_PRIVATE.map((s) => ({ label: `${s.name} per-private`, revenue: s.price })),
+  { label: "30 min", revenue: SINGLE_HOUR_PRICE * 0.5 },
+  { label: "45 min", revenue: SINGLE_HOUR_PRICE * 0.75 },
+  { label: "60 min", revenue: SINGLE_HOUR_PRICE },
+  { label: "90 min", revenue: SINGLE_HOUR_PRICE * 1.5 },
 ]
 
 function formatMoney(n: number) { return `$${n.toFixed(2)}` }
@@ -483,9 +490,15 @@ function PrepMasterProfile({
 
       {/* Payroll summary */}
       {bookings.length > 0 && (() => {
-        const payPerSession = worker.hourlyRate
-        const totalPay = payPerSession * completedBookings.length
-        const totalRevenue = PACK_SESSION_PRICE * completedBookings.length
+        const payRatePerHour = worker.hourlyRate
+        const totalPay = completedBookings.reduce((sum, b) => {
+          const fraction = SESSION_DURATION_FRACTION[b.sessionType ?? ""] ?? 1
+          return sum + payRatePerHour * fraction
+        }, 0)
+        const totalRevenue = completedBookings.reduce((sum, b) => {
+          const fraction = SESSION_REVENUE_FRACTION[b.sessionType ?? ""] ?? 1
+          return sum + SINGLE_HOUR_PRICE * fraction
+        }, 0)
         const margin = totalRevenue - totalPay
         return (
           <div className="flex flex-col gap-3">
@@ -494,16 +507,17 @@ function PrepMasterProfile({
               Payroll
             </h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatTile label="Pay rate / session" value={formatMoney(payPerSession)} />
+              <StatTile label="Pay rate / hr" value={formatMoney(payRatePerHour)} />
               <StatTile label="Total sessions" value={String(completedBookings.length)} />
               <StatTile label="Total pay owed" value={formatMoney(totalPay)} highlight />
-              <StatTile label="Revenue (pack)" value={formatMoney(totalRevenue)} sub={`Margin ${formatMoney(margin)}`} />
+              <StatTile label="Revenue" value={formatMoney(totalRevenue)} sub={`Margin ${formatMoney(margin)}`} />
             </div>
             <div className="rounded-lg border p-3">
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Margin by session type</p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 sm:grid-cols-4">
                 {PRICE_POINTS.map(({ label, revenue }) => {
-                  const m = revenue - payPerSession
+                  const fraction = SESSION_REVENUE_FRACTION[label === "30 min" ? "private-30" : label === "45 min" ? "private-45" : label === "90 min" ? "private-90" : "private-60"] ?? 1
+                  const m = revenue - payRatePerHour * fraction
                   return (
                     <div key={label} className="flex flex-col">
                       <span className="text-[11px] text-muted-foreground">{label}</span>
