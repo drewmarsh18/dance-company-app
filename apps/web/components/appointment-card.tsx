@@ -87,7 +87,11 @@ export function AppointmentCard({ booking }: { booking: PrepMasterBooking }) {
   const isPendingStatus = status.toLowerCase() === "pending"
   const isConfirmed = status.toLowerCase() === "confirmed"
   const isCancelled = status.toLowerCase().startsWith("cancelled")
-  const isPastConfirmed = isConfirmed && localDate ? new Date(`${localDate}T23:59:59`) < new Date() : false
+  const isPastConfirmed = isConfirmed && (
+    booking.utcDatetime
+      ? new Date(booking.utcDatetime) < new Date()
+      : localDate ? new Date(`${localDate}T23:59:59`) < new Date() : false
+  )
   const displayStatus = isPastConfirmed ? "Completed" : status
 
   const statusVariant =
