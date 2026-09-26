@@ -2,7 +2,7 @@ import React from "react"
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, RefreshControl, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useState, useCallback } from "react"
-import { CalendarDays, DollarSign, TrendingUp, Activity, Award, Users, X, ChevronDown, ChevronUp } from "lucide-react-native"
+import { CalendarDays, DollarSign, TrendingUp, Activity, Award, Users, X, ChevronDown, ChevronUp, CheckCircle, Clock, XCircle, AlertCircle } from "lucide-react-native"
 import { SPACING, RADIUS } from "@/constants/theme"
 import { useColors } from "@/lib/theme-context"
 import { useAdmin } from "@/lib/admin-context"
@@ -27,8 +27,25 @@ function BookingItem({ booking: b }: { booking: AdminBooking }) {
   const styles = makeStyles(COLORS)
   const [expanded, setExpanded] = useState(false)
   const s = b.status.toLowerCase()
-  const bg = s === "confirmed" ? COLORS.primaryLight : s.startsWith("cancelled") ? COLORS.redLight : COLORS.grayLight
-  const text = s === "confirmed" ? COLORS.primary : s.startsWith("cancelled") ? COLORS.red : COLORS.textMuted
+  const isPast = b.utcDatetime ? new Date(b.utcDatetime) <= new Date() : b.date ? new Date(b.date) <= new Date() : false
+  const effectiveStatus = s === "confirmed" && isPast ? "completed" : s
+  const bg =
+    effectiveStatus === "confirmed" ? COLORS.primaryLight
+    : effectiveStatus === "completed" ? COLORS.grayLight
+    : effectiveStatus === "pending" ? COLORS.amberLight ?? "#fef3c7"
+    : effectiveStatus === "declined" ? COLORS.amberLight ?? "#fef3c7"
+    : s.startsWith("cancelled") ? COLORS.redLight
+    : COLORS.grayLight
+  const badgeColor =
+    effectiveStatus === "confirmed" ? COLORS.primary
+    : effectiveStatus === "completed" ? COLORS.textMuted
+    : effectiveStatus === "pending" ? COLORS.amber
+    : effectiveStatus === "declined" ? COLORS.amber
+    : s.startsWith("cancelled") ? COLORS.red
+    : COLORS.textMuted
+  const isCancelled = s.startsWith("cancelled")
+  const hasNotes = !!b.notes?.trim()
+  const cancellationReason = isCancelled ? b.cancellationReason?.trim() || null : null
   return (
     <View style={styles.bookingCard}>
       <TouchableOpacity style={styles.bookingRow} onPress={() => setExpanded((v) => !v)} activeOpacity={0.7}>
@@ -36,31 +53,34 @@ function BookingItem({ booking: b }: { booking: AdminBooking }) {
           <Text style={styles.bookingName}>{b.dancerName || b.clientEmail || "Client"}</Text>
           <Text style={styles.bookingSub}>{b.prepMasterName} · {b.date}{b.time ? ` · ${formatTime(b.time, b.utcDatetime)}` : ""}</Text>
         </View>
-        <View style={[styles.badge, { backgroundColor: bg }]}><Text style={[styles.badgeText, { color: text }]}>{b.status}</Text></View>
+        <View style={[styles.badge, { backgroundColor: bg }]}><Text style={[styles.badgeText, { color: badgeColor }]}>{effectiveStatus}</Text></View>
         {expanded ? <ChevronUp size={14} color={COLORS.textMuted} /> : <ChevronDown size={14} color={COLORS.textMuted} />}
       </TouchableOpacity>
       {expanded && (
         <View style={styles.bookingNotes}>
-          <Text style={styles.notesLabel}>NOTES</Text>
-          <Text style={styles.notesText}>{b.notes?.trim() || "No notes for this booking."}</Text>
+          {isCancelled && (
+            <>
+              <Text style={styles.notesLabel}>CANCELLATION REASON</Text>
+              <Text style={styles.notesText}>{cancellationReason || "No reason provided."}</Text>
+            </>
+          )}
+          {!isCancelled && (
+            <>
+              <Text style={styles.notesLabel}>NOTES</Text>
+              <Text style={styles.notesText}>{hasNotes ? b.notes!.trim() : "No notes for this booking."}</Text>
+            </>
+          )}
         </View>
       )}
     </View>
   )
 }
 
-const STATUS_GROUPS = [
-  { key: "confirmed",  label: "Confirmed",       match: (s: string) => s === "confirmed" },
-  { key: "pending",    label: "Pending",          match: (s: string) => s === "pending" },
-  { key: "completed",  label: "Completed",        match: (s: string) => s === "completed" },
-  { key: "cancelled",  label: "Cancelled",        match: (s: string) => s.startsWith("cancelled") },
-  { key: "declined",   label: "Declined",         match: (s: string) => s === "declined" },
-  { key: "other",      label: "Other",            match: () => true },
-]
+type StatusGroup = { key: string; label: string; color: string; icon: React.ReactNode }
 
-function CollapsibleGroup({ label, count, children }: { label: string; count: number; children: React.ReactNode }) {
+function CollapsibleGroup({ label, count, color, icon, children }: { label: string; count: number; color: string; icon: React.ReactNode; children: React.ReactNode }) {
   const COLORS = useColors()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   return (
     <View style={{ marginBottom: SPACING.sm }}>
       <TouchableOpacity
@@ -68,9 +88,12 @@ function CollapsibleGroup({ label, count, children }: { label: string; count: nu
         onPress={() => setOpen((v) => !v)}
         activeOpacity={0.7}
       >
-        <Text style={{ fontSize: 11, fontWeight: "700", color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 0.6 }}>
-          {label} <Text style={{ fontWeight: "400" }}>({count})</Text>
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          {icon}
+          <Text style={{ fontSize: 11, fontWeight: "700", color, textTransform: "uppercase", letterSpacing: 0.6 }}>
+            {label} <Text style={{ fontWeight: "400", color: COLORS.textMuted }}>({count})</Text>
+          </Text>
+        </View>
         {open ? <ChevronUp size={14} color={COLORS.textMuted} /> : <ChevronDown size={14} color={COLORS.textMuted} />}
       </TouchableOpacity>
       {open && <View style={{ gap: SPACING.sm }}>{children}</View>}
@@ -79,13 +102,35 @@ function CollapsibleGroup({ label, count, children }: { label: string; count: nu
 }
 
 function GroupedBookings({ bookings }: { bookings: AdminBooking[] }) {
+  const COLORS = useColors()
+
+  function isPast(b: AdminBooking): boolean {
+    const t = b.utcDatetime ? new Date(b.utcDatetime).getTime() : b.date ? new Date(b.date).getTime() : 0
+    return t > 0 && t <= Date.now()
+  }
+
+  function effectiveStatus(b: AdminBooking): string {
+    const s = b.status?.toLowerCase() ?? ""
+    if (s === "confirmed" && isPast(b)) return "completed"
+    return s
+  }
+
+  const STATUS_GROUPS: StatusGroup[] = [
+    { key: "confirmed", label: "Confirmed", color: COLORS.primary, icon: <Clock size={13} color={COLORS.primary} /> },
+    { key: "pending",   label: "Pending",   color: COLORS.amber,   icon: <AlertCircle size={13} color={COLORS.amber} /> },
+    { key: "completed", label: "Completed", color: COLORS.green ?? "#22c55e", icon: <CheckCircle size={13} color={COLORS.green ?? "#22c55e"} /> },
+    { key: "cancelled", label: "Cancelled", color: COLORS.red,     icon: <XCircle size={13} color={COLORS.red} /> },
+    { key: "declined",  label: "Declined",  color: COLORS.red,     icon: <XCircle size={13} color={COLORS.red} /> },
+    { key: "other",     label: "Other",     color: COLORS.textMuted, icon: null },
+  ]
+
   const groups = STATUS_GROUPS.map((g) => ({
     ...g,
     items: bookings.filter((b) => {
-      const s = b.status?.toLowerCase() ?? ""
-      // Assign to the first matching group only
-      const idx = STATUS_GROUPS.findIndex((sg) => sg.match(s))
-      return STATUS_GROUPS[idx]?.key === g.key
+      const es = effectiveStatus(b)
+      if (g.key === "cancelled") return es.startsWith("cancelled")
+      if (g.key === "other") return !STATUS_GROUPS.slice(0, -1).some((sg) => sg.key === "cancelled" ? es.startsWith("cancelled") : es === sg.key)
+      return es === g.key
     }),
   })).filter((g) => g.items.length > 0)
 
@@ -93,7 +138,7 @@ function GroupedBookings({ bookings }: { bookings: AdminBooking[] }) {
   return (
     <View style={{ padding: SPACING.md, gap: 2 }}>
       {groups.map((g) => (
-        <CollapsibleGroup key={g.key} label={g.label} count={g.items.length}>
+        <CollapsibleGroup key={g.key} label={g.label} count={g.items.length} color={g.color} icon={g.icon}>
           {g.items.map((b) => <BookingItem key={b.id} booking={b} />)}
         </CollapsibleGroup>
       ))}

@@ -288,6 +288,9 @@ export async function PATCH(
     if (currentCancelStatus.startsWith("cancelled") || currentCancelStatus === "declined") {
       return NextResponse.json({ ok: false, error: "This booking has already been cancelled." }, { status: 409 })
     }
+    if (!body.cancellationReason?.trim()) {
+      return NextResponse.json({ ok: false, error: "A cancellation reason is required." }, { status: 400 })
+    }
     const dateStr = booking.fields.Date ?? ""
     const timeStr = booking.fields.Time ?? ""
     const dancerUserId = booking.fields["User ID"]
@@ -295,7 +298,7 @@ export async function PATCH(
 
     await appBase.update<BookingFields>(TABLES.bookings, id, {
       Status: "Cancelled",
-      ...(body.cancellationReason ? { "Cancellation Reason": body.cancellationReason } : {}),
+      "Cancellation Reason": body.cancellationReason,
     })
 
     // PM cancellation always refunds the member's credit

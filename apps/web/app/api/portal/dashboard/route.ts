@@ -6,11 +6,10 @@ import { getCachedPortalDashboard } from "@/lib/airtable-cache"
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const { resolveRole } = await import("@/lib/roles")
-  const role = await resolveRole(session.user.email)
-  if (role !== "prep_master" && role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
+  const { isAdminEmail } = await import("@/lib/roles")
   const cached = await getCachedPortalDashboard(session.user.email)
+  // If not found in Airtable Workers and not an admin, deny access
+  if (!cached && !isAdminEmail(session.user.email)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   if (!cached) return NextResponse.json({ error: "NO_RECORD" }, { status: 404 })
 
   const { prepMaster, bookings } = cached

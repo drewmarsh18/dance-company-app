@@ -32,6 +32,7 @@ export type AdminBooking = {
   utcDatetime?: string | null
   status: string
   notes: string
+  cancellationReason?: string | null
   sessionType: string | null
 }
 

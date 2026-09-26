@@ -31,6 +31,12 @@ export const getCachedMemberDashboard = (user: ResolvedUser) =>
 export const getCachedPortalDashboard = async (email: string) => {
   const prepMaster = await getPrepMasterByEmail(email)
   if (!prepMaster) return null
-  const bookings = await getBookingsForPrepMaster(prepMaster.name)
-  return { prepMaster, bookings }
+  return unstable_cache(
+    async () => {
+      const bookings = await getBookingsForPrepMaster(prepMaster.name)
+      return { prepMaster, bookings }
+    },
+    [`portal-dashboard-${email}`],
+    { revalidate: TTL, tags: [`portal-${email}`] },
+  )()
 }

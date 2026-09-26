@@ -75,6 +75,9 @@ export async function DELETE(
   if (currentStatus.startsWith("cancelled") || currentStatus === "declined") {
     return NextResponse.json({ ok: false, error: "This booking has already been cancelled." }, { status: 409 })
   }
+  if (!body.reason?.trim()) {
+    return NextResponse.json({ ok: false, error: "A cancellation reason is required." }, { status: 400 })
+  }
 
   const pmNameDel = booking.fields["Prep Master Name"] ?? ""
   const pmForDel = (await getPrepMasters()).find((p) => p.name === pmNameDel)
@@ -88,7 +91,7 @@ export async function DELETE(
 
   await appBase.update<BookingFields>(TABLES.bookings, id, {
     Status: within24 ? "Cancelled (Late)" : "Cancelled",
-    ...(body.reason ? { "Cancellation Reason": body.reason } : {}),
+    "Cancellation Reason": body.reason,
     ...(within24 ? { "Payable to PrepMaster": true } : {}),
   })
 
